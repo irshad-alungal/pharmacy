@@ -7,6 +7,13 @@ import { nul, friendly, safeQ } from './ui.js';
 // Authenticate and load the dashboard
 const prof = await mountShell('customers', 'Customers');
 
+const { data: branchId, error: branchError } =
+  await sb.rpc('my_branch_id');
+
+if (branchError || !branchId) {
+  throw new Error('Could not identify your active branch.');
+}
+
 if (!prof) {
   throw new Error('Unable to load user profile.');
 }
