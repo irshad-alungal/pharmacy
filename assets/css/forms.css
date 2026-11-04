@@ -1,0 +1,2 @@
+input,select,textarea,button{font:inherit;padding:.6rem;border-radius:8px;border:1px solid var(--line)}
+button{background:var(--g);color:#fff;border:0;cursor:pointer}button.sec{background:transparent;color:var(--g);border:1px solid var(--g)}

@@ -1,0 +1,5 @@
+:root{--g:#0f766e;--bg:#f4f7f6;--fg:#14231f;--card:#fff;--line:#d5dedb}
+@media(prefers-color-scheme:dark){:root{--bg:#10201d;--fg:#e6f2ef;--card:#17302b;--line:#2c4a43}}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+a{color:var(--g)}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1rem;margin:1rem 0}
+.notice{border-left:4px solid #d97706;padding:.6rem 1rem;background:#d9770622;border-radius:6px}

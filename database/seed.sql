@@ -1,0 +1,2 @@
+-- Reference data only (no fake transactions). Roles are seeded in schema.sql.
+-- TODO: units, categories, default pharmacy_settings once those tables exist.

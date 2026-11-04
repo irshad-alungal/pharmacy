@@ -1,0 +1,16 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ALZA PHARMACY — Login</title>
+<style>:root{--g:#0f766e;--bg:#f4f7f6;--t:#14231f}@media(prefers-color-scheme:dark){:root{--bg:#10201d;--t:#e6f2ef}}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--t);display:grid;place-items:center;min-height:100vh;margin:0}
+form{background:Canvas;color:CanvasText;padding:2rem;border-radius:12px;width:min(92vw,360px);box-shadow:0 4px 20px #0002;display:grid;gap:.8rem}
+h1{margin:0;color:var(--g);font-size:1.4rem}input,button{padding:.7rem;font-size:1rem;border-radius:8px;border:1px solid #8886}
+button{background:var(--g);color:#fff;border:0;cursor:pointer}#m{color:#b91c1c;min-height:1.2em}</style></head><body>
+<form id="f"><h1>ALZA PHARMACY</h1><input id="e" type="email" placeholder="Email" required autocomplete="username">
+<input id="p" type="password" placeholder="Password" required autocomplete="current-password"><button>Sign in</button><div id="m"></div></form>
+<script type="module">
+import { sb } from './assets/js/supabase-client.js';
+f.onsubmit = async ev => { ev.preventDefault(); m.textContent='';
+  const { error } = await sb.auth.signInWithPassword({ email:e.value, password:p.value });
+  if (error) { m.textContent='Invalid credentials'; return; }
+  location.href='billing.html'; };
+</script></body></html>

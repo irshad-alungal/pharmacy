@@ -1,0 +1,5 @@
+-- PLANNED (not yet written): pharmacies, branches, permissions, role_permissions, work_sessions, customer_consents,
+-- medicine_images, manufacturers, categories, units, unit_conversions, storage_locations, distributors, purchase_orders,
+-- purchase_invoices, purchase_items, purchase_documents, inventory_balances, stock_movements, sales_returns,
+-- sales_return_items, supplier_payments, customer_receipts, expenses, financial_ledger, whatsapp_campaigns,
+-- whatsapp_messages, pharmacy_settings, storage buckets + policies.
