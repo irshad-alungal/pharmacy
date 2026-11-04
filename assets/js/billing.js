@@ -1,46 +1,298 @@
 import { sb, requireProfile, esc, inr } from './supabase-client.js';
-const prof = await requireProfile(); if (!prof) throw 0;
-if (!['super_admin','admin','pharmacist','billing'].includes(prof.role)) { document.body.innerHTML='<p>Not authorised for billing.</p>'; throw 0; }
-who.textContent = `${prof.staff_id} (${prof.role})`;
-out.onclick = async()=>{ await sb.auth.signOut(); location.href='index.html'; };
+
+const $ = (id) => document.getElementById(id);
+const who = $('who');
+const out = $('out');
+const q = $('q');
+const res = $('res');
+const cartEl = $('cart');
+const disc = $('disc');
+const pm = $('pm');
+const tot = $('tot');
+const pay = $('pay');
+const msg = $('msg');
+
+const prof = await requireProfile();
+if (!prof) throw new Error('Authentication required');
+
+const allowedRoles = ['super_admin', 'admin', 'pharmacist', 'billing', 'billing_staff'];
+if (!allowedRoles.includes(prof.role)) {
+  document.body.innerHTML = '<p>Not authorised for billing.</p>';
+  throw new Error('Not authorised for billing');
+}
+
+who.textContent = `${prof.staff_id || prof.full_name} (${prof.role})`;
+
+out.addEventListener('click', async () => {
+  out.disabled = true;
+  const { error } = await sb.auth.signOut();
+  if (error) {
+    out.disabled = false;
+    showMessage(`Sign out failed: ${error.message}`, true);
+    return;
+  }
+  location.replace('admin-login.html');
+});
+
 let cart = [];
-const sub = () => cart.reduce((s,c)=>s+c.price*c.qty,0);
-const cartEl = document.getElementById('cart');
-function render(){
-  cartEl.innerHTML = cart.map((c,i)=>`<tr><td>${esc(c.name)}</td><td>${esc(c.batch_no)} (exp ${esc(c.expiry)}, ${c.stock} left)</td>
-  <td><input type="number" min="1" max="${c.stock}" value="${c.qty}" data-i="${i}" style="width:5rem"></td><td>${inr(c.price*c.qty)}</td>
-  <td><button data-x="${i}">✕</button></td></tr>`).join('');
-  tot.textContent = 'Total ' + inr(Math.max(0, sub() - (+disc.value||0)));
+let searchTimer;
+let searchVersion = 0;
+
+function showMessage(message, isError = false) {
+  msg.textContent = message;
+  msg.style.color = isError ? '#b42318' : '';
 }
-cartEl.onchange = e => { const i=e.target.dataset.i; if(i!==undefined){ cart[i].qty=Math.min(Math.max(1,+e.target.value||1),cart[i].stock); render(); } };
-cartEl.onclick = e => { const x=e.target.dataset.x; if(x!==undefined){ cart.splice(+x,1); render(); } };
-disc.oninput = render;
-async function add(med){
-  // FEFO: earliest non-expired, non-quarantined batch with stock
-  const today = new Date().toISOString().slice(0,10);
-  const { data } = await sb.from('medicine_batches').select('id,batch_no,expiry,qty').eq('medicine_id',med.id)
-    .eq('quarantined',false).gte('expiry',today).gt('qty',0).order('expiry').limit(1);
-  if (!data?.length) { msg.textContent = `${med.name}: no sellable stock`; return; }
-  const b = data[0]; const ex = cart.find(c=>c.batch_id===b.id);
-  if (ex) ex.qty = Math.min(ex.qty+1, +b.qty); else cart.push({ batch_id:b.id, name:med.name, batch_no:b.batch_no, expiry:b.expiry, stock:+b.qty, price:+med.selling_price, qty:1 });
-  msg.textContent=''; render();
+
+function subtotal() {
+  return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 }
-let t; q.oninput = () => { clearTimeout(t); t = setTimeout(async () => {
-  const v = q.value.trim(); if (v.length<2) { res.innerHTML=''; return; }
-  const safe = v.replace(/[%,()]/g,'');
-  const { data } = await sb.from('medicines').select('id,name,barcode,selling_price,shelf_location').eq('active',true)
-    .or(`name.ilike.%${safe}%,barcode.eq.${safe}`).limit(8);
-  if (data?.length===1 && data[0].barcode===v) { add(data[0]); q.value=''; res.innerHTML=''; return; }
-  res.innerHTML = (data||[]).map(m=>`<button data-m='${esc(JSON.stringify(m))}'>${esc(m.name)} — ${inr(m.selling_price)} · shelf ${esc(m.shelf_location||'-')}</button>`).join('');
-},250); };
-res.onclick = e => { const b=e.target.closest('button'); if(b){ add(JSON.parse(b.dataset.m)); q.value=''; res.innerHTML=''; } };
-pay.onclick = async () => {
-  if (!cart.length) return; pay.disabled = true; msg.textContent='Saving…';
-  const total = Math.round((sub()-(+disc.value||0))*100)/100;
-  const { data, error } = await sb.rpc('finalize_sale', { p_customer:null, p_discount:+disc.value||0,
-    p_items: cart.map(c=>({batch_id:c.batch_id, qty:c.qty})), p_payments:[{method:pm.value, amount:total}] });
-  pay.disabled = false;
-  if (error) { msg.textContent = error.message; return; }
-  msg.textContent = 'Bill saved: ' + data; cart = []; render();
-};
+
+function discountValue() {
+  const value = Number(disc.value);
+  return Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
+function billTotal() {
+  return Math.round((subtotal() - discountValue()) * 100) / 100;
+}
+
+function render() {
+  cartEl.innerHTML = cart.map((item, index) => `
+    <tr>
+      <td>${esc(item.name)}</td>
+      <td>${esc(item.batch_no)} (exp ${esc(item.expiry)}, ${esc(item.stock)} left)</td>
+      <td><input type="number" min="1" max="${esc(item.stock)}" step="1"
+        value="${esc(item.qty)}" data-qty="${index}" style="width:5rem"></td>
+      <td>${inr(item.price * item.qty)}</td>
+      <td><button type="button" data-remove="${index}" aria-label="Remove ${esc(item.name)}">✕</button></td>
+    </tr>
+  `).join('');
+
+  const discount = discountValue();
+  const total = billTotal();
+  tot.textContent = `Total ${inr(Math.max(0, total))}`;
+  if (discount > subtotal()) {
+    showMessage('Discount cannot exceed the bill subtotal.', true);
+  }
+  pay.disabled = cart.length === 0 || total <= 0 || discount > subtotal();
+}
+
+cartEl.addEventListener('change', (event) => {
+  const index = event.target.dataset.qty;
+  if (index === undefined) return;
+
+  const item = cart[Number(index)];
+  if (!item) return;
+
+  const requested = Number(event.target.value);
+  if (!Number.isFinite(requested) || requested < 1) {
+    item.qty = 1;
+  } else {
+    item.qty = Math.min(Math.floor(requested), item.stock);
+  }
+  showMessage('');
+  render();
+});
+
+cartEl.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-remove]');
+  if (!button) return;
+  cart.splice(Number(button.dataset.remove), 1);
+  showMessage('');
+  render();
+});
+
+disc.addEventListener('input', render);
+
+async function addMedicine(medicine) {
+  showMessage(`Checking stock for ${medicine.name}…`);
+
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const { data: batches, error } = await sb
+    .from('medicine_batches')
+    .select('id,batch_no,expiry,qty')
+    .eq('branch_id', prof.branch_id)
+    .eq('medicine_id', medicine.id)
+    .eq('quarantined', false)
+    .gte('expiry', today)
+    .gt('qty', 0)
+    .order('expiry', { ascending: true })
+    .limit(1);
+
+  if (error) {
+    showMessage(`Could not check batch stock: ${error.message}`, true);
+    return;
+  }
+
+  if (!batches?.length) {
+    showMessage(`${medicine.name}: no unexpired, available batch in this branch.`, true);
+    return;
+  }
+
+  const batch = batches[0];
+  const existing = cart.find(item => item.batch_id === batch.id);
+  if (existing) {
+    existing.qty = Math.min(existing.qty + 1, Number(batch.qty));
+  } else {
+    cart.push({
+      batch_id: batch.id,
+      name: medicine.name,
+      batch_no: batch.batch_no,
+      expiry: batch.expiry,
+      stock: Number(batch.qty),
+      price: Number(medicine.selling_price),
+      qty: 1
+    });
+  }
+
+  showMessage('');
+  render();
+}
+
+async function searchMedicines(value, version) {
+  const term = value.trim();
+  if (!term) {
+    res.innerHTML = '';
+    return;
+  }
+
+  // Separate name and exact-barcode queries avoid injecting user text into
+  // PostgREST's .or() filter syntax.
+  const [nameResult, barcodeResult] = await Promise.all([
+    sb.from('medicines')
+      .select('id,name,barcode,selling_price,shelf_location')
+      .eq('branch_id', prof.branch_id)
+      .eq('active', true)
+      .ilike('name', `%${term}%`)
+      .order('name')
+      .limit(8),
+    sb.from('medicines')
+      .select('id,name,barcode,selling_price,shelf_location')
+      .eq('branch_id', prof.branch_id)
+      .eq('active', true)
+      .eq('barcode', term)
+      .limit(1)
+  ]);
+
+  if (version !== searchVersion) return;
+
+  const error = nameResult.error || barcodeResult.error;
+  if (error) {
+    res.innerHTML = '';
+    showMessage(`Medicine search failed: ${error.message}`, true);
+    return;
+  }
+
+  const byId = new Map();
+  for (const medicine of [...(barcodeResult.data || []), ...(nameResult.data || [])]) {
+    byId.set(medicine.id, medicine);
+  }
+  const medicines = [...byId.values()].slice(0, 8);
+
+  const exactBarcode = (barcodeResult.data || [])[0];
+  if (exactBarcode && term === exactBarcode.barcode) {
+    await addMedicine(exactBarcode);
+    q.value = '';
+    res.innerHTML = '';
+    return;
+  }
+
+  if (!medicines.length) {
+    res.innerHTML = '<p>No matching active medicines found.</p>';
+    return;
+  }
+
+  res.innerHTML = medicines.map(medicine => `
+    <button type="button" data-medicine-id="${esc(medicine.id)}"
+      style="display:block;width:100%;text-align:left;margin:2px 0">
+      ${esc(medicine.name)} — ${inr(medicine.selling_price)}
+      · shelf ${esc(medicine.shelf_location || '-')}
+    </button>
+  `).join('');
+}
+
+q.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  const version = ++searchVersion;
+  const term = q.value;
+  if (term.trim().length < 2) {
+    res.innerHTML = '';
+    showMessage('');
+    return;
+  }
+  searchTimer = setTimeout(() => searchMedicines(term, version), 250);
+});
+
+res.addEventListener('click', async (event) => {
+  const button = event.target.closest('button[data-medicine-id]');
+  if (!button) return;
+
+  const medicineId = button.dataset.medicineId;
+  const { data, error } = await sb
+    .from('medicines')
+    .select('id,name,barcode,selling_price,shelf_location')
+    .eq('id', medicineId)
+    .eq('branch_id', prof.branch_id)
+    .eq('active', true)
+    .single();
+
+  if (error || !data) {
+    showMessage(`Could not load medicine: ${error?.message || 'not found'}`, true);
+    return;
+  }
+
+  await addMedicine(data);
+  q.value = '';
+  res.innerHTML = '';
+  q.focus();
+});
+
+pay.addEventListener('click', async () => {
+  if (!cart.length) {
+    showMessage('Add at least one medicine before finalizing the bill.', true);
+    return;
+  }
+
+  const discount = discountValue();
+  const total = billTotal();
+
+  if (discount > subtotal()) {
+    showMessage('Discount cannot exceed the bill subtotal.', true);
+    return;
+  }
+  if (total <= 0) {
+    showMessage('Bill total must be greater than ₹0.00.', true);
+    return;
+  }
+
+  pay.disabled = true;
+  showMessage('Saving bill…');
+
+  const { data, error } = await sb.rpc('finalize_sale', {
+    p_customer: null,
+    p_discount: discount,
+    p_items: cart.map(item => ({
+      batch_id: item.batch_id,
+      qty: item.qty
+    })),
+    p_payments: [{
+      method: pm.value,
+      amount: total
+    }]
+  });
+
+  if (error) {
+    showMessage(`Bill was not saved: ${error.message}`, true);
+    render();
+    return;
+  }
+
+  cart = [];
+  disc.value = '0';
+  render();
+  showMessage(`Bill saved successfully. Invoice ID: ${data}`);
+  q.value = '';
+  q.focus();
+});
+
 render();
