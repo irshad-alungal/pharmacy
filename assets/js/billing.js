@@ -1,8 +1,39 @@
-import { sb, requireProfile, esc, inr } from './supabase-client.js';
+import { sb, esc, inr } from './supabase-client.js';
+import { mountShell } from './navigation.js';
+
+// Use the shared authenticated dashboard shell so Billing, Medicines,
+// Customers and other permitted modules are reachable from every page.
+const prof = await mountShell('billing', 'Billing counter');
+const allowedRoles = ['super_admin', 'admin', 'pharmacist', 'billing'];
+if (!allowedRoles.includes(prof.role)) {
+  document.getElementById('view').textContent = 'Not authorised for billing.';
+  throw new Error('Not authorised for billing');
+}
+const view = document.getElementById('view');
+
+view.innerHTML = `
+  <div class="toolbar" style="display:flex;gap:.5rem;flex-wrap:wrap">
+    <input id="q" placeholder="Search name or scan barcode" style="flex:1;min-width:220px" autofocus>
+  </div>
+  <div id="res" class="res"></div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Item</th><th>Batch</th><th>Qty</th><th>Price</th><th></th></tr></thead>
+      <tbody id="cart"></tbody>
+    </table>
+  </div>
+  <div class="row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+    <input id="disc" type="number" min="0" step="0.01" value="0" placeholder="Discount ₹">
+    <select id="pm">
+      <option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option>
+    </select>
+    <strong id="tot" style="flex:1;text-align:right"></strong>
+    <button id="pay" disabled>Finalize bill</button>
+  </div>
+  <p id="msg" role="status" aria-live="polite"></p>
+`;
 
 const $ = (id) => document.getElementById(id);
-const who = $('who');
-const out = $('out');
 const q = $('q');
 const res = $('res');
 const cartEl = $('cart');
@@ -11,28 +42,6 @@ const pm = $('pm');
 const tot = $('tot');
 const pay = $('pay');
 const msg = $('msg');
-
-const prof = await requireProfile();
-if (!prof) throw new Error('Authentication required');
-
-const allowedRoles = ['super_admin', 'admin', 'pharmacist', 'billing', 'billing_staff'];
-if (!allowedRoles.includes(prof.role)) {
-  document.body.innerHTML = '<p>Not authorised for billing.</p>';
-  throw new Error('Not authorised for billing');
-}
-
-who.textContent = `${prof.staff_id || prof.full_name} (${prof.role})`;
-
-out.addEventListener('click', async () => {
-  out.disabled = true;
-  const { error } = await sb.auth.signOut();
-  if (error) {
-    out.disabled = false;
-    showMessage(`Sign out failed: ${error.message}`, true);
-    return;
-  }
-  location.replace('admin-login.html');
-});
 
 let cart = [];
 let searchTimer;
