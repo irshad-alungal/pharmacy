@@ -2,7 +2,10 @@
 import { createClient } from
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
 
-// Use your actual Supabase project details.
+// =====================================================
+// ALZA PHARMACY - SUPABASE CONFIGURATION
+// =====================================================
+
 export const SUPABASE_URL =
   'https://ofxpjlzcbdvlaufqrogr.supabase.co';
 
@@ -11,12 +14,24 @@ export const SUPABASE_ANON_KEY =
 
 export const sb = createClient(
   SUPABASE_URL,
-  SUPABASE_ANON_KEY
+  SUPABASE_ANON_KEY,
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    }
+  }
 );
 
 
-// Check authenticated staff profile
+// =====================================================
+// REQUIRE AUTHENTICATED STAFF PROFILE
+// =====================================================
+
 export async function requireProfile() {
+
+  // 1. Check authentication session
 
   const {
     data: { session },
@@ -24,11 +39,13 @@ export async function requireProfile() {
   } = await sb.auth.getSession();
 
   if (sessionError || !session) {
-    location.href = 'index.html';
+    location.replace('admin-login.html');
     return null;
   }
 
-  // Read existing ALZA profile structure
+
+  // 2. Fetch existing ALZA staff profile
+
   const { data: profile, error } = await sb
     .from('profiles')
     .select(`
@@ -43,43 +60,138 @@ export async function requireProfile() {
     .eq('id', session.user.id)
     .single();
 
-  if (error || !profile || !profile.is_active) {
-    console.error('Profile error:', error);
+
+  // 3. Validate profile
+
+  if (error || !profile) {
+    console.error('Profile lookup failed:', error);
+
     await sb.auth.signOut();
-    location.href = 'index.html';
+
+    location.replace('admin-login.html');
     return null;
   }
 
-  // Get role using existing database function
-  const { data: role, error: roleError } =
-    await sb.rpc('my_role');
+
+  // 4. Check active status
+
+  if (!profile.is_active) {
+    console.error('Staff account is inactive');
+
+    await sb.auth.signOut();
+
+    location.replace('admin-login.html');
+    return null;
+  }
+
+
+  // 5. Check staff branch
+
+  if (!profile.branch_id) {
+    console.error('Staff branch is not assigned');
+    return null;
+  }
+
+
+  // 6. Resolve role from database function
+
+  const {
+    data: role,
+    error: roleError
+  } = await sb.rpc('my_role');
 
   if (roleError || !role) {
-    console.error('Role error:', roleError);
-    await sb.auth.signOut();
-    location.href = 'index.html';
+    console.error('Role lookup failed:', roleError);
     return null;
   }
+
+
+  // 7. Mandatory password change
+
+  const currentPage = location.pathname.split('/').pop();
+
+  if (
+    profile.must_change_password === true &&
+    currentPage !== 'change-password.html'
+  ) {
+    location.replace('change-password.html');
+    return null;
+  }
+
+
+  // 8. Return authenticated staff details
 
   return {
     ...profile,
-    role
+    role,
+    branch_id: profile.branch_id,
+    user_id: session.user.id,
+    email: session.user.email
   };
 }
 
 
-// Utilities
-export const esc = s =>
-  String(s ?? '').replace(/[&<>"']/g, c => ({
+// =====================================================
+// ROLE CHECK HELPER
+// =====================================================
+
+export function hasRole(profile, allowedRoles = []) {
+
+  if (!profile || !profile.role) {
+    return false;
+  }
+
+  return allowedRoles.includes(profile.role);
+}
+
+
+// =====================================================
+// SUPER ADMIN CHECK
+// =====================================================
+
+export function isSuperAdmin(profile) {
+
+  return hasRole(profile, ['super_admin']);
+}
+
+
+// =====================================================
+// SHARED HTML ESCAPE UTILITY
+// =====================================================
+
+export const esc = value =>
+  String(value ?? '').replace(/[&<>"']/g, char => ({
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
     '"': '&quot;',
     "'": '&#39;'
-  }[c]));
+  }[char]));
 
-export const inr = n =>
+
+// =====================================================
+// INDIAN RUPEE FORMATTER
+// =====================================================
+
+export const inr = amount =>
   new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR'
-  }).format(n);
+  }).format(Number(amount) || 0);
+
+
+// =====================================================
+// LOGOUT
+// =====================================================
+
+export async function logout() {
+
+  const { error } = await sb.auth.signOut();
+
+  if (error) {
+    console.error('Logout failed:', error);
+    throw error;
+  }
+
+  location.replace('admin-login.html');
+}
