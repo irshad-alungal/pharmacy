@@ -2,7 +2,7 @@ import { sb } from './supabase-client.js';
 import { mountShell } from './navigation.js';
 import { esc } from './utils.js';
 import { friendly } from './ui.js';
-await mountShell('settings', 'Settings · Master data');
+const prof = await mountShell('settings', 'Settings · Master data');
 const view = document.getElementById('view');
 const MASTERS = [['categories', 'Categories', false], ['manufacturers', 'Manufacturers', false], ['storage_locations', 'Storage locations (shelf/rack areas)', false], ['units', 'Units', true]];
 view.innerHTML = MASTERS.map(([t, l, u]) => `<section class="card" data-t="${t}"><h3>${l}</h3>
@@ -42,3 +42,45 @@ ca.onclick = async () => {
   if (error) cerr.textContent = friendly(error); else { cn.value = ''; loadConv(); }
 };
 cl.onclick = async e => { const id = e.target.dataset.d; if (id) { await sb.from('unit_conversions').delete().eq('id', id); loadConv(); } };
+
+
+// Pharmacy profile: stored on the active branch, not in the legacy singleton settings table.
+view.insertAdjacentHTML('afterbegin', `<section class="card">
+<h3>Pharmacy details (used on invoices)</h3>
+<form id="branch-profile" style="display:grid;gap:.5rem;max-width:560px">
+<input name="name" placeholder="Pharmacy name" required>
+<textarea name="address" placeholder="Street address"></textarea>
+<input name="city" placeholder="City"><input name="state" placeholder="State">
+<input name="pincode" placeholder="PIN code"><input name="phone" placeholder="Phone">
+<input name="email" type="email" placeholder="Email">
+<input name="gstin" placeholder="GSTIN" maxlength="15">
+<textarea name="drug_licence_nos" placeholder="Drug licence numbers (one per line)"></textarea>
+<input name="invoice_prefix" placeholder="Invoice prefix" required>
+<textarea name="invoice_footer" placeholder="Invoice footer"></textarea>
+<div id="branch-profile-msg" role="status"></div><button type="submit">Save pharmacy details</button>
+</form></section>`);
+
+{
+  const form = document.getElementById('branch-profile');
+  const fields = ['name','address','city','state','pincode','phone','email','gstin','invoice_prefix','invoice_footer'];
+  const { data, error } = await sb.from('branches')
+    .select('name,address,city,state,pincode,phone,email,gstin,drug_licence_nos,invoice_prefix,invoice_footer')
+    .eq('id', prof.branch_id).single();
+  const msg = document.getElementById('branch-profile-msg');
+  if (error) {
+    msg.textContent = friendly(error);
+    msg.style.color = '#b91c1c';
+  } else {
+    for (const k of fields) form.elements[k].value = data?.[k] ?? '';
+    form.elements.drug_licence_nos.value = Array.isArray(data?.drug_licence_nos) ? data.drug_licence_nos.join('\n') : '';
+  }
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const row = Object.fromEntries(fields.map(k => [k, form.elements[k].value.trim() || null]));
+    row.gstin = row.gstin?.toUpperCase() ?? null;
+    row.drug_licence_nos = form.elements.drug_licence_nos.value.split('\n').map(x => x.trim()).filter(Boolean);
+    const { error: saveError } = await sb.from('branches').update(row).eq('id', prof.branch_id);
+    msg.textContent = saveError ? friendly(saveError) : 'Pharmacy details saved.';
+    msg.style.color = saveError ? '#b91c1c' : '#067647';
+  };
+}

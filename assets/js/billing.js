@@ -1,307 +1,123 @@
-import { sb, esc, inr } from './supabase-client.js';
+import { sb } from './supabase-client.js';
 import { mountShell } from './navigation.js';
-
-// Use the shared authenticated dashboard shell so Billing, Medicines,
-// Customers and other permitted modules are reachable from every page.
-const prof = await mountShell('billing', 'Billing counter');
+import { esc, inr } from './utils.js';
+import { friendly, safeQ } from './ui.js';
+import { showInvoice } from './invoice.js';
+const prof = await mountShell('billing', 'Billing');
 const allowedRoles = ['super_admin', 'admin', 'pharmacist', 'billing'];
 if (!allowedRoles.includes(prof.role)) {
   document.getElementById('view').textContent = 'Not authorised for billing.';
   throw new Error('Not authorised for billing');
 }
-const view = document.getElementById('view');
-
-view.innerHTML = `
-  <div class="toolbar" style="display:flex;gap:.5rem;flex-wrap:wrap">
-    <input id="q" placeholder="Search name or scan barcode" style="flex:1;min-width:220px" autofocus>
-  </div>
-  <div id="res" class="res"></div>
-  <div style="overflow-x:auto">
-    <table>
-      <thead><tr><th>Item</th><th>Batch</th><th>Qty</th><th>Price</th><th></th></tr></thead>
-      <tbody id="cart"></tbody>
-    </table>
-  </div>
-  <div class="row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-    <input id="disc" type="number" min="0" step="0.01" value="0" placeholder="Discount ₹">
-    <select id="pm">
-      <option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option>
-    </select>
-    <strong id="tot" style="flex:1;text-align:right"></strong>
-    <button id="pay" disabled>Finalize bill</button>
-  </div>
-  <p id="msg" role="status" aria-live="polite"></p>
-`;
-
-const $ = (id) => document.getElementById(id);
-const q = $('q');
-const res = $('res');
-const cartEl = $('cart');
-const disc = $('disc');
-const pm = $('pm');
-const tot = $('tot');
-const pay = $('pay');
-const msg = $('msg');
-
-let cart = [];
-let searchTimer;
-let searchVersion = 0;
-
-function showMessage(message, isError = false) {
-  msg.textContent = message;
-  msg.style.color = isError ? '#b42318' : '';
+const $ = id => document.getElementById(id);
+$('view').innerHTML = `<div class="card"><b>Customer</b><div id="cust"></div></div>
+<div class="card"><input id="q" placeholder="Search medicine name or scan barcode" style="width:100%" autofocus><div id="res"></div>
+<div style="overflow-x:auto"><table><thead><tr><th>Item</th><th>Batch</th><th>Qty</th><th>Price</th><th></th></tr></thead><tbody id="cart"></tbody></table></div></div>
+<div class="card"><b>Payment</b> (split across methods if needed)<div style="margin:.4rem 0"><input id="disc" type="number" min="0" step="0.01" value="0" style="width:9rem"> <span>Discount ₹</span></div>
+<div id="pays"></div><button class="sec" id="addp">+ Split payment</button><p id="tot" style="font-weight:bold"></p><p id="rem"></p></div>
+<div style="display:flex;gap:.5rem;flex-wrap:wrap"><button id="pay">Finalize bill</button><button class="sec" id="hold">Hold bill</button><button class="sec" id="held">Held bills</button><button class="sec" id="clear">Clear</button></div>
+<div id="msg" style="min-height:1.4em;margin-top:.5rem"></div>
+<dialog id="hd"><div id="hl" style="min-width:min(92vw,520px)"></div><button class="sec" onclick="hd.close()">Close</button></dialog>`;
+let cart = [], cust = null, avail = 0, pays = [{ method: 'cash', amount: '' }];
+const note = (m, bad) => { $('msg').style.color = bad ? '#b91c1c' : ''; $('msg').textContent = m; };
+const sub = () => cart.reduce((s, c) => s + c.price * c.qty, 0);
+const total = () => Math.max(0, Math.round((sub() - (+$('disc').value || 0)) * 100) / 100);
+const digits10 = s => { const d = s.replace(/\D/g, ''); return d.length >= 10 ? d.slice(-10) : ''; };
+// ---- customer
+async function setCust(c) {
+  cust = c; avail = 0;
+  if (c) { const { data } = await sb.rpc('customer_outstanding', { p_customer: c.id }); avail = Math.max(0, (+c.credit_limit || 0) - (+data || 0)); }
+  if (!c || avail <= 0) pays.forEach(p => { if (p.method === 'credit') p.method = 'cash'; });
+  renderCust(); renderPays();
 }
-
-function subtotal() {
-  return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+function renderCust() {
+  if (cust) { $('cust').innerHTML = `${esc(cust.name)} · ${esc(cust.phone)} ${cust.credit_limit > 0 ? `· credit available ${inr(avail)}` : ''} <button class="sec" id="cc">Walk-in instead</button>`; $('cc').onclick = () => setCust(null); return; }
+  $('cust').innerHTML = `<div style="display:flex;gap:.5rem;flex-wrap:wrap"><input id="ph" placeholder="Customer phone (leave blank for walk-in)" inputmode="tel"><button id="cf" class="sec">Find</button></div><div id="cm" style="margin-top:.4rem"></div>`;
+  $('cf').onclick = async () => {
+    const d = digits10($('ph').value); if (!d) { $('cm').textContent = 'Enter a 10-digit phone number.'; return; }
+    const { data } = await sb.from('customers').select('id,name,phone,consent,credit_limit,active').eq('branch_id', prof.branch_id).ilike('phone', '%' + d).limit(1);
+    if (data?.length) { if (!data[0].active) { $('cm').textContent = 'This customer is inactive.'; return; } return setCust(data[0]); }
+    $('cm').innerHTML = `Not found. <input id="nn" placeholder="New customer name"> <button id="nc">Create & select</button>`;
+    $('nc').onclick = async () => {
+      if (!$('nn').value.trim()) return;
+      const { data: c, error } = await sb.from('customers').insert({ branch_id: prof.branch_id, name: $('nn').value.trim(), phone: d }).select('id,name,phone,consent,credit_limit').single();
+      if (error) { $('cm').textContent = friendly(error); return; } setCust(c);
+    };
+  };
 }
-
-function discountValue() {
-  const value = Number(disc.value);
-  return Number.isFinite(value) && value >= 0 ? value : 0;
+// ---- cart
+function renderCart() {
+  $('cart').innerHTML = cart.map((c, i) => `<tr><td>${esc(c.name)} ${esc(c.strength || '')}</td><td>${esc(c.batch_no)} (exp ${esc(c.expiry)}, ${c.stock} left)</td>
+  <td><input type="number" min="1" max="${c.stock}" value="${c.qty}" data-i="${i}" style="width:5rem"></td><td>${inr(c.price * c.qty)}</td><td><button class="sec" data-x="${i}">✕</button></td></tr>`).join('') || '<tr><td colspan="5">Cart is empty.</td></tr>';
+  updateTot();
 }
-
-function billTotal() {
-  return Math.round((subtotal() - discountValue()) * 100) / 100;
+$('cart').onchange = e => { const i = e.target.dataset.i; if (i !== undefined) { cart[i].qty = Math.min(Math.max(1, +e.target.value || 1), cart[i].stock); renderCart(); } };
+$('cart').onclick = e => { const x = e.target.dataset.x; if (x !== undefined) { cart.splice(+x, 1); renderCart(); } };
+async function add(med) {
+  const today = new Date().toISOString().slice(0, 10);   // earliest-expiry-first, sellable batches only
+  const { data } = await sb.from('medicine_batches').select('id,batch_no,expiry,qty').eq('branch_id', prof.branch_id).eq('medicine_id', med.id).eq('quarantined', false).gte('expiry', today).gt('qty', 0).order('expiry').limit(1);
+  if (!data?.length) return note(`${med.name}: no sellable stock`, true);
+  const b = data[0], ex = cart.find(c => c.batch_id === b.id);
+  if (ex) ex.qty = Math.min(ex.qty + 1, +b.qty); else cart.push({ batch_id: b.id, name: med.name, strength: med.strength, batch_no: b.batch_no, expiry: b.expiry, stock: +b.qty, price: +med.selling_price, qty: 1 });
+  note(''); renderCart();
 }
-
-function render() {
-  cartEl.innerHTML = cart.map((item, index) => `
-    <tr>
-      <td>${esc(item.name)}</td>
-      <td>${esc(item.batch_no)} (exp ${esc(item.expiry)}, ${esc(item.stock)} left)</td>
-      <td><input type="number" min="1" max="${esc(item.stock)}" step="1"
-        value="${esc(item.qty)}" data-qty="${index}" style="width:5rem"></td>
-      <td>${inr(item.price * item.qty)}</td>
-      <td><button type="button" data-remove="${index}" aria-label="Remove ${esc(item.name)}">✕</button></td>
-    </tr>
-  `).join('');
-
-  const discount = discountValue();
-  const total = billTotal();
-  tot.textContent = `Total ${inr(Math.max(0, total))}`;
-  if (discount > subtotal()) {
-    showMessage('Discount cannot exceed the bill subtotal.', true);
-  }
-  pay.disabled = cart.length === 0 || total <= 0 || discount > subtotal();
+let t; $('q').oninput = () => { clearTimeout(t); t = setTimeout(async () => {
+  const s = safeQ($('q').value); if (s.length < 2) { $('res').innerHTML = ''; return; }
+  const { data } = await sb.from('medicines').select('id,name,strength,barcode,selling_price,shelf_location').eq('branch_id', prof.branch_id).eq('active', true).or(`name.ilike.%${s}%,barcode.eq.${s}`).limit(8);
+  if (data?.length === 1 && data[0].barcode === s) { add(data[0]); $('q').value = ''; $('res').innerHTML = ''; return; }
+  $('res').innerHTML = (data || []).map(m => `<button class="sec" style="display:block;width:100%;text-align:left;margin:2px 0" data-m='${esc(JSON.stringify(m))}'>${esc(m.name)} ${esc(m.strength || '')} — ${inr(m.selling_price)} · shelf ${esc(m.shelf_location || '-')}</button>`).join('');
+}, 250); };
+$('res').onclick = e => { const b = e.target.closest('button'); if (b) { add(JSON.parse(b.dataset.m)); $('q').value = ''; $('res').innerHTML = ''; } };
+// ---- payments (split)
+function renderPays() {
+  const ms = ['cash', 'upi', 'card', ...(cust && avail > 0 ? ['credit'] : [])];
+  $('pays').innerHTML = pays.map((p, i) => `<div style="display:flex;gap:.4rem;margin:.3rem 0"><select data-m="${i}">${ms.map(m => `<option value="${m}" ${m === p.method ? 'selected' : ''}>${m.toUpperCase()}</option>`).join('')}</select>
+  <input type="number" min="0" step="0.01" data-a="${i}" value="${p.amount}" placeholder="${pays.length === 1 ? 'full amount' : 'amount'}" style="width:9rem"><button class="sec" data-r="${i}">✕</button></div>`).join(''); updateTot();
 }
-
-cartEl.addEventListener('change', (event) => {
-  const index = event.target.dataset.qty;
-  if (index === undefined) return;
-
-  const item = cart[Number(index)];
-  if (!item) return;
-
-  const requested = Number(event.target.value);
-  if (!Number.isFinite(requested) || requested < 1) {
-    item.qty = 1;
-  } else {
-    item.qty = Math.min(Math.floor(requested), item.stock);
-  }
-  showMessage('');
-  render();
-});
-
-cartEl.addEventListener('click', (event) => {
-  const button = event.target.closest('button[data-remove]');
-  if (!button) return;
-  cart.splice(Number(button.dataset.remove), 1);
-  showMessage('');
-  render();
-});
-
-disc.addEventListener('input', render);
-
-async function addMedicine(medicine) {
-  showMessage(`Checking stock for ${medicine.name}…`);
-
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-  const { data: batches, error } = await sb
-    .from('medicine_batches')
-    .select('id,batch_no,expiry,qty')
-    .eq('branch_id', prof.branch_id)
-    .eq('medicine_id', medicine.id)
-    .eq('quarantined', false)
-    .gte('expiry', today)
-    .gt('qty', 0)
-    .order('expiry', { ascending: true })
-    .limit(1);
-
-  if (error) {
-    showMessage(`Could not check batch stock: ${error.message}`, true);
-    return;
-  }
-
-  if (!batches?.length) {
-    showMessage(`${medicine.name}: no unexpired, available batch in this branch.`, true);
-    return;
-  }
-
-  const batch = batches[0];
-  const existing = cart.find(item => item.batch_id === batch.id);
-  if (existing) {
-    existing.qty = Math.min(existing.qty + 1, Number(batch.qty));
-  } else {
-    cart.push({
-      batch_id: batch.id,
-      name: medicine.name,
-      batch_no: batch.batch_no,
-      expiry: batch.expiry,
-      stock: Number(batch.qty),
-      price: Number(medicine.selling_price),
-      qty: 1
-    });
-  }
-
-  showMessage('');
-  render();
-}
-
-async function searchMedicines(value, version) {
-  const term = value.trim();
-  if (!term) {
-    res.innerHTML = '';
-    return;
-  }
-
-  // Separate name and exact-barcode queries avoid injecting user text into
-  // PostgREST's .or() filter syntax.
-  const [nameResult, barcodeResult] = await Promise.all([
-    sb.from('medicines')
-      .select('id,name,barcode,selling_price,shelf_location')
-      .eq('branch_id', prof.branch_id)
-      .eq('active', true)
-      .ilike('name', `%${term}%`)
-      .order('name')
-      .limit(8),
-    sb.from('medicines')
-      .select('id,name,barcode,selling_price,shelf_location')
-      .eq('branch_id', prof.branch_id)
-      .eq('active', true)
-      .eq('barcode', term)
-      .limit(1)
-  ]);
-
-  if (version !== searchVersion) return;
-
-  const error = nameResult.error || barcodeResult.error;
-  if (error) {
-    res.innerHTML = '';
-    showMessage(`Medicine search failed: ${error.message}`, true);
-    return;
-  }
-
-  const byId = new Map();
-  for (const medicine of [...(barcodeResult.data || []), ...(nameResult.data || [])]) {
-    byId.set(medicine.id, medicine);
-  }
-  const medicines = [...byId.values()].slice(0, 8);
-
-  const exactBarcode = (barcodeResult.data || [])[0];
-  if (exactBarcode && term === exactBarcode.barcode) {
-    await addMedicine(exactBarcode);
-    q.value = '';
-    res.innerHTML = '';
-    return;
-  }
-
-  if (!medicines.length) {
-    res.innerHTML = '<p>No matching active medicines found.</p>';
-    return;
-  }
-
-  res.innerHTML = medicines.map(medicine => `
-    <button type="button" data-medicine-id="${esc(medicine.id)}"
-      style="display:block;width:100%;text-align:left;margin:2px 0">
-      ${esc(medicine.name)} — ${inr(medicine.selling_price)}
-      · shelf ${esc(medicine.shelf_location || '-')}
-    </button>
-  `).join('');
-}
-
-q.addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  const version = ++searchVersion;
-  const term = q.value;
-  if (term.trim().length < 2) {
-    res.innerHTML = '';
-    showMessage('');
-    return;
-  }
-  searchTimer = setTimeout(() => searchMedicines(term, version), 250);
-});
-
-res.addEventListener('click', async (event) => {
-  const button = event.target.closest('button[data-medicine-id]');
-  if (!button) return;
-
-  const medicineId = button.dataset.medicineId;
-  const { data, error } = await sb
-    .from('medicines')
-    .select('id,name,barcode,selling_price,shelf_location')
-    .eq('id', medicineId)
-    .eq('branch_id', prof.branch_id)
-    .eq('active', true)
-    .single();
-
-  if (error || !data) {
-    showMessage(`Could not load medicine: ${error?.message || 'not found'}`, true);
-    return;
-  }
-
-  await addMedicine(data);
-  q.value = '';
-  res.innerHTML = '';
-  q.focus();
-});
-
-pay.addEventListener('click', async () => {
-  if (!cart.length) {
-    showMessage('Add at least one medicine before finalizing the bill.', true);
-    return;
-  }
-
-  const discount = discountValue();
-  const total = billTotal();
-
-  if (discount > subtotal()) {
-    showMessage('Discount cannot exceed the bill subtotal.', true);
-    return;
-  }
-  if (total <= 0) {
-    showMessage('Bill total must be greater than ₹0.00.', true);
-    return;
-  }
-
-  pay.disabled = true;
-  showMessage('Saving bill…');
-
-  const { data, error } = await sb.rpc('finalize_sale', {
-    p_customer: null,
-    p_discount: discount,
-    p_items: cart.map(item => ({
-      batch_id: item.batch_id,
-      qty: item.qty
-    })),
-    p_payments: [{
-      method: pm.value,
-      amount: total
-    }]
-  });
-
-  if (error) {
-    showMessage(`Bill was not saved: ${error.message}`, true);
-    render();
-    return;
-  }
-
-  cart = [];
-  disc.value = '0';
-  render();
-  showMessage(`Bill saved successfully. Invoice ID: ${data}`);
-  q.value = '';
-  q.focus();
-});
-
-render();
+function paidSum() { return pays.length === 1 && pays[0].amount === '' ? total() : Math.round(pays.reduce((s, p) => s + (+p.amount || 0), 0) * 100) / 100; }
+function updateTot() { $('tot').textContent = `Total ${inr(total())}`; const r = Math.round((total() - paidSum()) * 100) / 100; $('rem').textContent = r === 0 ? '' : r > 0 ? `Remaining to allocate: ${inr(r)}` : `Over by ${inr(-r)}`; $('rem').style.color = r === 0 ? '' : '#b91c1c'; }
+$('pays').onchange = e => { const { m, a } = e.target.dataset; if (m !== undefined) pays[m].method = e.target.value; if (a !== undefined) pays[a].amount = e.target.value; updateTot(); };
+$('pays').oninput = e => { const a = e.target.dataset.a; if (a !== undefined) { pays[a].amount = e.target.value; updateTot(); } };
+$('pays').onclick = e => { const r = e.target.dataset.r; if (r !== undefined && pays.length > 1) { pays.splice(+r, 1); renderPays(); } };
+$('addp').onclick = () => { if (pays.length === 1 && pays[0].amount === '') pays[0].amount = total(); const rest = Math.max(0, Math.round((total() - paidSum()) * 100) / 100); pays.push({ method: 'upi', amount: rest || '' }); renderPays(); };
+$('disc').oninput = updateTot;
+function reset() { cart = []; pays = [{ method: 'cash', amount: '' }]; $('disc').value = 0; setCust(null); renderCart(); }
+$('clear').onclick = () => { reset(); note(''); };
+// ---- finalize
+$('pay').onclick = async () => {
+  if (!cart.length) return note('Cart is empty.', true);
+  const rows = pays.map(p => ({ method: p.method, amount: pays.length === 1 && p.amount === '' ? total() : +p.amount })).filter(p => p.amount > 0);
+  if (paidSum() !== total()) return note('Payments must add up to the total.', true);
+  $('pay').disabled = true; note('Saving…');
+  const { data, error } = await sb.rpc('finalize_sale', { p_customer: cust?.id ?? null, p_discount: +$('disc').value || 0, p_items: cart.map(c => ({ batch_id: c.batch_id, qty: c.qty })), p_payments: rows });
+  $('pay').disabled = false; if (error) return note(friendly(error), true);
+  const det = await sb.rpc('invoice_detail', { p_invoice: data }); reset(); note('Bill saved.');
+  if (det.error) return note('Bill saved, but the invoice could not be loaded: ' + friendly(det.error), true); showInvoice(det.data);
+};
+// ---- hold / resume
+$('hold').onclick = async () => {
+  if (!cart.length) return note('Nothing to hold.', true); const label = prompt('Label for this held bill (optional)') ?? null; if (label === null) return;
+  const { error } = await sb.from('held_bills').insert({ label: label.trim() || null, customer_id: cust?.id ?? null, discount: +$('disc').value || 0, cart: cart.map(c => ({ batch_id: c.batch_id, qty: c.qty })) });
+  if (error) return note(friendly(error), true); reset(); note('Bill held. Stock is not reserved.');
+};
+$('held').onclick = async () => {
+  const { data } = await sb.from('held_bills').select('id,label,cart,created_at,customer_id').eq('branch_id', prof.branch_id).order('created_at', { ascending: false });
+  $('hl').innerHTML = `<h3>Held bills</h3>` + ((data || []).map(h => `<div style="display:flex;gap:.5rem;align-items:center;margin:.3rem 0"><span style="flex:1">${esc(h.label || 'Unnamed')} · ${h.cart.length} item(s) · ${new Date(h.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</span><button data-res="${h.id}">Resume</button><button class="sec" data-del="${h.id}">Delete</button></div>`).join('') || 'None.');
+  $('hl').onclick = async e => {
+    const { res, del } = e.target.dataset;
+    if (del) { await sb.from('held_bills').delete().eq('id', del).eq('branch_id', prof.branch_id); return $('held').click(); }
+    if (!res) return; const h = data.find(x => x.id === res);
+    if (cart.length && !confirm('Replace the current cart?')) return;
+    const { data: bs } = await sb.from('medicine_batches').select('id,batch_no,expiry,qty,quarantined,medicines(name,strength,selling_price)').eq('branch_id', prof.branch_id).in('id', h.cart.map(c => c.batch_id));
+    const today = new Date().toISOString().slice(0, 10), dropped = []; cart = [];
+    for (const l of h.cart) { const b = bs?.find(x => x.id === l.batch_id);
+      if (!b || b.quarantined || b.expiry < today || +b.qty <= 0) { dropped.push(b?.medicines?.name || 'an item'); continue; }
+      cart.push({ batch_id: b.id, name: b.medicines.name, strength: b.medicines.strength, batch_no: b.batch_no, expiry: b.expiry, stock: +b.qty, price: +b.medicines.selling_price, qty: Math.min(l.qty, +b.qty) }); }
+    $('disc').value = h.discount; pays = [{ method: 'cash', amount: '' }];
+    if (h.customer_id) { const { data: c } = await sb.from('customers').select('id,name,phone,consent,credit_limit,active').eq('branch_id', prof.branch_id).eq('id', h.customer_id).single(); await setCust(c?.active ? c : null); } else await setCust(null);
+    await sb.from('held_bills').delete().eq('id', h.id).eq('branch_id', prof.branch_id); $('hd').close(); renderCart();
+    note(dropped.length ? `Resumed. Removed (no longer sellable): ${dropped.join(', ')}` : 'Bill resumed.', dropped.length > 0);
+  };
+  $('hd').showModal();
+};
+renderCust(); renderPays(); renderCart();
