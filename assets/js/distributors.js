@@ -2,7 +2,7 @@ import { sb } from './supabase-client.js';
 import { mountShell } from './navigation.js';
 import { esc } from './utils.js';
 import { nul, friendly, safeQ } from './ui.js';
-await mountShell('distributors', 'Distributors');
+const prof = await mountShell('distributors', 'Distributors');
 const $ = id => document.getElementById(id);
 document.getElementById('view').innerHTML = `<div style="display:flex;gap:.5rem;flex-wrap:wrap"><input id="q" placeholder="Search name, GSTIN, phone" style="flex:1;min-width:200px">
 <label><input type="checkbox" id="inact"> show inactive</label><button id="new">+ Add distributor</button></div>
@@ -15,7 +15,7 @@ document.getElementById('view').innerHTML = `<div style="display:flex;gap:.5rem;
 <div style="display:flex;gap:.5rem"><button>Save</button><button type="button" class="sec" id="cancel">Cancel</button></div></form></dialog>`;
 const f = $('f'); let list = [];
 async function load() {
-  let qb = sb.from('distributors').select('*').order('name').limit(200);
+  let qb = sb.from('distributors').select('*').eq('branch_id', prof.branch_id).order('name').limit(200);
   if (!$('inact').checked) qb = qb.eq('active', true);
   const s = safeQ($('q').value); if (s) qb = qb.or(`name.ilike.%${s}%,gstin.ilike.%${s}%,phone.ilike.%${s}%`);
   const { data } = await qb; list = data || [];
@@ -30,7 +30,11 @@ function open(d = {}) {
 f.onsubmit = async e => {
   e.preventDefault(); const d = Object.fromEntries(new FormData(f)); const id = d.id; delete d.id;
   const row = Object.fromEntries(Object.entries(d).map(([k, v]) => [k, nul(v.trim())])); row.gstin = row.gstin?.toUpperCase() ?? null; row.active = f.active.checked;
-  const { error } = id ? await sb.from('distributors').update(row).eq('id', id) : await sb.from('distributors').insert(row);
+  // New distributor records must carry the active user's branch_id for RLS.
+  if (!id) row.branch_id = prof.branch_id;
+  const { error } = id
+    ? await sb.from('distributors').update(row).eq('id', id).eq('branch_id', prof.branch_id)
+    : await sb.from('distributors').insert(row);
   if (error) { $('err').textContent = error.code === '23514' ? 'GSTIN format is invalid.' : error.code === '23505' ? 'A distributor with this name or GSTIN already exists.' : friendly(error); return; }
   $('dlg').close(); load();
 };
