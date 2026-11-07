@@ -97,11 +97,12 @@ $('pay').onclick = async () => {
 // ---- hold / resume
 $('hold').onclick = async () => {
   if (!cart.length) return note('Nothing to hold.', true); const label = prompt('Label for this held bill (optional)') ?? null; if (label === null) return;
-  const { error } = await sb.from('held_bills').insert({ label: label.trim() || null, customer_id: cust?.id ?? null, discount: +$('disc').value || 0, cart: cart.map(c => ({ batch_id: c.batch_id, qty: c.qty })) });
+  const heldPayments = pays.map(p => ({ method: p.method, amount: p.amount === '' ? '' : String(p.amount) }));
+  const { error } = await sb.from('held_bills').insert({ label: label.trim() || null, customer_id: cust?.id ?? null, discount: +$('disc').value || 0, cart: cart.map(c => ({ batch_id: c.batch_id, qty: c.qty })), payments: heldPayments });
   if (error) return note(friendly(error), true); reset(); note('Bill held. Stock is not reserved.');
 };
 $('held').onclick = async () => {
-  const { data } = await sb.from('held_bills').select('id,label,cart,created_at,customer_id').eq('branch_id', prof.branch_id).order('created_at', { ascending: false });
+  const { data } = await sb.from('held_bills').select('id,label,cart,created_at,customer_id,payments').eq('branch_id', prof.branch_id).order('created_at', { ascending: false });
   $('hl').innerHTML = `<h3>Held bills</h3>` + ((data || []).map(h => `<div style="display:flex;gap:.5rem;align-items:center;margin:.3rem 0"><span style="flex:1">${esc(h.label || 'Unnamed')} · ${h.cart.length} item(s) · ${new Date(h.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</span><button data-res="${h.id}">Resume</button><button class="sec" data-del="${h.id}">Delete</button></div>`).join('') || 'None.');
   $('hl').onclick = async e => {
     const { res, del } = e.target.dataset;
@@ -113,7 +114,10 @@ $('held').onclick = async () => {
     for (const l of h.cart) { const b = bs?.find(x => x.id === l.batch_id);
       if (!b || b.quarantined || b.expiry < today || +b.qty <= 0) { dropped.push(b?.medicines?.name || 'an item'); continue; }
       cart.push({ batch_id: b.id, name: b.medicines.name, strength: b.medicines.strength, batch_no: b.batch_no, expiry: b.expiry, stock: +b.qty, price: +b.medicines.selling_price, qty: Math.min(l.qty, +b.qty) }); }
-    $('disc').value = h.discount; pays = [{ method: 'cash', amount: '' }];
+    $('disc').value = h.discount;
+    pays = Array.isArray(h.payments) && h.payments.length
+      ? h.payments.map(p => ({ method: String(p.method || 'cash').toLowerCase(), amount: p.amount == null ? '' : String(p.amount) }))
+      : [{ method: 'cash', amount: '' }];
     if (h.customer_id) { const { data: c } = await sb.from('customers').select('id,name,phone,consent,credit_limit,active').eq('branch_id', prof.branch_id).eq('id', h.customer_id).single(); await setCust(c?.active ? c : null); } else await setCust(null);
     await sb.from('held_bills').delete().eq('id', h.id).eq('branch_id', prof.branch_id); $('hd').close(); renderCart();
     note(dropped.length ? `Resumed. Removed (no longer sellable): ${dropped.join(', ')}` : 'Bill resumed.', dropped.length > 0);
