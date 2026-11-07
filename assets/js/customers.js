@@ -7,13 +7,6 @@ import { nul, friendly, safeQ } from './ui.js';
 // Authenticate and load the dashboard
 const prof = await mountShell('customers', 'Customers');
 
-const { data: branchId, error: branchError } =
-  await sb.rpc('my_branch_id');
-
-if (branchError || !branchId) {
-  throw new Error('Could not identify your active branch.');
-}
-
 if (!prof) {
   throw new Error('Unable to load user profile.');
 }
@@ -58,6 +51,7 @@ view.innerHTML = `
         <th>Email</th>
         <th>Age</th>
         <th>WhatsApp consent</th>
+        <th>Credit limit</th>
         <th></th>
       </tr>
     </thead>
@@ -171,7 +165,10 @@ async function load() {
       <td>${esc(c.email || '')}</td>
       <td>${c.age ?? ''}</td>
       <td>${c.consent ? 'Yes' : 'No'}</td>
+      <td>₹${Number(c.credit_limit || 0).toFixed(2)}</td>
       <td>
+        <button class="sec" data-balance="${c.id}">Credit status</button>
+        ${['super_admin','admin'].includes(prof.role) ? `<button class="sec" data-credit="${c.id}">Edit limit</button>` : ''}
         <button class="sec" data-e="${c.id}">
           Edit
         </button>
@@ -183,7 +180,7 @@ async function load() {
     </tr>
   `).join('') || `
     <tr>
-      <td colspan="6">No customers found.</td>
+      <td colspan="7">No customers found.</td>
     </tr>
   `;
 }
@@ -298,6 +295,62 @@ $('rows').onclick = async e => {
   const b = e.target.closest('button');
 
   if (!b) return;
+
+  if (b.dataset.balance) {
+    const customer = list.find(c => c.id === b.dataset.balance);
+    if (!customer) return;
+
+    $('msg').textContent = 'Checking customer credit...';
+    const { data: outstanding, error } = await sb.rpc(
+      'customer_outstanding',
+      { p_customer: customer.id }
+    );
+    if (error) {
+      $('msg').textContent = friendly(error);
+      console.error('Customer credit lookup failed:', error);
+      return;
+    }
+
+    const limit = Number(customer.credit_limit || 0);
+    const used = Number(outstanding || 0);
+    $('msg').textContent =
+      `${customer.name}: Credit limit ₹${limit.toFixed(2)} · Outstanding ₹${used.toFixed(2)} · Available ₹${Math.max(0, limit - used).toFixed(2)}`;
+    return;
+  }
+
+  if (b.dataset.credit) {
+    if (!['super_admin','admin'].includes(prof.role)) {
+      $('msg').textContent = 'Only administrators can edit credit limits.';
+      return;
+    }
+    const customer = list.find(c => c.id === b.dataset.credit);
+    if (!customer) return;
+
+    const value = prompt(
+      `Set credit limit for ${customer.name} (₹):`,
+      String(customer.credit_limit || 0)
+    );
+    if (value === null) return;
+    const limit = Number(value);
+    if (!Number.isFinite(limit) || limit < 0) {
+      $('msg').textContent = 'Enter a valid non-negative credit limit.';
+      return;
+    }
+
+    $('msg').textContent = 'Saving credit limit...';
+    const { error } = await sb.rpc('set_credit_limit', {
+      p_customer: customer.id,
+      p_limit: limit
+    });
+    if (error) {
+      $('msg').textContent = friendly(error);
+      console.error('Credit limit update failed:', error);
+      return;
+    }
+    $('msg').textContent = 'Credit limit updated.';
+    await load();
+    return;
+  }
 
   if (b.dataset.e) {
     const customer = list.find(c => c.id === b.dataset.e);
