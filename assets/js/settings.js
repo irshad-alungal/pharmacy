@@ -79,7 +79,7 @@ view.insertAdjacentHTML('afterbegin', `<section class="card">
     const row = Object.fromEntries(fields.map(k => [k, form.elements[k].value.trim() || null]));
     row.gstin = row.gstin?.toUpperCase() ?? null;
     row.drug_licence_nos = form.elements.drug_licence_nos.value.split('\n').map(x => x.trim()).filter(Boolean);
-    const { error: saveError } = await sb.from('branches').update(row).eq('id', prof.branch_id);
+    const { error: saveError } = await sb.rpc('save_branch_profile', { p_data: row });
     msg.textContent = saveError ? friendly(saveError) : 'Pharmacy details saved.';
     msg.style.color = saveError ? '#b91c1c' : '#067647';
   };
