@@ -121,29 +121,39 @@ $('sales-rows').onclick = async e => {
     msg('Invoice detail returned an unexpected format. No print window was opened.', true);
     return;
   }
-  // Attach the active branch's editable pharmacy profile to the invoice.
-  // invoice_detail returns transaction data; branch identity/contact fields live on branches.
-  const { data: branch, error: branchError } = await sb.from('branches')
-    .select('name,address,city,state,pincode,phone,email,gstin,drug_licence_nos,invoice_footer')
-    .eq('id', prof.branch_id).single();
-  if (branchError) {
-    msg('Invoice data loaded, but pharmacy details could not be loaded: ' + friendly(branchError), true);
-    return;
+  // Attach editable pharmacy details using the branch recorded on this invoice.
+  // maybeSingle() avoids aborting preview when branch profile is not visible under RLS.
+  const invoiceBranchId = data.invoice.branch_id || prof.branch_id;
+  let branch = null;
+  let branchError = null;
+  if (invoiceBranchId) {
+    const result = await sb.from('branches')
+      .select('name,address,city,state,pincode,phone,email,gstin,drug_licence_nos,invoice_footer')
+      .eq('id', invoiceBranchId)
+      .maybeSingle();
+    branch = result.data;
+    branchError = result.error;
   }
-  const addressParts = [branch.address, branch.city, branch.state, branch.pincode]
+  if (branchError) {
+    console.warn('Invoice pharmacy profile lookup:', branchError);
+  }
+  const addressParts = [branch?.address, branch?.city, branch?.state, branch?.pincode]
     .map(v => String(v || '').trim()).filter(Boolean);
   data.shop = {
-    name: branch.name || 'ALZA PHARMACY',
+    name: branch?.name || 'ALZA PHARMACY',
     address: addressParts.join(', '),
-    phone: branch.phone || '',
-    email: branch.email || '',
-    gstin: branch.gstin || '',
-    drug_licence: Array.isArray(branch.drug_licence_nos)
+    phone: branch?.phone || '',
+    email: branch?.email || '',
+    gstin: branch?.gstin || '',
+    drug_licence: Array.isArray(branch?.drug_licence_nos)
       ? branch.drug_licence_nos.filter(Boolean).join(' / ')
-      : String(branch.drug_licence_nos || ''),
-    footer_note: branch.invoice_footer || ''
+      : String(branch?.drug_licence_nos || ''),
+    footer_note: branch?.invoice_footer || ''
   };
-  msg(`Invoice ${data.invoice.invoice_no} opened.`);
+  if (!branch) {
+    msg('Invoice opened. Pharmacy profile details are not visible for this branch; configure/check Settings access to show them.', true);
+  }
+  if (branch) msg(`Invoice ${data.invoice.invoice_no} opened.`);
   showInvoice(data);
 };
 
