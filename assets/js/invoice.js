@@ -32,7 +32,7 @@ export function buildPdf(JsPDF, d, fmt) {
     const nl = (h = th ? 3.6 : 5) => { y += h; }, rule = () => { doc.line(M, y - 2, X2, y - 2); nl(2); };
     const wrap = (txt, w, o = {}) => { for (const l of doc.setFontSize(o.s || (th ? 8 : 10)).splitTextToSize(String(txt), w)) { T(l, o.a === 'center' ? W / 2 : M, o); nl(); } };
     const pair = (a, b, o = {}) => { T(a, M, o); T(b, X2, { ...o, a: 'right' }); nl(); };
-    const money = n => 'Rs.' + R(n);
+    const money = n => R(n);
     wrap(s.name || 'ALZA PHARMACY', W - 2 * M, { a: 'center', b: 1, s: th ? 12 : 16 });
     if (s.address) wrap(s.address, W - 2 * M, { a: 'center' }); if (s.phone) wrap('Ph: ' + s.phone, W, { a: 'center' });
     if (s.gstin) wrap('GSTIN: ' + s.gstin, W, { a: 'center' }); if (s.drug_licence) wrap('Drug Licence: ' + s.drug_licence, W, { a: 'center' });
@@ -50,7 +50,7 @@ export function buildPdf(JsPDF, d, fmt) {
         nm.forEach(l => { T(l, M); nl(); }); y = Math.max(y, y0 + 5);
       }
     }
-    rule(); pair('Subtotal', money(i.subtotal)); if (+i.discount > 0) pair('Discount', '-' + money(i.discount)); pair('GST included', money(i.tax));
+    wrap('Amounts in INR', W - 2 * M, { a: 'right', s: th ? 7 : 9 }); rule(); pair('Subtotal', money(i.subtotal)); if (+i.discount > 0) pair('Discount', '-' + money(i.discount)); pair('GST included', money(i.tax));
     pair('TOTAL', money(i.total), { b: 1, s: th ? 10 : 13 }); rule();
     for (const p of d.payments) pair(PM[p.method] || p.method, money(p.amount));
     nl(1); for (const t of d.tax_summary) { T(`GST ${t.rate}%: taxable ${R(t.taxable)}, tax ${R(t.tax)}`, M, { s: th ? 7 : 9 }); nl(); }

@@ -121,6 +121,28 @@ $('sales-rows').onclick = async e => {
     msg('Invoice detail returned an unexpected format. No print window was opened.', true);
     return;
   }
+  // Attach the active branch's editable pharmacy profile to the invoice.
+  // invoice_detail returns transaction data; branch identity/contact fields live on branches.
+  const { data: branch, error: branchError } = await sb.from('branches')
+    .select('name,address,city,state,pincode,phone,email,gstin,drug_licence_nos,invoice_footer')
+    .eq('id', prof.branch_id).single();
+  if (branchError) {
+    msg('Invoice data loaded, but pharmacy details could not be loaded: ' + friendly(branchError), true);
+    return;
+  }
+  const addressParts = [branch.address, branch.city, branch.state, branch.pincode]
+    .map(v => String(v || '').trim()).filter(Boolean);
+  data.shop = {
+    name: branch.name || 'ALZA PHARMACY',
+    address: addressParts.join(', '),
+    phone: branch.phone || '',
+    email: branch.email || '',
+    gstin: branch.gstin || '',
+    drug_licence: Array.isArray(branch.drug_licence_nos)
+      ? branch.drug_licence_nos.filter(Boolean).join(' / ')
+      : String(branch.drug_licence_nos || ''),
+    footer_note: branch.invoice_footer || ''
+  };
   msg(`Invoice ${data.invoice.invoice_no} opened.`);
   showInvoice(data);
 };
