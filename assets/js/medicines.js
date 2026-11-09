@@ -3,6 +3,7 @@ import { sb } from './supabase-client.js';
 import { mountShell } from './navigation.js';
 import { esc, inr } from './utils.js';
 import { nul, friendly, opts, safeQ } from './ui.js';
+import { mountMedicinePhotos } from './medicine-photos.js';
 
 // Authenticate user and mount dashboard navigation
 const prof = await mountShell('medicines', 'Medicines');
@@ -249,6 +250,7 @@ async function load() {
           ? `<button class="sec" data-p="${m.id}">Cost history</button>`
           : ''
         }
+        <button class="sec" data-photos="${m.id}">Photos</button>
       </td>
     </tr>
   `).join('') || `
@@ -499,3 +501,6 @@ $('q').oninput = () => {
 
 // Initial load
 await load();
+
+// Phase 7: attach branch-scoped medicine photo controls.
+mountMedicinePhotos({ sb, branchId, canManage: ['super_admin','admin','pharmacist','inventory'].includes(prof.role) });
