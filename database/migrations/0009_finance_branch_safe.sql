@@ -18,14 +18,14 @@ as $$
          lpad(nextval('public.finance_doc_seq')::text, 6, '0');
 $$;
 
--- Append-only double-entry ledger. Cash and UPI only, matching existing Billing.
+-- Append-only double-entry ledger. Supports existing Cash, UPI and Card sales, plus receivables/payables.
 create table if not exists public.financial_ledger (
   id bigserial primary key,
   branch_id uuid not null references public.branches(id),
   journal_id uuid not null,
   entry_at timestamptz not null default now(),
   account text not null check (account in
-    ('cash','upi','receivables','payables','sales','sales_returns','purchases','purchase_returns')),
+    ('cash','upi','card','receivables','payables','sales','sales_returns','purchases','purchase_returns')),
   debit numeric(14,2) not null default 0 check (debit >= 0),
   credit numeric(14,2) not null default 0 check (credit >= 0),
   check ((debit > 0 and credit = 0) or (credit > 0 and debit = 0)),
