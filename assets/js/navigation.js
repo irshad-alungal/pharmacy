@@ -103,9 +103,7 @@ export async function mountShell(page, title) {
     lastTouch = now;
 
     try {
-      const { data, error } = await (
-        await import('./supabase-client.js')
-      ).sb.rpc('touch_work_session');
+      const { data, error } = await sb.rpc('touch_work_session');
 
       if (error) {
         console.error('Work-session heartbeat failed:', error);
