@@ -5,6 +5,7 @@ import { esc, inr } from './utils.js';
 import { friendly } from './ui.js';
 
 const prof = await mountShell('returns', 'Returns');
+console.log('RETURNS USER ROLE:', prof?.role);
 const $ = id => document.getElementById(id);
 
 const isAdmin = ['super_admin', 'admin'].includes(prof.role);
