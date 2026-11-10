@@ -8,8 +8,8 @@ const prof = await mountShell('returns', 'Returns');
 const $ = id => document.getElementById(id);
 
 const isAdmin = ['super_admin', 'admin'].includes(prof.role);
-const canCustomerReturn = ['super_admin', 'admin', 'pharmacist'].includes(prof.role);
-const canPurchaseReturn = ['super_admin', 'admin', 'pharmacist', 'inventory_staff'].includes(prof.role);
+const canCustomerReturn = ['super_admin', 'admin', 'pharmacist', 'inventory_staff', 'billing_staff'].includes(prof.role);
+const canPurchaseReturn = ['super_admin', 'admin'].includes(prof.role);
 
 $('view').innerHTML = `
   <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">

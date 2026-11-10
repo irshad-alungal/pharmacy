@@ -5,7 +5,7 @@ import { friendly } from './ui.js';
 import { showInvoice } from './invoice.js';
 
 const prof = await mountShell('sales', 'Sales');
-const allowedRoles = ['super_admin', 'admin', 'pharmacist', 'billing'];
+const allowedRoles = ['super_admin', 'admin', 'pharmacist', 'billing_staff'];
 if (!allowedRoles.includes(prof.role)) {
   document.getElementById('view').textContent = 'Not authorised to view sales.';
   throw new Error('Not authorised to view sales');
