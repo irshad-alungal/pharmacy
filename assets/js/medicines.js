@@ -60,6 +60,16 @@ v.innerHTML = `
 
 <div id="msg"></div>
 
+${prof.role === 'super_admin' ? `
+  <section style="background:white;padding:16px;border-radius:10px;
+                  margin:15px 0;border:1px solid #ddd">
+    <h3>Medicine Deactivation Requests</h3>
+    <div id="deactivationRequests">
+      Loading pending requests...
+    </div>
+  </section>
+` : ''}
+
 <div style="overflow-x:auto">
   <table>
     <thead>
