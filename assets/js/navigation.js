@@ -123,7 +123,11 @@ if (error) {
     }
   };
 
-  setInterval(heartbeat, 60 * 1000);
+  // Start the first heartbeat after 5 seconds.
+setTimeout(heartbeat, 5000);
+
+// Repeat every 60 seconds.
+setInterval(heartbeat, 60 * 1000);
 
   return prof;
 }
