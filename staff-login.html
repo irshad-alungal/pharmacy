@@ -1,29 +1,121 @@
+
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ALZA PHARMACY — Staff login</title>
+
 <style>
-:root{--g:#0f766e;--bg:#f4f7f6;--t:#14231f}
-@media(prefers-color-scheme:dark){:root{--bg:#10201d;--t:#e6f2ef}}
-body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--t);display:grid;place-items:center;min-height:100vh;margin:0}
-form{background:Canvas;color:CanvasText;padding:2rem;border-radius:12px;width:min(92vw,360px);box-shadow:0 4px 20px #0002;display:grid;gap:.8rem}
-h1{margin:0;color:var(--g);font-size:1.4rem}input,button{padding:.7rem;font-size:1rem;border-radius:8px;border:1px solid #8886}
-button{background:var(--g);color:#fff;border:0;cursor:pointer}button:disabled{opacity:.65;cursor:wait}#m{color:#b91c1c;min-height:1.2em}
-a{color:var(--g);font-size:.9rem}
+:root {
+  --g: #0f766e;
+  --bg: #f4f7f6;
+  --t: #14231f;
+}
+
+@media(prefers-color-scheme:dark) {
+  :root {
+    --bg: #10201d;
+    --t: #e6f2ef;
+  }
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--t);
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  margin: 0;
+}
+
+form {
+  background: Canvas;
+  color: CanvasText;
+  padding: 2rem;
+  border-radius: 12px;
+  width: min(92vw, 360px);
+  box-shadow: 0 4px 20px #0002;
+  display: grid;
+  gap: .8rem;
+}
+
+h1 {
+  margin: 0;
+  color: var(--g);
+  font-size: 1.4rem;
+}
+
+input, button {
+  padding: .7rem;
+  font-size: 1rem;
+  border-radius: 8px;
+  border: 1px solid #8886;
+}
+
+button {
+  background: var(--g);
+  color: #fff;
+  border: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+
+#m {
+  color: #b91c1c;
+  min-height: 1.2em;
+}
+
+a {
+  color: var(--g);
+  font-size: .9rem;
+}
 </style>
 </head>
+
 <body>
+
 <form id="f">
   <h1>ALZA PHARMACY · Staff</h1>
-  <input id="staffId" type="text" placeholder="Staff ID" required maxlength="80" autocomplete="username" autocapitalize="none">
-  <input id="password" type="password" placeholder="Password" required autocomplete="current-password">
+
+  <input
+    id="staffId"
+    type="text"
+    placeholder="Staff ID"
+    required
+    maxlength="80"
+    autocomplete="username"
+    autocapitalize="none"
+  >
+
+  <input
+    id="password"
+    type="password"
+    placeholder="Password"
+    required
+    autocomplete="current-password"
+  >
+
   <button type="submit">Sign in</button>
+
   <div id="m" role="status" aria-live="polite"></div>
-  <a href="admin-login.html">Administrator email login</a>
+
+  <a href="admin-login.html">
+    Administrator email login
+  </a>
 </form>
+
 <script type="module">
-import { sb, SUPABASE_URL, SUPABASE_ANON_KEY } from './assets/js/supabase-client.js';
+import {
+  sb,
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+} from './assets/js/supabase-client.js';
 
 const form = document.getElementById('f');
 const staffId = document.getElementById('staffId');
@@ -33,46 +125,99 @@ const button = form.querySelector('button');
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
+
   button.disabled = true;
   message.textContent = 'Signing in...';
+
   try {
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/staff-login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({ staff_id: staffId.value.trim(), password: password.value })
-    });
+    // STEP 1: Verify Staff ID and password
+    const response = await fetch(
+      `${SUPABASE_URL}/functions/v1/staff-login`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({
+          staff_id: staffId.value.trim(),
+          password: password.value
+        })
+      }
+    );
+
     const result = await response.json().catch(() => ({}));
+
     if (!response.ok || !result.session) {
-      message.textContent = result.error || 'Invalid Staff ID or password.';
+      message.textContent =
+        result.error || 'Invalid Staff ID or password.';
       return;
     }
 
+    // STEP 2: Establish Supabase login session
     const { error: sessionError } = await sb.auth.setSession({
       access_token: result.session.access_token,
       refresh_token: result.session.refresh_token
     });
+
     if (sessionError) {
-      message.textContent = 'Could not establish login session. Please try again.';
+      message.textContent =
+        'Could not establish login session. Please try again.';
       return;
     }
 
-    const { data, error } = await sb.rpc('start_work_session');
-    if (error || data !== true) {
+    // STEP 3: Check the staff profile
+    const { data: profile, error: profileError } = await sb
+      .from('profiles')
+      .select('must_change_password,is_active')
+      .eq('id', result.session.user.id)
+      .single();
+
+    if (profileError || !profile || profile.is_active !== true) {
       await sb.auth.signOut();
-      message.textContent = 'Work session could not start. Please contact your administrator.';
+
+      message.textContent =
+        'Unable to load active staff profile. Contact your administrator.';
+
       return;
     }
+
+    // STEP 4: Force password change when required
+    if (profile.must_change_password === true) {
+      window.location.assign('change-password.html');
+      return;
+    }
+
+    // STEP 5: Start work session
+    message.textContent = 'Starting work session...';
+
+    const { data, error } = await sb.rpc('start_work_session');
+
+    if (error || data !== true) {
+      console.error('Work session error:', error);
+
+      await sb.auth.signOut();
+
+      message.textContent =
+        'Work session could not start. Please contact your administrator.';
+
+      return;
+    }
+
+    // STEP 6: Open Billing
     window.location.assign('billing.html');
+
   } catch (error) {
     console.error('Staff login failed:', error);
-    message.textContent = 'Unable to connect. Please try again.';
+
+    message.textContent =
+      'Unable to connect. Please try again.';
+
   } finally {
     button.disabled = false;
   }
 });
 </script>
+
 </body>
 </html>
