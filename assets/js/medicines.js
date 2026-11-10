@@ -14,6 +14,7 @@ if (!prof) {
 
 const v = document.getElementById('view');
 const isAdmin = ['super_admin', 'admin'].includes(prof.role);
+const isSuperAdmin = prof.role === 'super_admin';
 const branchId = prof.branch_id;
 
 if (!branchId) {
@@ -60,7 +61,7 @@ v.innerHTML = `
 
 <div id="msg"></div>
 
-${prof.role === 'super_admin' ? `
+${isSuperAdmin ? `
   <section style="background:white;padding:16px;border-radius:10px;
                   margin:15px 0;border:1px solid #ddd">
     <h3>Medicine Deactivation Requests</h3>
@@ -161,6 +162,8 @@ ${prof.role === 'super_admin' ? `
       Active
     </label>
 
+    <div id="activeNote" style="font-size:13px;color:#64748b"></div>
+
     <div id="err" style="color:#b91c1c"></div>
 
     <div style="display:flex;gap:.5rem">
@@ -253,13 +256,19 @@ async function load() {
       </td>
       <td>
         <button class="sec" data-e="${m.id}">Edit</button>
-        <button class="sec" data-t="${m.id}">
-          ${m.active ? 'Deactivate' : 'Activate'}
-        </button>
+
+        ${m.active
+          ? `<button class="sec" data-t="${m.id}">Request deactivation</button>`
+          : isSuperAdmin
+            ? `<button class="sec" data-t="${m.id}">Activate</button>`
+            : ''
+        }
+
         ${isAdmin
           ? `<button class="sec" data-p="${m.id}">Cost history</button>`
           : ''
         }
+
         <button class="sec" data-photos="${m.id}">Photos</button>
       </td>
     </tr>
@@ -274,6 +283,7 @@ async function load() {
 function open(m = {}) {
   $('dt').textContent = m.id ? 'Edit medicine' : 'Add medicine';
   $('err').textContent = '';
+  $('activeNote').textContent = '';
 
   f.reset();
 
@@ -314,6 +324,14 @@ function open(m = {}) {
   }
 
   f.active.checked = m.active ?? true;
+
+  // Only Super Admin can change medicine active status here.
+  f.active.disabled = !isSuperAdmin;
+
+  if (!isSuperAdmin) {
+    $('activeNote').textContent =
+      'Medicine activation and deactivation require Super Admin approval.';
+  }
 
   $('dlg').showModal();
 }
@@ -384,6 +402,18 @@ f.onsubmit = async e => {
     // Do not allow changing its branch through this form.
     delete row.branch_id;
 
+    // Preserve existing active status for non-Super Admin users.
+    if (!isSuperAdmin) {
+      const existingMedicine = list.find(m => m.id === id);
+
+      if (!existingMedicine) {
+        $('err').textContent = 'Medicine not found. Refresh and try again.';
+        return;
+      }
+
+      row.active = existingMedicine.active;
+    }
+
     result = await sb
       .from('medicines')
       .update(row)
@@ -392,6 +422,9 @@ f.onsubmit = async e => {
   } else {
     // New medicines must belong to the logged-in user's branch.
     row.branch_id = branchId;
+
+    // New medicines are created active.
+    row.active = true;
 
     result = await sb
       .from('medicines')
@@ -414,6 +447,7 @@ $('rows').onclick = async e => {
 
   if (!b) return;
 
+  // Cost history
   if (b.dataset.p) {
     if (!isAdmin) return;
 
@@ -465,6 +499,7 @@ $('rows').onclick = async e => {
     return;
   }
 
+  // Edit medicine
   if (b.dataset.e) {
     const m = list.find(x => x.id === b.dataset.e);
 
@@ -472,23 +507,70 @@ $('rows').onclick = async e => {
     return;
   }
 
+  // Deactivation request or Super Admin activation
   if (b.dataset.t) {
     const m = list.find(x => x.id === b.dataset.t);
 
     if (!m) return;
 
+    // Active medicine: submit a deactivation request.
+    // Do not directly update medicines.active.
+    if (m.active) {
+      const reason = prompt(
+        `Why do you want to deactivate ${m.name}?`
+      );
+
+      if (reason === null) return;
+
+      if (!reason.trim()) {
+        $('msg').textContent = 'Please enter a reason.';
+        return;
+      }
+
+      const { data, error } = await sb.rpc(
+        'request_medicine_deactivation',
+        {
+          p_medicine: m.id,
+          p_reason: reason.trim()
+        }
+      );
+
+      if (error) {
+        $('msg').textContent = friendly(error);
+        console.error('Deactivation request failed:', error);
+        return;
+      }
+
+      $('msg').textContent =
+        data
+          ? 'Deactivation request submitted. The medicine remains active until Super Admin approval.'
+          : 'Deactivation request submitted.';
+
+      return;
+    }
+
+    // Inactive medicine: only Super Admin can activate.
+    if (!isSuperAdmin) {
+      $('msg').textContent =
+        'Only Super Admin can activate an inactive medicine.';
+      return;
+    }
+
+    if (!confirm(`Activate ${m.name}?`)) return;
+
     const { error } = await sb
       .from('medicines')
-      .update({ active: !m.active })
+      .update({ active: true })
       .eq('id', m.id)
       .eq('branch_id', branchId);
 
     if (error) {
       $('msg').textContent = friendly(error);
-      console.error('Medicine status update failed:', error);
+      console.error('Medicine activation failed:', error);
       return;
     }
 
+    $('msg').textContent = 'Medicine activated.';
     await load();
   }
 };
@@ -512,5 +594,14 @@ $('q').oninput = () => {
 // Initial load
 await load();
 
-// Phase 7: attach branch-scoped medicine photo controls.
-mountMedicinePhotos({ sb, branchId, canManage: ['super_admin','admin','pharmacist','inventory'].includes(prof.role) });
+// Attach branch-scoped medicine photo controls.
+mountMedicinePhotos({
+  sb,
+  branchId,
+  canManage: [
+    'super_admin',
+    'admin',
+    'pharmacist',
+    'inventory_staff'
+  ].includes(prof.role)
+});
