@@ -105,11 +105,17 @@ export async function mountShell(page, title) {
     try {
       const { data, error } = await sb.rpc('touch_work_session');
 
-      if (error) {
-        console.error('Work-session heartbeat failed:', error);
-      } else if (data === false) {
-        console.warn('Work session is no longer active.');
-      }
+console.log('WORK SESSION HEARTBEAT:', {
+  data,
+  error,
+  time: new Date().toISOString()
+});
+
+if (error) {
+  console.error('Work-session heartbeat failed:', error);
+} else if (data === false) {
+  console.warn('Work session is no longer active.');
+}
     } catch (error) {
       console.error('Work-session heartbeat error:', error);
     } finally {
