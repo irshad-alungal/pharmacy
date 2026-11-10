@@ -15,7 +15,6 @@ if (!prof) {
 const v = document.getElementById('view');
 const isAdmin = ['super_admin', 'admin'].includes(prof.role);
 const isSuperAdmin = prof.role === 'super_admin';
-const isBillingStaff = prof.role === 'billing_staff';
 const branchId = prof.branch_id;
 
 if (!branchId) {
@@ -324,14 +323,16 @@ function open(m = {}) {
       );
   }
 
-  f.active.checked = m.active ?? !isBillingStaff;
-
-  // Only Super Admin can change medicine active status here.
-  f.active.disabled = !isSuperAdmin;
+  // New medicines: all permitted staff roles can choose
+  // the initial Active or Inactive status.
+  // Existing medicines: only Super Admin can change status.
+  f.active.checked = m.active ?? true;
+  f.active.disabled = Boolean(m.id) && !isSuperAdmin;
 
   if (!isSuperAdmin) {
-    $('activeNote').textContent =
-      'Medicine activation and deactivation require Super Admin approval.';
+    $('activeNote').textContent = m.id
+      ? 'Changing medicine activation status requires Super Admin approval.'
+      : 'You may choose the initial status. Later activation or deactivation requires Super Admin approval.';
   }
 
   $('dlg').showModal();
@@ -424,8 +425,8 @@ f.onsubmit = async e => {
     // New medicines must belong to the logged-in user's branch.
     row.branch_id = branchId;
 
-    // Billing Staff must submit new medicines as inactive.
-row.active = isBillingStaff ? false : true;
+    // Preserve the initial Active/Inactive choice.
+    row.active = f.active.checked;
 
     result = await sb
       .from('medicines')
@@ -753,7 +754,7 @@ async function loadDeactivationRequests() {
     await loadDeactivationRequests();
     await load();
   };
-};
+}
 
 // Load the approval panel for Super Admin.
 if (isSuperAdmin) {
