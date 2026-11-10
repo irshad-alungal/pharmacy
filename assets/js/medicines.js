@@ -605,3 +605,156 @@ mountMedicinePhotos({
     'inventory_staff'
   ].includes(prof.role)
 });
+
+// --------------------------------------------------
+// SUPER ADMIN: Medicine deactivation approvals
+// --------------------------------------------------
+
+async function loadDeactivationRequests() {
+  if (!isSuperAdmin) return;
+
+  const panel = $('deactivationRequests');
+  if (!panel) return;
+
+  panel.textContent = 'Loading pending requests...';
+
+  const { data, error } = await sb.rpc(
+    'medicine_deactivation_request_list'
+  );
+
+  if (error) {
+    console.error('Could not load deactivation requests:', error);
+    panel.textContent = friendly(error);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    panel.innerHTML = `
+      <p>No pending medicine deactivation requests.</p>
+      <button type="button" class="sec" id="refreshDeactivation">
+        Refresh
+      </button>
+    `;
+    return;
+  }
+
+  panel.innerHTML = `
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Medicine</th>
+            <th>Requested by</th>
+            <th>Reason</th>
+            <th>Requested at</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.map(r => `
+            <tr>
+              <td>
+                <b>${esc(r.medicine_name)}</b><br>
+                ${esc(r.medicine_strength || '')}
+              </td>
+              <td>
+                ${esc(r.requested_by_name)}<br>
+                <small>${esc(r.requested_by_staff_id || '')}</small>
+              </td>
+              <td>${esc(r.reason)}</td>
+              <td>
+                ${r.requested_at
+                  ? new Date(r.requested_at).toLocaleString('en-IN', {
+                      timeZone: 'Asia/Kolkata'
+                    })
+                  : '—'}
+              </td>
+              <td>
+                <button
+                  type="button"
+                  data-approve="${r.request_id}"
+                >Approve</button>
+
+                <button
+                  type="button"
+                  class="sec"
+                  data-reject="${r.request_id}"
+                >Reject</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <button type="button" class="sec" id="refreshDeactivation">
+      Refresh requests
+    </button>
+  `;
+
+  panel.querySelector('#refreshDeactivation').onclick =
+    loadDeactivationRequests;
+
+  panel.onclick = async event => {
+    const button = event.target.closest('button');
+    if (!button) return;
+
+    const requestId = button.dataset.approve ||
+                      button.dataset.reject;
+
+    if (!requestId) return;
+
+    const approve = Boolean(button.dataset.approve);
+
+    const note = prompt(
+      approve
+        ? 'Approval note (optional):'
+        : 'Reason for rejecting this request (optional):'
+    );
+
+    if (note === null) return;
+
+    const confirmation = approve
+      ? 'Approve this request and deactivate the medicine?'
+      : 'Reject this medicine deactivation request?';
+
+    if (!confirm(confirmation)) return;
+
+    button.disabled = true;
+    button.textContent = 'Processing...';
+
+    const { data: result, error: reviewError } = await sb.rpc(
+      'review_medicine_deactivation',
+      {
+        p_request: requestId,
+        p_approve: approve,
+        p_note: note.trim() || null
+      }
+    );
+
+    if (reviewError || result !== true) {
+      alert(
+        reviewError
+          ? friendly(reviewError)
+          : 'The request could not be processed.'
+      );
+
+      await loadDeactivationRequests();
+      return;
+    }
+
+    alert(
+      approve
+        ? 'Approved. The medicine has been deactivated.'
+        : 'Request rejected. The medicine remains active.'
+    );
+
+    await loadDeactivationRequests();
+    await load();
+  };
+};
+
+// Load the approval panel for Super Admin.
+if (isSuperAdmin) {
+  await loadDeactivationRequests();
+}
