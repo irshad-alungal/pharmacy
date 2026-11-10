@@ -1,16 +1,125 @@
-import { requireProfile, esc } from './supabase-client.js';
+
+import { requireProfile, esc, sb } from './supabase-client.js';
 import { can } from './permissions.js';
 import { signOut } from './auth.js';
-const PAGES = [['dashboard','Dashboard'],['billing','Billing'],['medicines','Medicines'],['inventory','Inventory'],['purchases','Purchases'],
- ['distributors','Distributors'],['customers','Customers'],['sales','Sales'],['returns','Returns'],['expenses','Expenses'],['finance','Finance'],
- ['reports','Reports'],['whatsapp','WhatsApp'],['staff','Staff'],['documents','Documents'],['settings','Settings'],['audit-logs','Audit logs']];
+
+const PAGES = [
+  ['dashboard', 'Dashboard'],
+  ['billing', 'Billing'],
+  ['medicines', 'Medicines'],
+  ['inventory', 'Inventory'],
+  ['purchases', 'Purchases'],
+  ['distributors', 'Distributors'],
+  ['customers', 'Customers'],
+  ['sales', 'Sales'],
+  ['returns', 'Returns'],
+  ['expenses', 'Expenses'],
+  ['finance', 'Finance'],
+  ['reports', 'Reports'],
+  ['whatsapp', 'WhatsApp'],
+  ['staff', 'Staff'],
+  ['documents', 'Documents'],
+  ['settings', 'Settings'],
+  ['audit-logs', 'Audit logs']
+];
+
 export async function mountShell(page, title) {
-  const prof = await requireProfile(); if (!prof) throw new Error('no session');
-  const links = PAGES.filter(([p]) => can(prof.role, p)).map(([p, l]) => `<a href="${p}.html" class="${p===page?'on':''}">${l}</a>`).join('');
+  const prof = await requireProfile();
+
+  if (!prof) {
+    throw new Error('no session');
+  }
+
+  const links = PAGES
+    .filter(([p]) => can(prof.role, p))
+    .map(([p, l]) =>
+      `<a href="${p}.html" class="${p === page ? 'on' : ''}">${l}</a>`
+    )
+    .join('');
+
   document.title = `ALZA PHARMACY — ${title}`;
-  document.body.innerHTML = `<div class="shell"><nav class="side"><h1>ALZA PHARMACY</h1>${links}<a href="#" id="so">Sign out (${esc(prof.staff_id)})</a></nav>
-  <main class="main"><h2>${esc(title)}</h2><div id="view"></div></main></div>`;
-  document.getElementById('so').onclick = e => { e.preventDefault(); signOut(); };
-  if (!can(prof.role, page)) { document.getElementById('view').innerHTML = '<p>You do not have access to this page.</p>'; throw new Error('forbidden'); }
+
+  document.body.innerHTML = `
+    <div class="shell">
+      <nav class="side">
+        <h1>ALZA PHARMACY</h1>
+        ${links}
+        <a href="#" id="so">Sign out (${esc(prof.staff_id)})</a>
+      </nav>
+      <main class="main">
+        <h2>${esc(title)}</h2>
+        <div id="view"></div>
+      </main>
+    </div>
+  `;
+
+  document.getElementById('so').onclick = e => {
+    e.preventDefault();
+    signOut();
+  };
+
+  if (!can(prof.role, page)) {
+    document.getElementById('view').innerHTML =
+      '<p>You do not have access to this page.</p>';
+
+    throw new Error('forbidden');
+  }
+
+  // Work-session heartbeat:
+  // Refresh only when the user has recently interacted with the page.
+  let lastInteraction = Date.now();
+  let lastTouch = 0;
+  let touching = false;
+
+  const recordActivity = () => {
+    lastInteraction = Date.now();
+  };
+
+  [
+    'pointerdown',
+    'keydown',
+    'touchstart',
+    'click'
+  ].forEach(eventName => {
+    document.addEventListener(eventName, recordActivity, {
+      passive: true
+    });
+  });
+
+  const heartbeat = async () => {
+    if (document.visibilityState !== 'visible') return;
+
+    const now = Date.now();
+
+    // Do not keep an unattended session alive.
+    if (now - lastInteraction > 5 * 60 * 1000) return;
+
+    // Avoid frequent RPC calls.
+    if (now - lastTouch < 60 * 1000) return;
+
+    if (touching) return;
+
+    touching = true;
+    lastTouch = now;
+
+    try {
+      const { data, error } = await (
+        await import('./supabase-client.js')
+      ).sb.rpc('touch_work_session');
+
+      if (error) {
+        console.error('Work-session heartbeat failed:', error);
+      } else if (data === false) {
+        console.warn('Work session is no longer active.');
+      }
+    } catch (error) {
+      console.error('Work-session heartbeat error:', error);
+    } finally {
+      touching = false;
+    }
+  };
+
+  setInterval(heartbeat, 60 * 1000);
+
   return prof;
 }
