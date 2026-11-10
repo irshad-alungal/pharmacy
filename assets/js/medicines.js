@@ -15,6 +15,7 @@ if (!prof) {
 const v = document.getElementById('view');
 const isAdmin = ['super_admin', 'admin'].includes(prof.role);
 const isSuperAdmin = prof.role === 'super_admin';
+const isBillingStaff = prof.role === 'billing_staff';
 const branchId = prof.branch_id;
 
 if (!branchId) {
@@ -323,7 +324,7 @@ function open(m = {}) {
       );
   }
 
-  f.active.checked = m.active ?? true;
+  f.active.checked = m.active ?? !isBillingStaff;
 
   // Only Super Admin can change medicine active status here.
   f.active.disabled = !isSuperAdmin;
@@ -423,8 +424,8 @@ f.onsubmit = async e => {
     // New medicines must belong to the logged-in user's branch.
     row.branch_id = branchId;
 
-    // New medicines are created active.
-    row.active = true;
+    // Billing Staff must submit new medicines as inactive.
+row.active = isBillingStaff ? false : true;
 
     result = await sb
       .from('medicines')
