@@ -97,6 +97,17 @@ Deno.serve(async (req) => {
       return fail(403, 'Staff management is restricted to administrators.');
     }
 
+    // Enforce the same live work-session and permission checks used by the app.
+    const { data: callerContext, error: contextError } =
+      await callerClient.rpc('get_my_context');
+    if (contextError || !callerContext?.session_ok) {
+      return fail(403, 'Your work session is not active. Please sign in again.');
+    }
+    if (!Array.isArray(callerContext.permissions) ||
+        !callerContext.permissions.includes('staff.manage')) {
+      return fail(403, 'You do not have permission to manage staff.');
+    }
+
     const body = await req.json();
     const action = String(body?.action ?? '').trim();
 
@@ -131,9 +142,7 @@ Deno.serve(async (req) => {
           const role = roleMap.get(p.role_id);
           if (!role) return false;
 
-          // Admins cannot view or manage other Admin or Super Admin accounts.
-          if (isAdmin && role.rank <= callerRole.rank) return false;
-
+          // Admin and Super Admin have equivalent staff-management visibility.
           return true;
         })
         .map(p => ({
@@ -149,6 +158,69 @@ Deno.serve(async (req) => {
         }));
 
       return ok({ staff: visibleProfiles });
+    }
+
+    // ACTIVATE / DEACTIVATE STAFF
+    if (action === 'set_active') {
+      const targetId = String(body?.user_id ?? '').trim();
+      const nextActive = body?.is_active;
+
+      if (!targetId || typeof nextActive !== 'boolean') {
+        return fail(400, 'A valid user and account status are required.');
+      }
+      if (targetId === callerId) {
+        return fail(403, 'You cannot deactivate or reactivate your own account here.');
+      }
+
+      const { data: target, error: targetError } = await admin
+        .from('profiles')
+        .select('id,branch_id,role_id,is_active,staff_id')
+        .eq('id', targetId)
+        .eq('branch_id', caller.branch_id)
+        .maybeSingle();
+
+      if (targetError || !target) {
+        return fail(404, 'Staff account not found in your branch.');
+      }
+
+      const { data: targetRole, error: targetRoleError } = await admin
+        .from('roles')
+        .select('code,rank')
+        .eq('id', target.role_id)
+        .maybeSingle();
+      if (targetRoleError || !targetRole) {
+        return fail(500, 'Unable to verify the selected staff role.');
+      }
+
+      // Never allow the branch to lose its last active full administrator.
+      if (!nextActive && ['admin', 'super_admin'].includes(targetRole.code)) {
+        const { data: adminRoles, error: adminRolesError } = await admin
+          .from('roles').select('id').in('code', ['admin', 'super_admin']);
+        if (adminRolesError) return fail(500, 'Unable to verify administrator accounts.');
+        const ids = (adminRoles || []).map(role => role.id);
+        const { count, error: countError } = await admin
+          .from('profiles').select('id', { count: 'exact', head: true })
+          .eq('branch_id', caller.branch_id).eq('is_active', true).in('role_id', ids);
+        if (countError) return fail(500, 'Unable to verify active administrators.');
+        if ((count ?? 0) <= 1) {
+          return fail(403, 'The last active administrator cannot be deactivated.');
+        }
+      }
+
+      const { error: updateError } = await admin
+        .from('profiles')
+        .update({ is_active: nextActive, updated_at: new Date().toISOString() })
+        .eq('id', targetId)
+        .eq('branch_id', caller.branch_id);
+      if (updateError) {
+        console.error('admin-staff status update error:', updateError.message);
+        return fail(500, 'Unable to update the staff account status.');
+      }
+
+      return ok({
+        success: true,
+        message: `Staff account ${nextActive ? 'reactivated' : 'deactivated'} successfully.`
+      });
     }
 
     // CREATE STAFF
@@ -186,10 +258,6 @@ Deno.serve(async (req) => {
         return fail(400, 'Invalid staff role.');
       }
 
-      // Only Super Admin may create Admin accounts.
-      if (roleCode === 'admin' && !isSuperAdmin) {
-        return fail(403, 'Only Super Admin can create Admin accounts.');
-      }
 
       const { data: targetRole, error: targetRoleError } = await admin
         .from('roles')
@@ -201,9 +269,8 @@ Deno.serve(async (req) => {
         return fail(400, 'Selected role was not found.');
       }
 
-      if (targetRole.rank <= callerRole.rank) {
-        return fail(403, 'You cannot create an account at your own level or above.');
-      }
+      // Admin and Super Admin are equivalent administrators. Neither may
+      // create a Super Admin account through this staff form.
 
       const { data: existing, error: existingError } = await admin
         .from('profiles')
