@@ -13,7 +13,7 @@ export async function mountInitialStock(panel, prof) {
   medicines = meds || [];
   let { data: saved, error } = await sb.rpc('opening_stock_get_draft');
   if (error) { panel.innerHTML=`<p class="notice">${esc(friendly(error))}</p>`; return; }
-  draft = saved;
+  // The saved draft is held in `saved`; no separate undeclared global is needed.
   rows = (saved?.items || []).map(x => ({...x}));
   const status = saved?.status || 'not_started';
   const submitted = status === 'submitted';
