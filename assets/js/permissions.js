@@ -22,6 +22,9 @@ export const ACCESS = Object.fromEntries([
   ...STORE_PAGES.map(page => [page, [...ADMIN_ROLES, ...STORE_ROLES]])
 ]);
 
+// Dashboard is reserved for the two administrator role codes only.
+ACCESS.dashboard = ['super_admin', 'admin'];
+
 export const isAdminRole = role => ADMIN_ROLES.includes(String(role || '').toLowerCase());
 export const isStoreRole = role => STORE_ROLES.includes(String(role || '').toLowerCase());
 export const can = (role, page) => (ACCESS[page] || []).includes(String(role || '').toLowerCase());
