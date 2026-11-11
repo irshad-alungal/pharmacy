@@ -2,9 +2,10 @@ import { sb } from './supabase-client.js';
 import { mountShell } from './navigation.js';
 import { esc, inr } from './utils.js';
 import { friendly } from './ui.js';
+import { mountInitialStock } from './initial-stock.js';
 const prof = await mountShell('inventory', 'Inventory');
 const $ = id => document.getElementById(id), admin = ['super_admin', 'admin'].includes(prof.role);
-const TABS = [['stock', 'Batch stock'], ['alerts', 'Alerts'], ['count', 'Physical count'], ...(admin ? [['val', 'Valuation']] : []), ['moves', 'Movements']];
+const TABS = [['stock', 'Batch stock'], ['alerts', 'Alerts'], ['count', 'Physical count'], ...(admin ? [['opening', 'Initial Stock'], ['val', 'Valuation']] : []), ['moves', 'Movements']];
 document.getElementById('view').innerHTML = `<div style="display:flex;gap:.4rem;flex-wrap:wrap" id="tabs">${TABS.map(([k, l]) => `<button class="sec" data-k="${k}">${l}</button>`).join('')}</div>
 <div class="card" id="panel"></div><div id="msg"></div>
 <dialog id="adj"><form id="af" method="dialog" style="display:grid;gap:.5rem;min-width:min(92vw,380px)"><h3 id="at"></h3>
@@ -18,6 +19,7 @@ const note = (m, bad) => { $('msg').style.color = bad ? '#b91c1c' : ''; $('msg')
 async function loadBatches(s) { const { data, error } = await sb.rpc('inventory_batches', { p_search: s || null }); if (error) note(friendly(error), true); batches = data || []; }
 const show = async k => { tab = k; note(''); await views[k](); };
 const views = {
+  async opening() { await mountInitialStock($('panel'), prof); },
   async stock() {
     $('panel').innerHTML = `<div style="display:flex;gap:.5rem;flex-wrap:wrap"><input id="s" placeholder="Search medicine, batch or barcode" style="flex:1;min-width:200px"><select id="fl"><option value="">All</option><option value="ok">Sellable</option><option value="near">Near expiry</option><option value="exp">Expired</option><option value="q">Quarantined</option></select></div>
     <div style="overflow-x:auto"><table><thead><tr><th>Medicine</th><th>Batch</th><th>Expiry</th><th>Qty</th><th>Status</th><th>Location</th>${admin ? '<th>Cost value</th>' : ''}<th></th></tr></thead><tbody id="r"></tbody></table></div>`;
@@ -61,7 +63,7 @@ const views = {
     <tr><th>Sellable stock at selling price</th><td>${inr(v.retail_sellable)}</td></tr></table><p style="font-size:.85rem">Cost uses each medicine's latest purchase cost per base unit.</p>`;
   },
   async moves() {
-    $('panel').innerHTML = `<select id="mt"><option value="">All types</option>${['purchase_in', 'sale_out', 'adjustment', 'damage', 'expiry_writeoff', 'physical_count'].map(t => `<option>${t}</option>`).join('')}</select>
+    $('panel').innerHTML = `<select id="mt"><option value="">All types</option>${['purchase_in', 'opening_stock', 'sale_out', 'adjustment', 'damage', 'expiry_writeoff', 'physical_count'].map(t => `<option>${t}</option>`).join('')}</select>
     <div style="overflow-x:auto"><table><thead><tr><th>When (IST)</th><th>Medicine</th><th>Batch</th><th>Type</th><th>Qty</th><th>Reason</th></tr></thead><tbody id="mr"></tbody></table></div>`;
     const go = async () => { let q = sb.from('stock_movements').select('created_at,movement_type,qty,reason,medicines(name),medicine_batches(batch_no)').order('created_at', { ascending: false }).limit(200); if ($('mt').value) q = q.eq('movement_type', $('mt').value);
       const { data } = await q; $('mr').innerHTML = (data || []).map(m => `<tr><td>${new Date(m.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</td><td>${esc(m.medicines?.name)}</td><td>${esc(m.medicine_batches?.batch_no)}</td><td>${esc(m.movement_type)}</td><td style="color:${m.qty < 0 ? '#b91c1c' : '#0f766e'}">${m.qty > 0 ? '+' : ''}${m.qty}</td><td>${esc(m.reason || '')}</td></tr>`).join('') || '<tr><td colspan="6">No movements.</td></tr>'; };
