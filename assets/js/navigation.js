@@ -114,7 +114,12 @@ console.log('WORK SESSION HEARTBEAT:', {
 if (error) {
   console.error('Work-session heartbeat failed:', error);
 } else if (data === false) {
-  console.warn('Work session is no longer active.');
+  console.warn('Work session expired. Signing out.');
+
+  alert('Your work session has expired. Please sign in again.');
+
+  await signOut();
+  return;
 }
     } catch (error) {
       console.error('Work-session heartbeat error:', error);
