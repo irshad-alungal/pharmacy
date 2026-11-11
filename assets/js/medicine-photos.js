@@ -12,17 +12,51 @@ export function mountMedicinePhotos({ sb, branchId, canManage }) {
       <div id="mpMsg" role="status"></div>
       <div id="mpGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin:12px 0"></div>
       <div id="mpUploadArea">
-        <label>Upload photo (JPG, PNG or WEBP; max 5 MB)
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0">
+          <button id="mpCameraBtn" type="button" class="sec">Take photo with camera</button>
+          <button id="mpChooseBtn" type="button" class="sec">Choose existing photo</button>
+        </div>
+        <input id="mpCamera" type="file" accept="image/*" capture="environment" hidden>
+        <label>Photo file (JPG, PNG or WEBP; max 5 MB)
           <input id="mpFile" type="file" accept="image/jpeg,image/png,image/webp">
         </label>
-        <button id="mpUpload" type="button">Upload photo</button>
+        <div id="mpCropPreview" style="width:180px;aspect-ratio:1/1;overflow:hidden;border:1px solid #789;border-radius:8px;display:none;margin:10px 0;background:#eee">
+          <img id="mpPreview" alt="Square photo preview" style="width:100%;height:100%;object-fit:cover">
+        </div>
+        <small>Photos are automatically center-cropped to a square (1:1).</small>
+        <button id="mpUpload" type="button">Upload square photo</button>
       </div>
       <button id="mpClose" type="button" class="sec">Close</button>
     </div>`;
   view.append(dialog);
   const $ = id => document.getElementById(id);
   let currentMedicine = null;
+  let selectedFile = null;
   $('mpClose').onclick = () => dialog.close();
+  $('mpCameraBtn').onclick = () => $('mpCamera').click();
+  $('mpChooseBtn').onclick = () => $('mpFile').click();
+  function selectPhoto(file) {
+    selectedFile = file || null;
+    $('mpCropPreview').style.display = selectedFile ? 'block' : 'none';
+    if (selectedFile) $('mpPreview').src = URL.createObjectURL(selectedFile);
+  }
+  $('mpCamera').onchange = () => selectPhoto($('mpCamera').files?.[0]);
+  $('mpFile').onchange = () => selectPhoto($('mpFile').files?.[0]);
+
+  async function makeSquarePhoto(file) {
+    const image = await createImageBitmap(file);
+    const side = Math.min(image.width, image.height);
+    const sx = Math.floor((image.width - side) / 2);
+    const sy = Math.floor((image.height - side) / 2);
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200; canvas.height = 1200;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(image, sx, sy, side, side, 0, 0, 1200, 1200);
+    image.close?.();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.88));
+    if (!blob) throw new Error('Could not prepare the square photo. Please try another image.');
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, '') || 'medicine-photo'}.jpg`, { type: 'image/jpeg' });
+  }
 
   async function refresh() {
     $('mpMsg').textContent = 'Loading photos…';
@@ -77,24 +111,26 @@ export function mountMedicinePhotos({ sb, branchId, canManage }) {
   };
 
   $('mpUpload').onclick = async () => {
-    const file = $('mpFile').files?.[0];
-    if (!file || !currentMedicine) { $('mpMsg').textContent = 'Choose a photo first.'; return; }
-    if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+    const original = selectedFile;
+    if (!original || !currentMedicine) { $('mpMsg').textContent = 'Take a photo or choose an image first.'; return; }
+    if (!['image/jpeg','image/png','image/webp'].includes(original.type) || original.size > 5 * 1024 * 1024) {
       $('mpMsg').textContent = 'Choose JPG, PNG or WEBP under 5 MB.'; return;
     }
-    const ext = file.type === 'image/jpeg' ? 'jpg' : file.type.split('/')[1];
-    const path = `${currentMedicine.id}/${crypto.randomUUID()}.${ext}`;
-    $('mpMsg').textContent = 'Uploading…';
-    const { error: uploadError } = await sb.storage.from('medicine-images').upload(path, file, { contentType: file.type, upsert: false });
+    let file;
+    try { file = await makeSquarePhoto(original); }
+    catch (err) { $('mpMsg').textContent = friendly(err); return; }
+    const path = `${currentMedicine.id}/${crypto.randomUUID()}.jpg`;
+    $('mpMsg').textContent = 'Uploading square photo…';
+    const { error: uploadError } = await sb.storage.from('medicine-images').upload(path, file, { contentType: 'image/jpeg', upsert: false });
     if (uploadError) { $('mpMsg').textContent = friendly(uploadError); return; }
     const { error: registerError } = await sb.rpc('register_medicine_image', {
-      p_medicine: currentMedicine.id, p_path: path, p_name: file.name, p_mime: file.type, p_size: file.size
+      p_medicine: currentMedicine.id, p_path: path, p_name: original.name, p_mime: 'image/jpeg', p_size: file.size
     });
     if (registerError) {
       await sb.storage.from('medicine-images').remove([path]);
       $('mpMsg').textContent = friendly(registerError); return;
     }
-    $('mpFile').value = ''; $('mpMsg').textContent = 'Photo uploaded.'; await refresh();
+    $('mpFile').value = ''; $('mpCamera').value = ''; selectedFile = null; $('mpCropPreview').style.display = 'none'; $('mpMsg').textContent = 'Square photo uploaded.'; await refresh();
   };
 
   view.addEventListener('click', async e => {

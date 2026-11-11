@@ -14,13 +14,13 @@ const escapeHtml = (value = '') =>
     "'": '&#39;'
   })[ch]);
 
-const isAdminRole = ['super_admin', 'admin'].includes(String(prof?.role || '').toLowerCase());
+const isSuperAdmin = prof?.role === 'super_admin';
 
 const roleOptions = [
   { value: 'pharmacist', label: 'Pharmacist' },
   { value: 'billing_staff', label: 'Billing Staff' },
   { value: 'inventory_staff', label: 'Inventory Staff' },
-  ...(isAdminRole ? [{ value: 'admin', label: 'Admin' }] : [])
+  ...(isSuperAdmin ? [{ value: 'admin', label: 'Admin' }] : [])
 ];
 
 view.innerHTML = `
@@ -146,7 +146,6 @@ async function loadStaff() {
               <th style="padding:12px;text-align:left">Role</th>
               <th style="padding:12px;text-align:left">Status</th>
               <th style="padding:12px;text-align:left">Password</th>
-              <th style="padding:12px;text-align:left">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -161,42 +160,12 @@ async function loadStaff() {
                 <td style="padding:12px">
                   ${s.must_change_password ? 'Change required' : 'Updated'}
                 </td>
-                <td style="padding:12px">
-                  ${s.id === prof?.id ? 'Current account' : `
-                    <button type="button" class="staff-status-btn"
-                      data-user-id="${escapeHtml(s.id)}"
-                      data-next-active="${s.is_active ? 'false' : 'true'}"
-                      style="padding:7px 11px;cursor:pointer">
-                      ${s.is_active ? 'Deactivate' : 'Reactivate'}
-                    </button>`}
-                </td>
               </tr>
             `).join('')}
           </tbody>
         </table>
       </div>
     `;
-
-    list.querySelectorAll('.staff-status-btn').forEach(button => {
-      button.addEventListener('click', async () => {
-        const nextActive = button.dataset.nextActive === 'true';
-        const verb = nextActive ? 'reactivate' : 'deactivate';
-        if (!confirm(`Are you sure you want to ${verb} this account?`)) return;
-        button.disabled = true;
-        try {
-          const result = await callStaffFunction({
-            action: 'set_active',
-            user_id: button.dataset.userId,
-            is_active: nextActive
-          });
-          message.textContent = result.message || `Account ${verb}d.`;
-          await loadStaff();
-        } catch (error) {
-          alert(`Could not ${verb} account: ${error.message}`);
-          button.disabled = false;
-        }
-      });
-    });
   } catch (error) {
     list.textContent = 'Unable to load staff: ' + error.message;
   }
