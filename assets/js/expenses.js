@@ -51,9 +51,9 @@ $('view').innerHTML = `
       <table class="expense-table">
         <thead><tr>
           <th>Date</th><th>Expense no.</th><th>Category</th><th>Description</th>
-          <th>Payment</th><th>Status</th><th class="num">Amount</th><th>Receipts</th>
+          <th>Payment</th><th>Status</th><th class="num">Amount</th><th>Receipts</th><th>Actions</th>
         </tr></thead>
-        <tbody id="expense-rows"><tr><td colspan="8">Loading expenses…</td></tr></tbody>
+        <tbody id="expense-rows"><tr><td colspan="9">Loading expenses…</td></tr></tbody>
       </table>
     </div>
   </section>
@@ -146,7 +146,7 @@ const loadExpenses = async () => {
     return;
   }
 
-  $('expense-rows').innerHTML = '<tr><td colspan="8">Loading expenses…</td></tr>';
+  $('expense-rows').innerHTML = '<tr><td colspan="9">Loading expenses…</td></tr>';
   message('');
   const { data, error } = await sb.rpc('expense_get_list', {
     p_from: from,
@@ -155,7 +155,7 @@ const loadExpenses = async () => {
   });
 
   if (error) {
-    $('expense-rows').innerHTML = '<tr><td colspan="8">Unable to load expenses.</td></tr>';
+    $('expense-rows').innerHTML = '<tr><td colspan="9">Unable to load expenses.</td></tr>';
     message(friendly(error), true);
     return;
   }
@@ -171,10 +171,34 @@ const loadExpenses = async () => {
       <td><span class="expense-status status-${esc(item.status || '')}">${esc(item.status || '')}</span></td>
       <td class="num">${inr(item.amount)}</td>
       <td>${Number(item.receipt_count) || 0}</td>
+      <td>${item.status === 'draft' ? `<button type="button" class="expense-post-button" data-expense-post="${esc(item.expense_id)}" data-expense-no="${esc(item.expense_no || '')}">Post</button>` : '—'}</td>
     </tr>
-  `).join('') || '<tr><td colspan="8" class="expense-empty">No expenses found for these filters.</td></tr>';
+  `).join('') || '<tr><td colspan="9" class="expense-empty">No expenses found for these filters.</td></tr>';
   message(`${rows.length} expense${rows.length === 1 ? '' : 's'} found.`);
 };
+
+$('expense-rows').addEventListener('click', async event => {
+  const button = event.target.closest('[data-expense-post]');
+  if (!button) return;
+  const expenseId = button.dataset.expensePost;
+  const expenseNo = button.dataset.expenseNo || 'this expense';
+  if (!confirm(`Post ${expenseNo}? This will create permanent financial ledger entries. You can cancel later only through a reversal.`)) return;
+
+  button.disabled = true;
+  button.textContent = 'Posting…';
+  message('');
+  const { data, error } = await sb.rpc('expense_post', {
+    p_expense_id: expenseId
+  });
+  if (error) {
+    button.disabled = false;
+    button.textContent = 'Post';
+    message(friendly(error), true);
+    return;
+  }
+  message(`Expense ${expenseNo} posted successfully. Journal ID: ${data}`);
+  await loadExpenses();
+});
 
 $('expense-apply').addEventListener('click', loadExpenses);
 $('expense-refresh').addEventListener('click', loadExpenses);
