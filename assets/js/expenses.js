@@ -57,6 +57,15 @@ $('view').innerHTML = `
       </table>
     </div>
   </section>
+  <dialog id="expense-receipts-dialog" class="expense-receipts-dialog">
+    <div class="expense-receipts-dialog-inner">
+      <h3 id="expense-receipts-title">Expense receipts</h3>
+      <div id="expense-receipts-list"></div>
+      <button id="expense-receipts-close" type="button" class="sec">Close</button>
+    </div>
+  </dialog>
+  <input id="expense-camera-input" type="file" accept="image/*" capture="environment" hidden>
+  <input id="expense-file-input" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" hidden>
 `;
 
 const message = (text, bad = false) => {
@@ -171,13 +180,125 @@ const loadExpenses = async () => {
       <td><span class="expense-status status-${esc(item.status || '')}">${esc(item.status || '')}</span></td>
       <td class="num">${inr(item.amount)}</td>
       <td>${Number(item.receipt_count) || 0}</td>
-      <td>${item.status === 'draft' ? `<button type="button" class="expense-post-button" data-expense-post="${esc(item.expense_id)}" data-expense-no="${esc(item.expense_no || '')}">Post</button>` : '—'}</td>
+      <td class="expense-row-actions">
+        ${item.status !== 'cancelled' ? `<button type="button" class="sec" data-receipt-camera="${esc(item.expense_id)}" data-expense-no="${esc(item.expense_no || '')}">Take photo</button> <button type="button" class="sec" data-receipt-file="${esc(item.expense_id)}" data-expense-no="${esc(item.expense_no || '')}">Upload file</button>` : ''}
+        ${(Number(item.receipt_count) || 0) > 0 ? `<button type="button" class="sec" data-receipt-view="${esc(item.expense_id)}" data-expense-no="${esc(item.expense_no || '')}">View receipts</button>` : ''}
+        ${item.status === 'draft' ? `<button type="button" class="expense-post-button" data-expense-post="${esc(item.expense_id)}" data-expense-no="${esc(item.expense_no || '')}">Post</button>` : ''}
+      </td>
     </tr>
   `).join('') || '<tr><td colspan="9" class="expense-empty">No expenses found for these filters.</td></tr>';
   message(`${rows.length} expense${rows.length === 1 ? '' : 's'} found.`);
 };
 
+
+// Receipt upload: camera capture on supported mobile devices, or choose a PDF/image.
+const receiptBucket = sb.storage.from('expense-receipts');
+let pendingReceiptExpense = null;
+let pendingReceiptNo = null;
+const allowedReceiptTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+const maxReceiptBytes = 15 * 1024 * 1024;
+$('expense-receipts-close').addEventListener('click', () => $('expense-receipts-dialog').close());
+
+function receiptExtension(file) {
+  if (file.type === 'application/pdf') return 'pdf';
+  if (file.type === 'image/jpeg') return 'jpg';
+  if (file.type === 'image/png') return 'png';
+  if (file.type === 'image/webp') return 'webp';
+  return '';
+}
+
+async function uploadExpenseReceipt(file) {
+  if (!pendingReceiptExpense || !file) return;
+  if (!allowedReceiptTypes.includes(file.type) || file.size <= 0 || file.size > maxReceiptBytes) {
+    message('Choose a PDF, JPEG, PNG or WebP file up to 15 MB.', true);
+    return;
+  }
+  const extension = receiptExtension(file);
+  const path = `${pendingReceiptExpense}/${crypto.randomUUID()}.${extension}`;
+  message(`Uploading receipt for ${pendingReceiptNo || 'expense'}…`);
+  const { error: uploadError } = await receiptBucket.upload(path, file, {
+    contentType: file.type,
+    upsert: false
+  });
+  if (uploadError) {
+    message(friendly(uploadError), true);
+    return;
+  }
+  const { data, error: registerError } = await sb.rpc('expense_register_receipt', {
+    p_expense_id: pendingReceiptExpense,
+    p_storage_path: path,
+    p_file_name: file.name
+  });
+  if (registerError) {
+    // The bucket intentionally has no client DELETE policy. Keep the uploaded
+    // object private and report registration failure for controlled cleanup.
+    message(`File uploaded but receipt registration failed: ${friendly(registerError)}. Please contact an administrator for cleanup.`, true);
+    return;
+  }
+  message(`Receipt uploaded and registered successfully. Receipt ID: ${data}`);
+  await loadExpenses();
+}
+
+$('expense-camera-input').addEventListener('change', async () => {
+  const file = $('expense-camera-input').files?.[0];
+  await uploadExpenseReceipt(file);
+  $('expense-camera-input').value = '';
+});
+$('expense-file-input').addEventListener('change', async () => {
+  const file = $('expense-file-input').files?.[0];
+  await uploadExpenseReceipt(file);
+  $('expense-file-input').value = '';
+});
+
+async function showExpenseReceipts(expenseId, expenseNo) {
+  $('expense-receipts-title').textContent = `Receipts — ${expenseNo || 'Expense'}`;
+  $('expense-receipts-list').textContent = 'Loading receipts…';
+  $('expense-receipts-dialog').showModal();
+  const { data, error } = await sb.rpc('expense_get_detail', { p_expense_id: expenseId });
+  if (error) {
+    $('expense-receipts-list').textContent = friendly(error);
+    return;
+  }
+  const receipts = (data || []).filter(row => row.receipt_id);
+  if (!receipts.length) {
+    $('expense-receipts-list').textContent = 'No receipts attached to this expense.';
+    return;
+  }
+  $('expense-receipts-list').innerHTML = receipts.map(receipt => `
+    <div class="expense-receipt-item">
+      <div><strong>${esc(receipt.receipt_file_name || 'Receipt')}</strong><br>
+      <small>${esc(receipt.receipt_mime_type || '')} · ${(Number(receipt.receipt_file_size) / 1024 / 1024).toFixed(2)} MB</small></div>
+      <button type="button" class="sec" data-receipt-open="${esc(receipt.receipt_storage_path)}">Open</button>
+    </div>`).join('');
+}
+$('expense-receipts-list').addEventListener('click', async event => {
+  const button = event.target.closest('[data-receipt-open]');
+  if (!button) return;
+  button.disabled = true;
+  const { data, error } = await receiptBucket.createSignedUrl(button.dataset.receiptOpen, 300);
+  button.disabled = false;
+  if (error) {
+    $('expense-receipts-list').insertAdjacentText('beforeend', ` Unable to open receipt: ${friendly(error)}`);
+    return;
+  }
+  window.open(data.signedUrl, '_blank', 'noopener');
+});
+
 $('expense-rows').addEventListener('click', async event => {
+  const cameraButton = event.target.closest('[data-receipt-camera]');
+  const fileButton = event.target.closest('[data-receipt-file]');
+  const viewButton = event.target.closest('[data-receipt-view]');
+  if (cameraButton || fileButton) {
+    const source = cameraButton || fileButton;
+    pendingReceiptExpense = source.dataset.receiptCamera || source.dataset.receiptFile;
+    pendingReceiptNo = source.dataset.expenseNo || '';
+    (cameraButton ? $('expense-camera-input') : $('expense-file-input')).click();
+    return;
+  }
+  if (viewButton) {
+    await showExpenseReceipts(viewButton.dataset.receiptView, viewButton.dataset.expenseNo || '');
+    return;
+  }
   const button = event.target.closest('[data-expense-post]');
   if (!button) return;
   const expenseId = button.dataset.expensePost;
