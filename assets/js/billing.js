@@ -171,7 +171,7 @@ async function add(med) {
   `;
 
   $('bd').showModal();
-}
+};
 
 $('bl').onclick = e => {
   const btn = e.target.closest('[data-bid]');
@@ -180,8 +180,19 @@ $('bl').onclick = e => {
   const b = pendingBatches.find(x => x.id === btn.dataset.bid);
   if (!b) return;
 
+  // Prevent selecting the same batch twice
   if (cart.some(c => c.batch_id === b.id)) {
-    return note('This batch is already added to the bill.', true);
+    $('bl').querySelector('#batchError')?.remove();
+
+    const warning = document.createElement('p');
+    warning.id = 'batchError';
+    warning.style.color = '#dc2626';
+    warning.style.fontWeight = 'bold';
+    warning.style.margin = '10px 0';
+    warning.textContent = 'This batch is already added to the bill.';
+
+    $('bl').prepend(warning);
+    return;
   }
 
   cart.push({
