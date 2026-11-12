@@ -165,7 +165,7 @@ async function add(med) {
         style="display:block;width:100%;text-align:left;margin:5px 0;padding:10px">
         Batch: ${esc(b.batch_no)}
         · Exp: ${esc(b.expiry)}
-        · Stock: ${inr(b.qty)}
+        · Stock: ${Number(b.qty).toLocaleString('en-IN')}
       </button>
     `).join('')}
   `;
