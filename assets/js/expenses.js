@@ -184,6 +184,7 @@ const loadExpenses = async () => {
         ${item.status !== 'cancelled' ? `<button type="button" class="sec" data-receipt-camera="${esc(item.expense_id)}" data-expense-no="${esc(item.expense_no || '')}">Take photo</button> <button type="button" class="sec" data-receipt-file="${esc(item.expense_id)}" data-expense-no="${esc(item.expense_no || '')}">Upload file</button>` : ''}
         ${(Number(item.receipt_count) || 0) > 0 ? `<button type="button" class="sec" data-receipt-view="${esc(item.expense_id)}" data-expense-no="${esc(item.expense_no || '')}">View receipts</button>` : ''}
         ${item.status === 'draft' ? `<button type="button" class="expense-post-button" data-expense-post="${esc(item.expense_id)}" data-expense-no="${esc(item.expense_no || '')}">Post</button>` : ''}
+        ${item.status === 'posted' ? `<button type="button" class="sec expense-cancel-button" data-expense-cancel="${esc(item.expense_id)}" data-expense-no="${esc(item.expense_no || '')}">Cancel expense</button>` : ''}
       </td>
     </tr>
   `).join('') || '<tr><td colspan="9" class="expense-empty">No expenses found for these filters.</td></tr>';
@@ -299,6 +300,36 @@ $('expense-rows').addEventListener('click', async event => {
     await showExpenseReceipts(viewButton.dataset.receiptView, viewButton.dataset.expenseNo || '');
     return;
   }
+  const cancelButton = event.target.closest('[data-expense-cancel]');
+  if (cancelButton) {
+    const expenseId = cancelButton.dataset.expenseCancel;
+    const expenseNo = cancelButton.dataset.expenseNo || 'this expense';
+    const reason = window.prompt(`Enter the reason for cancelling ${expenseNo}:`);
+    if (reason === null) return;
+    if (!reason.trim()) {
+      message('A cancellation reason is required.', true);
+      return;
+    }
+    if (!confirm(`Cancel ${expenseNo}? This will create a reversal journal. Original ledger entries will remain unchanged.`)) return;
+
+    cancelButton.disabled = true;
+    cancelButton.textContent = 'Cancelling…';
+    message('');
+    const { data, error } = await sb.rpc('expense_cancel', {
+      p_expense_id: expenseId,
+      p_reason: reason.trim()
+    });
+    if (error) {
+      cancelButton.disabled = false;
+      cancelButton.textContent = 'Cancel expense';
+      message(friendly(error), true);
+      return;
+    }
+    message(`Expense ${expenseNo} cancelled successfully. Reversal journal ID: ${data}`);
+    await loadExpenses();
+    return;
+  }
+
   const button = event.target.closest('[data-expense-post]');
   if (!button) return;
   const expenseId = button.dataset.expensePost;
