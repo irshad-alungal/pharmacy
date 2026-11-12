@@ -57,6 +57,24 @@ $('view').innerHTML = `
       </table>
     </div>
   </section>
+  <section class="card expense-reports-card">
+    <div class="expense-toolbar-head">
+      <div><h3>Expense reports</h3><p class="muted">Posted expenses only. Drafts and cancelled expenses are excluded.</p></div>
+      <button id="expense-report-refresh" type="button" class="sec">Refresh reports</button>
+    </div>
+    <div class="expense-filters expense-report-filters">
+      <label>Report from<input id="expense-report-from" type="date"></label>
+      <label>Report to<input id="expense-report-to" type="date"></label>
+      <button id="expense-report-apply" type="button">Apply report dates</button>
+      <button id="expense-report-clear" type="button" class="sec">Clear dates</button>
+    </div>
+    <div id="expense-report-message" role="status" aria-live="polite"></div>
+    <div class="expense-report-grid">
+      <section class="expense-report-panel"><h4>Daily expenses</h4><div class="expense-table-wrap"><table class="expense-table"><thead><tr><th>Date</th><th>Count</th><th class="num">Total</th></tr></thead><tbody id="expense-report-daily"><tr><td colspan="3">Loading…</td></tr></tbody></table></div></section>
+      <section class="expense-report-panel"><h4>Monthly expenses</h4><div class="expense-table-wrap"><table class="expense-table"><thead><tr><th>Month</th><th>Count</th><th class="num">Total</th></tr></thead><tbody id="expense-report-monthly"><tr><td colspan="3">Loading…</td></tr></tbody></table></div></section>
+      <section class="expense-report-panel"><h4>Category-wise expenses</h4><div class="expense-table-wrap"><table class="expense-table"><thead><tr><th>Category</th><th>Count</th><th class="num">Total</th></tr></thead><tbody id="expense-report-category"><tr><td colspan="3">Loading…</td></tr></tbody></table></div></section>
+    </div>
+  </section>
   <dialog id="expense-receipts-dialog" class="expense-receipts-dialog">
     <div class="expense-receipts-dialog-inner">
       <h3 id="expense-receipts-title">Expense receipts</h3>
@@ -352,6 +370,54 @@ $('expense-rows').addEventListener('click', async event => {
   await loadExpenses();
 });
 
+const reportMessage = (text, bad = false) => {
+  $('expense-report-message').textContent = text || '';
+  $('expense-report-message').className = bad ? 'expense-error' : 'expense-message';
+};
+
+const renderSummaryRows = (rows, target, labelField, emptyText) => {
+  $(target).innerHTML = rows.length ? rows.map(row => `
+    <tr><td>${esc(row[labelField] || '')}</td><td>${Number(row.expense_count) || 0}</td><td class="num">${inr(row.total_amount)}</td></tr>
+  `).join('') : `<tr><td colspan="3" class="expense-empty">${emptyText}</td></tr>`;
+};
+
+const loadExpenseReports = async () => {
+  const from = $('expense-report-from').value || null;
+  const to = $('expense-report-to').value || null;
+  if (from && to && from > to) {
+    reportMessage('The report From date must be on or before the To date.', true);
+    return;
+  }
+  reportMessage('Loading expense reports…');
+  const { data, error } = await sb.rpc('expense_get_summary', {
+    p_from: from,
+    p_to: to
+  });
+  if (error) {
+    for (const id of ['expense-report-daily','expense-report-monthly','expense-report-category']) {
+      $(id).innerHTML = '<tr><td colspan="3">Unable to load report.</td></tr>';
+    }
+    reportMessage(friendly(error), true);
+    return;
+  }
+  const rows = data || [];
+  const daily = rows.filter(row => row.summary_type === 'daily').sort((a,b) => String(b.period).localeCompare(String(a.period)));
+  const monthly = rows.filter(row => row.summary_type === 'monthly').sort((a,b) => String(b.period).localeCompare(String(a.period)));
+  const category = rows.filter(row => row.summary_type === 'category').sort((a,b) => Number(b.total_amount) - Number(a.total_amount));
+  renderSummaryRows(daily, 'expense-report-daily', 'period', 'No posted expenses in this period.');
+  renderSummaryRows(monthly, 'expense-report-monthly', 'period', 'No posted expenses in this period.');
+  renderSummaryRows(category, 'expense-report-category', 'category_name', 'No posted expenses in this period.');
+  reportMessage(`${rows.length ? 'Reports updated.' : 'No posted expenses found for this period.'} Drafts and cancelled expenses are excluded.`);
+};
+
+$('expense-report-apply').addEventListener('click', loadExpenseReports);
+$('expense-report-refresh').addEventListener('click', loadExpenseReports);
+$('expense-report-clear').addEventListener('click', () => {
+  $('expense-report-from').value = '';
+  $('expense-report-to').value = '';
+  loadExpenseReports();
+});
+
 $('expense-apply').addEventListener('click', loadExpenses);
 $('expense-refresh').addEventListener('click', loadExpenses);
 $('expense-clear').addEventListener('click', () => {
@@ -363,3 +429,4 @@ $('expense-clear').addEventListener('click', () => {
 
 loadCategories();
 loadExpenses();
+loadExpenseReports();
