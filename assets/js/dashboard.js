@@ -41,6 +41,14 @@ view.innerHTML = `
   </section>
   <div id="dash-status" class="dash-status" role="status">Loading branch data…</div>
   <section class="dash-grid dash-kpis" id="dash-kpis"></section>
+  <section class="dash-panel" id="dash-expense-report">
+    <div class="dash-panel-head"><h3>Expenses overview</h3><a href="expenses.html">Open expenses</a></div>
+    <div id="dash-expense-kpis" class="dash-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:10px"><p class="dash-muted">Loading expense totals…</p></div>
+    <div class="dash-columns" style="margin-bottom:0">
+      <div><h4>Current month by category</h4><div id="dash-expense-categories" class="dash-list"><p class="dash-muted">Loading…</p></div></div>
+      <div><h4>Daily totals this month</h4><div id="dash-expense-daily" class="dash-table-wrap"><p class="dash-muted">Loading…</p></div></div>
+    </div>
+  </section>
   <section class="dash-columns">
     <article class="dash-panel"><div class="dash-panel-head"><h3>Inventory alerts</h3><a href="inventory.html">Open inventory</a></div><div id="dash-stock" class="dash-list"><p class="dash-muted">Loading…</p></div></article>
     <article class="dash-panel"><div class="dash-panel-head"><h3>Expiry watch</h3><a href="medicines.html">Medicines</a></div><div id="dash-expiry" class="dash-list"><p class="dash-muted">Loading…</p></div></article>
@@ -87,10 +95,12 @@ async function loadDashboard() {
     safe(sb.rpc('customer_dues')),
     safe(sb.rpc('payable_balances')),
     safe(sb.rpc('ledger_summary', { p_from: dateKey, p_to: dateKey })),
-    safe(sb.rpc('invoice_search', { p_q: '', p_limit: 8 }))
+    safe(sb.rpc('invoice_search', { p_q: '', p_limit: 8 })),
+    safe(sb.rpc('expense_get_summary', { p_from: dateKey, p_to: dateKey })),
+    safe(sb.rpc('expense_get_summary', { p_from: `${year}-${String(month).padStart(2, '0')}-01`, p_to: dateKey }))
   ]);
 
-  const [sales, purchases, salesReturns, purchaseReturns, lowStock, batches, dues, payables, ledger, recentSales] = jobs;
+  const [sales, purchases, salesReturns, purchaseReturns, lowStock, batches, dues, payables, ledger, recentSales, todayExpenses, monthExpenses] = jobs;
   const todayPurchases = (purchases || []).filter(p => String(p.invoice_date || '').slice(0, 10) === dateKey);
   const todaySalesTotal = (sales || []).reduce((sum, row) => sum + Number(row.total || 0), 0);
   const todayPurchaseTotal = todayPurchases.reduce((sum, row) => sum + Number(row.total || 0), 0);
@@ -103,6 +113,30 @@ async function loadDashboard() {
     { label: 'Sales returns today', value: money(todaySalesReturnTotal), note: `${count(salesReturns?.length || 0)} return entries` },
     { label: 'Purchase returns today', value: money(todayPurchaseReturnTotal), note: `${count(purchaseReturns?.length || 0)} return entries` }
   ]);
+
+  // Expense summaries are returned only to Admin/Super Admin by the protected RPC.
+  const todayExpenseRows = (todayExpenses || []).filter(r => r.summary_type === 'daily');
+  const monthExpenseRows = (monthExpenses || []).filter(r => r.summary_type === 'monthly');
+  const categoryExpenseRows = (monthExpenses || []).filter(r => r.summary_type === 'category')
+    .sort((a, b) => Number(b.total_amount || 0) - Number(a.total_amount || 0));
+  const dailyExpenseTotal = todayExpenseRows.reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
+  const monthExpenseTotal = monthExpenseRows.reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
+  const todayExpenseCount = todayExpenseRows.reduce((sum, r) => sum + Number(r.expense_count || 0), 0);
+  const monthExpenseCount = monthExpenseRows.reduce((sum, r) => sum + Number(r.expense_count || 0), 0);
+  document.getElementById('dash-expense-kpis').innerHTML = [
+    { label: "Today's posted expenses", value: money(dailyExpenseTotal), note: `${count(todayExpenseCount)} posted entries` },
+    { label: 'This month’s expenses', value: money(monthExpenseTotal), note: `${count(monthExpenseCount)} posted entries` }
+  ].map(item => `<article class="dash-kpi"><span>${esc(item.label)}</span><strong>${esc(item.value)}</strong><small>${esc(item.note)}</small></article>`).join('');
+  renderRows('dash-expense-categories', categoryExpenseRows, 'No posted expenses this month.', row =>
+    `<div class="dash-row"><span>${esc(row.category_name || 'Uncategorised')}<small>${count(row.expense_count)} entries</small></span><b>${money(row.total_amount)}</b></div>`);
+  document.getElementById('dash-expense-daily').innerHTML = tableMarkup(
+    (monthExpenses || []).filter(r => r.summary_type === 'daily').sort((a, b) => String(b.period).localeCompare(String(a.period))),
+    'No posted expenses this month.', [
+      { label: 'Date', value: r => r.period },
+      { label: 'Count', value: r => count(r.expense_count) },
+      { label: 'Total', value: r => money(r.total_amount) }
+    ]
+  );
 
   renderRows('dash-stock', lowStock, 'No low-stock medicines reported.', row => `
     <div class="dash-row"><span><strong>${esc(row.name)}</strong><small>Reorder level: ${count(row.reorder_level)}</small></span><b>${count(row.sellable)} left</b></div>`);
