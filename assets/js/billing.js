@@ -14,7 +14,6 @@ if (!allowedRoles.includes(prof.role)) {
 }
 
 const $ = id => document.getElementById(id);
-$('billDate').textContent = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeZone: 'Asia/Kolkata' }).format(new Date());
 
 $('view').innerHTML = `
 <div class="billing-page">
@@ -62,6 +61,9 @@ $('view').innerHTML = `
 </div>
 <dialog id="hd" class="billing-dialog"><div id="hl"></div><button class="sec" onclick="this.closest('dialog').close()">Close</button></dialog>
 <dialog id="bd" class="billing-dialog"><div id="bl"></div><button class="sec" id="bc" type="button">Close</button></dialog>`;
+
+// The bill date element is created by the markup above, so populate it only after mounting the form.
+$('billDate').textContent = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeZone: 'Asia/Kolkata' }).format(new Date());
 
 let cart = [], cust = null, avail = 0, pays = [{ method: 'cash', amount: '' }];
 let pendingMed = null;
