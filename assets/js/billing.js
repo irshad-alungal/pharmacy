@@ -53,9 +53,8 @@ async function setCust(c) {
     avail = Math.max(0, (+c.credit_limit || 0) - (+data || 0));
   }
 
-  if (!c || avail <= 0) pays.forEach(p => {
-    if (p.method === 'credit') p.method = 'cash';
-  });
+  // Credit is represented by the server-generated unpaid remainder, not a cashier-entered row.
+  pays.forEach(p => { if (p.method === 'credit') p.method = 'cash'; });
 
   renderCust();
   renderPays();
@@ -252,7 +251,7 @@ $('res').onclick = e => {
 
 // ---- payments (split)
 function renderPays() {
-  const ms = ['cash', 'upi', 'card', ...(cust && avail > 0 ? ['credit'] : [])];
+  const ms = ['cash', 'upi', 'card'];
 
   $('pays').innerHTML = pays.map((p, i) => `<div style="display:flex;gap:.4rem;margin:.3rem 0"><select data-m="${i}">${ms.map(m => `<option value="${m}" ${m === p.method ? 'selected' : ''}>${m.toUpperCase()}</option>`).join('')}</select>
   <input type="number" min="0" step="0.01" data-a="${i}" value="${p.amount}" placeholder="${pays.length === 1 ? 'full amount' : 'amount'}" style="width:9rem"><button class="sec" data-r="${i}">✕</button></div>`).join('');
@@ -268,7 +267,7 @@ function paidSum() {
 function updateTot() {
   $('tot').textContent = `Total ${inr(total())}`;
   const r = Math.round((total() - paidSum()) * 100) / 100;
-  $('rem').textContent = r === 0 ? '' : r > 0 ? `Remaining to allocate: ${inr(r)}` : `Over by ${inr(-r)}`;
+  $('rem').textContent = r === 0 ? '' : r > 0 ? (cust ? `Customer due (subject to credit limit): ${inr(r)}` : `Remaining: ${inr(r)} — select a customer for credit`) : `Over by ${inr(-r)}`;
   $('rem').style.color = r === 0 ? '' : '#b91c1c';
 }
 
@@ -326,10 +325,14 @@ $('pay').onclick = async () => {
     amount: pays.length === 1 && p.amount === '' ? total() : +p.amount
   })).filter(p => p.amount > 0);
 
-  if (paidSum() !== total()) return note('Payments must add up to the total.', true);
+  const cashPaid = paidSum();
+  const due = Math.round((total() - cashPaid) * 100) / 100;
+  if (due < 0) return note('Payments cannot exceed the bill total.', true);
+  if (due > 0 && !cust) return note('Select a customer before leaving an unpaid balance.', true);
+  if (due > avail) return note(`Customer credit limit exceeded. Available: ${inr(avail)}.`, true);
 
   $('pay').disabled = true;
-  note('Saving…');
+  note(due > 0 ? `Saving bill with ${inr(due)} customer balance…` : 'Saving…');
 
   const { data, error } = await sb.rpc('finalize_sale', {
     p_customer: cust?.id ?? null,
@@ -343,7 +346,7 @@ $('pay').onclick = async () => {
 
   const det = await sb.rpc('invoice_detail', { p_invoice: data });
   reset();
-  note('Bill saved.');
+  note(due > 0 ? `Bill saved. Customer balance added: ${inr(due)}.` : 'Bill saved.');
 
   if (det.error) return note('Bill saved, but the invoice could not be loaded: ' + friendly(det.error), true);
   showInvoice(det.data);
