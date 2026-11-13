@@ -51,7 +51,7 @@ v.innerHTML = `
   .med-toolbar input[type=search]{flex:1;min-width:240px}.med-card{background:#fff;border:1px solid #d8e3df;border-radius:14px;padding:16px;box-shadow:0 3px 14px #102c2410}
   .med-table-wrap{overflow:auto}.med-table{width:100%;border-collapse:collapse;min-width:780px}.med-table th{background:#eff5f2;color:#526b65;font-size:12px;text-align:left;padding:12px}.med-table td{padding:11px 12px;border-top:1px solid #e4ece8;vertical-align:middle}
   .med-name-cell{display:flex;align-items:center;gap:10px;min-width:210px}.med-thumb{width:42px;height:42px;border-radius:9px;object-fit:cover;background:#eff4f1;border:1px solid #dce6e1}.med-thumb-placeholder{display:grid;place-items:center;color:#0b8177;font-weight:800}
-  .med-actions{display:flex;gap:6px;flex-wrap:wrap}.med-primary{background:#087f75;color:#fff;border:1px solid #087f75}.med-secondary{background:#fff;color:#087f75;border:1px solid #0c8c80}.med-field{display:grid;gap:6px}.med-field label{font-size:13px;font-weight:700;color:#20332f}.med-field input,.med-field textarea{width:100%;box-sizing:border-box}.med-field textarea{min-height:132px;resize:vertical}.med-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.med-span-2{grid-column:1/-1}.med-checks{display:flex;gap:22px;flex-wrap:wrap;padding:12px;background:#f4f8f6;border-radius:10px}.med-checks label{display:flex;align-items:center;gap:8px;font-weight:600}.med-dialog{border:0;border-radius:16px;padding:0;width:min(900px,94vw);max-height:90vh;box-shadow:0 20px 70px #102b2570}.med-dialog::backdrop{background:#102b2580}.med-dialog-inner{padding:22px;max-height:90vh;overflow:auto}.med-dialog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}.med-detail-grid{display:grid;grid-template-columns:170px 1fr;gap:18px;align-items:start}.med-detail-photo{width:160px;height:160px;border-radius:14px;object-fit:cover;background:#eff4f1;border:1px solid #dce6e1}.med-kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.med-kv div{background:#f5f8f6;border-radius:9px;padding:10px}.med-kv small{display:block;color:#6a817a;margin-bottom:4px}.med-stock{width:100%;border-collapse:collapse;min-width:480px}.med-stock th,.med-stock td{padding:10px;border-bottom:1px solid #e2eae6;text-align:left}.med-stock th{background:#eff5f2;font-size:12px}.med-muted{color:#6d817b;font-size:12px}
+  .med-actions{display:flex;gap:6px;flex-wrap:wrap}.med-primary{background:#087f75;color:#fff;border:1px solid #087f75}.med-secondary{background:#fff;color:#087f75;border:1px solid #0c8c80}.med-field{display:grid;gap:6px}.med-field label{font-size:13px;font-weight:700;color:#20332f}.med-field input,.med-field textarea{width:100%;box-sizing:border-box}.med-field textarea{min-height:132px;resize:vertical}.med-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.med-span-2{grid-column:1/-1}.med-checks{display:flex;gap:22px;flex-wrap:wrap;padding:12px;background:#f4f8f6;border-radius:10px}.med-checks label{display:flex;align-items:center;gap:8px;font-weight:600}.med-dialog{border:0;border-radius:16px;padding:0;width:min(900px,94vw);max-height:90vh;box-shadow:0 20px 70px #102b2570}.med-dialog::backdrop{background:#102b2580}.med-dialog-inner{padding:22px;max-height:90vh;overflow:auto}.med-dialog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}.med-detail-grid{display:grid;grid-template-columns:170px 1fr;gap:18px;align-items:start}.med-detail-photo{width:160px;height:160px;border-radius:14px;object-fit:cover;background:#eff4f1;border:1px solid #dce6e1}.med-kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.med-kv div{background:#f5f8f6;border-radius:9px;padding:10px}.med-kv small{display:block;color:#6a817a;margin-bottom:4px}.med-ingredient-profile-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.med-ingredient-profile-row b{flex:1;min-width:120px;overflow-wrap:anywhere}.med-ingredient-profile-row button:disabled{opacity:.45;cursor:not-allowed}.med-stock{width:100%;border-collapse:collapse;min-width:480px}.med-stock th,.med-stock td{padding:10px;border-bottom:1px solid #e2eae6;text-align:left}.med-stock th{background:#eff5f2;font-size:12px}.med-muted{color:#6d817b;font-size:12px}
   @media(max-width:700px){.med-grid,.med-kv{grid-template-columns:1fr}.med-span-2{grid-column:auto}.med-detail-grid{grid-template-columns:1fr}.med-detail-photo{width:120px;height:120px}}
 </style>
 <div class="med-page">
@@ -65,7 +65,7 @@ v.innerHTML = `
 <dialog id="dlg" class="med-dialog"><div class="med-dialog-inner"><div class="med-dialog-head"><div><div style="font-size:11px;letter-spacing:.12em;color:#087f75;font-weight:800">MEDICINE DETAILS</div><h3 id="dt" style="margin:5px 0">Add medicine</h3><div class="med-muted">Only the listed medicine identity and storage details are shown here.</div></div><button type="button" class="sec" id="cancel">Close</button></div>
   <form id="f" method="dialog" style="display:grid;gap:16px"><input type="hidden" name="id"><div class="med-grid">
     <div class="med-field med-span-2"><label>Medicine name *</label><input name="name" placeholder="Enter medicine name" required></div>
-    <div class="med-field med-span-2"><label>Ingredients</label><div style="display:flex;gap:8px;align-items:stretch"><textarea name="ingredients" placeholder="Enter active ingredients / ingredient names. You can include multiple ingredients."></textarea><button type="button" class="sec" id="ingredientSearch" style="white-space:nowrap;align-self:flex-start">Search Google ↗</button></div><small class="med-muted">Search opens a new tab for other products containing these ingredients.</small></div>
+    <div class="med-field med-span-2"><label>Ingredients</label><textarea name="ingredients" placeholder="Enter active ingredients / ingredient names. You can include multiple ingredients."></textarea></div>
     <div class="med-field"><label>Brand</label><input name="brand" placeholder="Brand name"></div>
     <div class="med-field"><label>Generic name</label><input name="generic_name" placeholder="Generic name"></div>
     <div class="med-field med-span-2"><label>Composition</label><textarea name="composition" style="min-height:82px" placeholder="Composition details"></textarea></div>
@@ -459,13 +459,6 @@ $('rows').onclick = async e => {
 // Page controls
 $('new').onclick = () => open();
 
-$('ingredientSearch').onclick = () => {
-  const ingredients = $('f').ingredients.value.trim();
-  if (!ingredients) { $('err').textContent = 'Enter ingredients before searching.'; return; }
-  const query = `medicines containing ${ingredients} alternatives brands`;
-  window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
-};
-
 $('cancelBottom').onclick = $('cancel').onclick = () => $('dlg').close();
 $('viewClose').onclick = () => $('viewMedicine').close();
 
@@ -489,11 +482,17 @@ async function showMedicine(id) {
       <div><small>Medicine name</small><b>${esc(m.name)}</b></div><div><small>Brand</small><b>${esc(m.brand || '—')}</b></div>
       <div><small>Generic name</small><b>${esc(m.generic_name || '—')}</b></div><div><small>Strength</small><b>${esc(m.strength || '—')}</b></div>
       <div><small>Composition</small><b>${esc(m.composition || '—')}</b></div><div><small>Rack / Shelf</small><b>${esc(m.rack || '—')}</b></div>
-      <div><small>Ingredients</small><b>${esc(m.ingredients || '—')}</b></div><div><small>Doctor sheet required</small><b>${m.need_doctor_sheet ? 'Yes' : 'No'}</b></div>
+      <div class="med-ingredient-profile"><small>Ingredients</small><div class="med-ingredient-profile-row"><b>${esc(m.ingredients || '—')}</b><button type="button" class="sec" data-search-ingredients="${m.id}" ${m.ingredients ? '' : 'disabled'}>Search Google ↗</button></div></div><div><small>Doctor sheet required</small><b>${m.need_doctor_sheet ? 'Yes' : 'No'}</b></div>
       <div><small>Status</small><b>${m.active ? 'Active' : 'Inactive'}</b></div><div><small>Current total stock</small><b>${stock}</b></div>
     </div></div></div>
     <section style="margin-top:22px"><h3>Current batch stock</h3>${batchError ? `<p style="color:#b91c1c">${esc(friendly(batchError))}</p>` : `<div style="overflow:auto"><table class="med-stock"><thead><tr><th>Batch number</th><th>Expiry date</th><th>Current stock</th><th>Status</th></tr></thead><tbody>${(batches || []).map(b => `<tr><td>${esc(b.batch_no)}</td><td>${esc(b.expiry)}</td><td>${Number(b.qty).toLocaleString('en-IN')}</td><td>${b.quarantined ? 'Quarantined' : Number(b.qty) > 0 ? 'Available' : 'Out of stock'}</td></tr>`).join('') || '<tr><td colspan="4">No purchase batches recorded yet.</td></tr>'}</tbody></table></div>`}</section>`;
   $('viewContent').querySelector('[data-view-photos]')?.addEventListener('click', () => { $('viewMedicine').close(); document.querySelector(`[data-photos="${id}"]`)?.click(); });
+  $('viewContent').querySelector('[data-search-ingredients]')?.addEventListener('click', () => {
+    const ingredients = (m.ingredients || '').trim();
+    if (!ingredients) return;
+    const query = `medicines and other brands containing ${ingredients} alternatives`;
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
+  });
 }
 $('rows').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) showMedicine(b.dataset.view); });
 
