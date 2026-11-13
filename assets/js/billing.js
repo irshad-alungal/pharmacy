@@ -66,8 +66,7 @@ $('view').innerHTML = `
 $('billDate').textContent = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeZone: 'Asia/Kolkata' }).format(new Date());
 
 let cart = [], cust = null, avail = 0, pays = [{ method: 'cash', amount: '' }];
-let pendingMed = null;
-let pendingBatches = [];
+let allocationRun = 0;
 
 const note = (m, bad) => {
   $('msg').style.color = bad ? '#b91c1c' : '';
@@ -150,116 +149,113 @@ function renderCust() {
   };
 }
 
-// ---- cart
+// ---- cart and automatic FEFO batch allocation
+const groupKey = med => String(med.id);
+const groupRows = key => cart.filter(row => row.group_key === key);
+const groupRequestedQty = key => groupRows(key)[0]?.requested_qty || 0;
+
 function renderCart() {
-  $('cart').innerHTML = cart.map((c, i) => `<tr>
-    <td>${i + 1}</td><td><strong>${esc(c.name)}</strong><small class="table-subtext">${esc(c.strength || '')}</small></td>
-    <td>${esc(c.shelf_location || '—')}</td><td>${esc(c.batch_no)}</td><td>${esc(c.expiry)}</td>
-    <td>${inr(c.price)}</td><td><input aria-label="Quantity for ${esc(c.name)}" type="number" min="1" max="${c.stock}" value="${c.qty}" data-i="${i}" class="qty-input"></td>
-    <td><span class="not-ready-value">—</span></td><td>${Number(c.tax_rate || 0)}%</td>
-    <td class="align-right"><strong>${inr(c.price * c.qty)}</strong></td><td><button class="remove-item" aria-label="Remove ${esc(c.name)}" data-x="${i}">×</button></td>
-  </tr>`).join('') || '<tr><td colspan="11" class="empty-cart">Your bill is empty. Search and add a medicine above.</td></tr>';
-  $('totalItems').textContent = cart.length;
+  const groups = [...new Set(cart.map(row => row.group_key))];
+  $('cart').innerHTML = cart.map((c, i) => {
+    const rows = groupRows(c.group_key);
+    const first = rows[0] === c;
+    return `<tr>
+      <td>${i + 1}</td><td><strong>${esc(c.name)}</strong><small class="table-subtext">${esc(c.strength || '')}${rows.length > 1 ? ` · FEFO split ${rows.indexOf(c) + 1}/${rows.length}` : ''}</small></td>
+      <td>${esc(c.shelf_location || '—')}</td><td>${esc(c.batch_no)}</td><td>${esc(c.expiry)}</td>
+      <td>${inr(c.price)}</td><td>${first ? `<input aria-label="Total quantity for ${esc(c.name)}" type="number" min="1" step="1" value="${c.requested_qty}" data-group-qty="${esc(c.group_key)}" class="qty-input">` : `<strong>${Number(c.qty).toLocaleString('en-IN')}</strong>`}</td>
+      <td><span class="not-ready-value">—</span></td><td>${Number(c.tax_rate || 0)}%</td>
+      <td class="align-right"><strong>${inr(c.price * c.qty)}</strong></td><td>${first ? `<button class="remove-item" aria-label="Remove ${esc(c.name)}" data-group-remove="${esc(c.group_key)}">×</button>` : ''}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="11" class="empty-cart">Your bill is empty. Search and add a medicine above.</td></tr>';
+  $('totalItems').textContent = groups.length;
   $('totalQty').textContent = cart.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+  const shortage = [...new Set(cart.filter(x => x.shortage).map(x => x.name))];
+  if (shortage.length) note(`Insufficient stock for: ${shortage.join(', ')}. Reduce the quantity to continue.`, true);
   updateTot();
 }
 
-$('cart').onchange = e => {
-  const i = e.target.dataset.i;
-  if (i !== undefined) {
-    cart[i].qty = Math.min(Math.max(1, +e.target.value || 1), cart[i].stock);
-    renderCart();
-  }
+$('cart').onchange = async e => {
+  const key = e.target.dataset.groupQty;
+  if (!key) return;
+  const qty = Math.max(1, Math.floor(Number(e.target.value) || 1));
+  const current = groupRows(key)[0];
+  if (!current) return;
+  await allocateMedicine(current.medicine, qty, key);
 };
 
 $('cart').onclick = e => {
-  const x = e.target.dataset.x;
-  if (x !== undefined) {
-    cart.splice(+x, 1);
+  const key = e.target.dataset.groupRemove;
+  if (key) {
+    cart = cart.filter(row => row.group_key !== key);
     renderCart();
+    note('Medicine removed from bill.');
   }
 };
 
-// ---- manual batch selection
-async function add(med) {
-  const today = new Date().toISOString().slice(0, 10);
-
+async function fetchEligibleBatches(medicineId) {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   const { data, error } = await sb.from('medicine_batches')
-    .select('id,batch_no,expiry,qty')
+    .select('id,batch_no,expiry,qty,quarantined')
     .eq('branch_id', prof.branch_id)
-    .eq('medicine_id', med.id)
+    .eq('medicine_id', medicineId)
     .eq('quarantined', false)
-    .gte('expiry', today)
     .gt('qty', 0)
-    .order('expiry');
+    .gt('expiry', today)
+    .order('expiry', { ascending: true })
+    .order('batch_no', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
 
-  if (error) return note(friendly(error), true);
-
-  if (!data?.length) {
-    return note(`${med.name}: no sellable stock`, true);
+async function allocateMedicine(med, requestedQty, key = groupKey(med)) {
+  const run = ++allocationRun;
+  note(`Allocating ${requestedQty} ${med.name} by earliest expiry…`);
+  try {
+    const batches = await fetchEligibleBatches(med.id);
+    if (run !== allocationRun) return;
+    const available = batches.reduce((sum, b) => sum + Number(b.qty || 0), 0);
+    let remaining = requestedQty;
+    const allocated = [];
+    for (const b of batches) {
+      if (remaining <= 0) break;
+      const take = Math.min(remaining, Number(b.qty || 0));
+      if (take <= 0) continue;
+      allocated.push({
+        group_key: key, medicine_id: med.id, medicine: med,
+        batch_id: b.id, name: med.name, strength: med.strength,
+        batch_no: b.batch_no, expiry: b.expiry, stock: Number(b.qty),
+        price: Number(med.selling_price), shelf_location: med.shelf_location || '',
+        tax_rate: Number(med.tax_rate || 0), qty: take,
+        requested_qty: requestedQty, shortage: false
+      });
+      remaining -= take;
+    }
+    if (!allocated.length) {
+      cart = cart.filter(row => row.group_key !== key);
+      renderCart();
+      return note(`${med.name}: no eligible, unexpired stock available.`, true);
+    }
+    if (remaining > 0) allocated.forEach(row => row.shortage = true);
+    cart = cart.filter(row => row.group_key !== key).concat(allocated);
+    renderCart();
+    if (remaining > 0) {
+      note(`${med.name}: requested ${requestedQty}, but only ${available} is available. Reduce quantity by ${remaining}.`, true);
+    } else {
+      note(`${med.name}: ${requestedQty} allocated across ${allocated.length} batch${allocated.length === 1 ? '' : 'es'} using earliest expiry first.`);
+    }
+  } catch (error) {
+    note(friendly(error), true);
   }
+}
 
-  pendingMed = med;
-  pendingBatches = data;
-
-  $('bl').innerHTML = `
-    <h3>Select batch — ${esc(med.name)}</h3>
-    <p>Select one batch to add to this bill.</p>
-    ${data.map(b => `
-      <button class="sec"
-        data-bid="${esc(b.id)}"
-        style="display:block;width:100%;text-align:left;margin:5px 0;padding:10px">
-        Batch: ${esc(b.batch_no)}
-        · Exp: ${esc(b.expiry)}
-        · Stock: ${Number(b.qty).toLocaleString('en-IN')}
-      </button>
-    `).join('')}
-  `;
-
-  $('bd').showModal();
-};
-
-$('bl').onclick = e => {
-  const btn = e.target.closest('[data-bid]');
-  if (!btn || !pendingMed) return;
-
-  const b = pendingBatches.find(x => x.id === btn.dataset.bid);
-  if (!b) return;
-
-  // Prevent selecting the same batch twice
-  if (cart.some(c => c.batch_id === b.id)) {
-    $('bl').querySelector('#batchError')?.remove();
-
-    const warning = document.createElement('p');
-    warning.id = 'batchError';
-    warning.style.color = '#dc2626';
-    warning.style.fontWeight = 'bold';
-    warning.style.margin = '10px 0';
-    warning.textContent = 'This batch is already added to the bill.';
-
-    $('bl').prepend(warning);
-    return;
-  }
-
-  cart.push({
-    batch_id: b.id,
-    name: pendingMed.name,
-    strength: pendingMed.strength,
-    batch_no: b.batch_no,
-    expiry: b.expiry,
-    stock: +b.qty,
-    price: +pendingMed.selling_price,
-    shelf_location: pendingMed.shelf_location || '',
-    tax_rate: +pendingMed.tax_rate || 0,
-    qty: 1
-  });
-
-  pendingMed = null;
-  pendingBatches = [];
-  $('bd').close();
-  note('');
-  renderCart();
-};
+async function add(med) {
+  const key = groupKey(med);
+  const existing = groupRows(key);
+  const nextQty = (existing[0]?.requested_qty || 0) + 1;
+  await allocateMedicine(med, nextQty, key);
+  $('q').value = '';
+  $('res').innerHTML = '';
+}
 
 let t;
 $('q').oninput = () => {
@@ -369,6 +365,7 @@ $('clear').onclick = () => {
 // ---- finalize
 $('pay').onclick = async () => {
   if (!cart.length) return note('Cart is empty.', true);
+  if (cart.some(row => row.shortage)) return note('Resolve insufficient stock before finalizing this bill.', true);
 
   const rows = pays.map(p => ({
     method: p.method,
@@ -449,34 +446,27 @@ $('held').onclick = async () => {
     if (cart.length && !confirm('Replace the current cart?')) return;
 
     const { data: bs } = await sb.from('medicine_batches')
-      .select('id,batch_no,expiry,qty,quarantined,medicines(name,strength,selling_price,shelf_location,tax_rate)')
+      .select('id,medicine_id,batch_no,expiry,qty,quarantined,medicines(name,strength,selling_price,shelf_location,tax_rate)')
       .eq('branch_id', prof.branch_id)
       .in('id', h.cart.map(c => c.batch_id));
 
-    const today = new Date().toISOString().slice(0, 10);
     const dropped = [];
     cart = [];
-
+    const resumeGroups = new Map();
     for (const l of h.cart) {
       const b = bs?.find(x => x.id === l.batch_id);
-
-      if (!b || b.quarantined || b.expiry < today || +b.qty <= 0) {
-        dropped.push(b?.medicines?.name || 'an item');
+      if (!b?.medicines) {
+        dropped.push('an unavailable medicine');
         continue;
       }
-
-      cart.push({
-        batch_id: b.id,
-        name: b.medicines.name,
-        strength: b.medicines.strength,
-        batch_no: b.batch_no,
-        expiry: b.expiry,
-        stock: +b.qty,
-        price: +b.medicines.selling_price,
-        shelf_location: b.medicines.shelf_location || '',
-        tax_rate: +b.medicines.tax_rate || 0,
-        qty: Math.min(l.qty, +b.qty)
-      });
+      const medId = b.medicine_id;
+      const entry = resumeGroups.get(medId) || { med: { id: medId, name: b.medicines.name, strength: b.medicines.strength, selling_price: b.medicines.selling_price, shelf_location: b.medicines.shelf_location, tax_rate: b.medicines.tax_rate }, qty: 0 };
+      entry.qty += Number(l.qty || 0);
+      resumeGroups.set(medId, entry);
+    }
+    for (const [medId, entry] of resumeGroups) {
+      await allocateMedicine(entry.med, entry.qty, String(medId));
+      if (groupRows(String(medId)).some(row => row.shortage)) dropped.push(entry.med.name);
     }
 
     $('disc').value = h.discount;
