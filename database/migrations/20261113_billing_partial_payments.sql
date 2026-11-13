@@ -287,19 +287,13 @@ BEGIN
     END IF;
 
 
-    -- Process payments
-
+    -- Record actual tendered payments only. The unpaid remainder is
+    -- generated below as a credit row, never supplied by the browser.
     FOR pm IN
         SELECT value
         FROM jsonb_array_elements(p_payments)
     LOOP
-
-        IF COALESCE(pm->>'method', '') NOT IN (
-            'cash',
-            'upi',
-            'card',
-            'credit'
-        ) THEN
+        IF COALESCE(pm->>'method', '') NOT IN ('cash', 'upi', 'card') THEN
             RAISE EXCEPTION 'Invalid payment method';
         END IF;
 
@@ -313,37 +307,50 @@ BEGIN
             RAISE EXCEPTION 'Invalid payment amount';
         END IF;
 
-        IF pm->>'method' = 'credit'
-           AND p_customer IS NULL THEN
-            RAISE EXCEPTION 'Credit requires a customer';
+        paid := round(paid + v_amount, 2);
+
+        IF paid > tot THEN
+            RAISE EXCEPTION 'Payments (%) exceed invoice total (%)', paid, tot;
         END IF;
 
-
         INSERT INTO public.payments (
-            branch_id,
-            invoice_id,
-            method,
-            amount
-        )
-        VALUES (
-            v_branch,
-            inv,
-            pm->>'method',
-            v_amount
+            branch_id, invoice_id, method, amount
+        ) VALUES (
+            v_branch, inv, pm->>'method', v_amount
         );
-
-        paid := paid + v_amount;
-
     END LOOP;
 
+    -- Create customer receivable for the unpaid remainder.
+    v_credit_due := round(tot - paid, 2);
 
-    -- Exact payment validation
+    IF v_credit_due < 0 THEN
+        RAISE EXCEPTION 'Payments cannot exceed invoice total';
+    END IF;
 
-    IF round(paid, 2) <> tot THEN
-        RAISE EXCEPTION
-            'Payment total (%) does not match invoice total (%)',
-            paid,
-            tot;
+    IF v_credit_due > 0 THEN
+        IF p_customer IS NULL THEN
+            RAISE EXCEPTION 'An active customer is required for an unpaid balance';
+        END IF;
+
+        -- Customer row was locked above to serialize concurrent credit sales.
+        v_outstanding := public.customer_outstanding(p_customer);
+
+        IF round(v_outstanding + v_credit_due, 2) > v_customer.credit_limit THEN
+            RAISE EXCEPTION
+                'Customer credit limit exceeded. Available: %',
+                greatest(0, round(v_customer.credit_limit - v_outstanding, 2));
+        END IF;
+
+        INSERT INTO public.payments (
+            branch_id, invoice_id, method, amount
+        ) VALUES (
+            v_branch, inv, 'credit', v_credit_due
+        );
+    END IF;
+
+    -- All payment rows (including generated credit) must equal invoice total.
+    IF round(paid + v_credit_due, 2) <> tot THEN
+        RAISE EXCEPTION 'Payment allocation does not equal invoice total';
     END IF;
 
 

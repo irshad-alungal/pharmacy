@@ -19,3 +19,10 @@ This is a focused accounting increment, not the full Billing redesign. It does n
 5. Test in a non-production/test branch first: full payment, split payment, partial payment with customer, partial payment without customer, credit-limit exceeded, and customer receipt collection.
 
 No migration has been run against production by this package.
+
+
+## Correction notice — Increment 3 package
+
+This package corrects the partial-payment migration from Increment 2. The earlier migration accidentally retained the exact-payment validation and must not be used. Use the SQL migration in this package instead. It accepts cash/UPI/card tender, generates the unpaid remainder as a server-side `credit` payment, checks the customer's remaining credit limit while the customer row is locked, and rejects overpayment or unpaid walk-in bills.
+
+Apply only after a current Supabase backup and review. Do not apply the old Increment 2 migration. The frontend must be deployed only after the corrected SQL is installed and verified.

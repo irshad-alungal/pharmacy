@@ -14,16 +14,54 @@ if (!allowedRoles.includes(prof.role)) {
 }
 
 const $ = id => document.getElementById(id);
+$('billDate').textContent = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeZone: 'Asia/Kolkata' }).format(new Date());
 
-$('view').innerHTML = `<div class="card"><b>Customer</b><div id="cust"></div></div>
-<div class="card"><input id="q" placeholder="Search medicine name or scan barcode" style="width:100%" autofocus><div id="res"></div>
-<div style="overflow-x:auto"><table><thead><tr><th>Item</th><th>Batch</th><th>Qty</th><th>Price</th><th></th></tr></thead><tbody id="cart"></tbody></table></div></div>
-<div class="card"><b>Payment</b> (split across methods if needed)<div style="margin:.4rem 0"><input id="disc" type="number" min="0" step="0.01" value="0" style="width:9rem"> <span>Discount ₹</span></div>
-<div id="pays"></div><button class="sec" id="addp">+ Split payment</button><p id="tot" style="font-weight:bold"></p><p id="rem"></p></div>
-<div style="display:flex;gap:.5rem;flex-wrap:wrap"><button id="pay">Finalize bill</button><button class="sec" id="hold">Hold bill</button><button class="sec" id="held">Held bills</button><button class="sec" id="clear">Clear</button></div>
-<div id="msg" style="min-height:1.4em;margin-top:.5rem"></div>
-<dialog id="hd"><div id="hl" style="min-width:min(92vw,520px)"></div><button class="sec" onclick="hd.close()">Close</button></dialog>
-<dialog id="bd"><div id="bl" style="min-width:min(92vw,520px)"></div><button class="sec" id="bc">Close</button></dialog>`;
+$('view').innerHTML = `
+<div class="billing-page">
+  <div class="billing-topbar">
+    <div><div class="eyebrow">POINT OF SALE</div><h2>New bill</h2><p class="muted">Create a pharmacy invoice and record payment.</p></div>
+    <div class="bill-meta"><div><span>Bill number</span><strong>Generated on save</strong></div><div><span>Date</span><strong id="billDate"></strong></div></div>
+  </div>
+  <aside class="delivery-indicator" aria-live="polite"><span class="delivery-dot"></span><div><strong>Delivery status</strong><small>Delivery status connection will be enabled in the next step</small></div></aside>
+  <section class="billing-card">
+    <div class="section-heading"><div><span class="step-label">01 · CUSTOMER & PRESCRIPTION</span><h3>Customer details</h3></div><span class="optional-tag">Patient details are optional</span></div>
+    <div class="customer-picker"><div class="field grow"><label>Customer account / phone</label><div id="cust"></div></div></div>
+    <div class="patient-grid">
+      <div class="field"><label for="doctorName">Dr. name <span>Optional</span></label><input id="doctorName" placeholder="Prescribing doctor's name"></div>
+      <div class="field"><label for="patientName">Patient name <span>Optional</span></label><input id="patientName" placeholder="Patient full name"></div>
+      <div class="field"><label for="patientPhone">Patient number <span>Optional</span></label><input id="patientPhone" inputmode="tel" placeholder="Mobile number"></div>
+      <div class="field"><label for="patientAddress">Patient address <span>Optional</span></label><input id="patientAddress" placeholder="Address"></div>
+      <div class="field field-wide"><label for="diagnosis">Diagnosis <span>Optional</span></label><input id="diagnosis" placeholder="Diagnosis / notes"></div>
+    </div>
+  </section>
+  <section class="billing-card medicine-card">
+    <div class="section-heading"><div><span class="step-label">02 · MEDICINES</span><h3>Bill items</h3></div><span class="muted">Search by medicine name or scan barcode</span></div>
+    <div class="medicine-search"><span class="search-symbol">⌕</span><input id="q" placeholder="Search medicine name or scan barcode" autocomplete="off" autofocus></div>
+    <div id="res" class="medicine-results"></div>
+    <div class="table-scroll"><table class="bill-table"><thead><tr><th>Sl no</th><th>Item</th><th>Rack / Shelf</th><th>Batch</th><th>Exp</th><th>Rate</th><th>Qty</th><th>Disc %</th><th>GST %</th><th class="align-right">Amount</th><th></th></tr></thead><tbody id="cart"></tbody></table></div>
+    <div class="table-footnote">Automatic batch allocation, line discounts and GST calculation will be connected in the next implementation steps.</div>
+  </section>
+  <div class="billing-bottom-grid">
+    <section class="billing-card payment-card">
+      <div class="section-heading"><div><span class="step-label">03 · PAYMENT</span><h3>Payment details</h3></div><span class="muted">Split payments supported</span></div>
+      <div id="pays" class="payment-rows"></div>
+      <button class="button-outline" id="addp" type="button">＋ Add another payment method</button>
+      <div class="payment-hint">Available methods: Cash, UPI, Card. Any unpaid balance is calculated by the database and assigned to the selected customer's credit account.</div>
+    </section>
+    <section class="billing-card summary-card">
+      <div class="section-heading"><div><span class="step-label">04 · BILL SUMMARY</span><h3>Amount payable</h3></div></div>
+      <div class="summary-line"><span>Total items</span><strong id="totalItems">0</strong></div>
+      <div class="summary-line"><span>Total quantity</span><strong id="totalQty">0</strong></div>
+      <div class="summary-line discount-line"><label for="disc">Overall discount (₹)</label><input id="disc" type="number" min="0" step="0.01" value="0"></div>
+      <div class="summary-line"><span>Round off</span><strong>₹0.00</strong></div>
+      <div class="summary-total"><span>Grand total</span><strong id="tot">₹0.00</strong></div>
+      <p id="rem" class="remaining-note"></p>
+    </section>
+  </div>
+  <div class="billing-actions"><div id="msg" class="billing-message" aria-live="polite"></div><div class="action-buttons"><button id="hold" class="button-outline" type="button">Hold bill</button><button id="held" class="button-outline" type="button">Held bills</button><button id="clear" class="button-ghost" type="button">Clear</button><button id="pay" class="button-primary" type="button">Finalize bill</button></div></div>
+</div>
+<dialog id="hd" class="billing-dialog"><div id="hl"></div><button class="sec" onclick="this.closest('dialog').close()">Close</button></dialog>
+<dialog id="bd" class="billing-dialog"><div id="bl"></div><button class="sec" id="bc" type="button">Close</button></dialog>`;
 
 let cart = [], cust = null, avail = 0, pays = [{ method: 'cash', amount: '' }];
 let pendingMed = null;
@@ -112,8 +150,15 @@ function renderCust() {
 
 // ---- cart
 function renderCart() {
-  $('cart').innerHTML = cart.map((c, i) => `<tr><td>${esc(c.name)} ${esc(c.strength || '')}</td><td>${esc(c.batch_no)} (exp ${esc(c.expiry)}, ${c.stock} left)</td>
-  <td><input type="number" min="1" max="${c.stock}" value="${c.qty}" data-i="${i}" style="width:5rem"></td><td>${inr(c.price * c.qty)}</td><td><button class="sec" data-x="${i}">✕</button></td></tr>`).join('') || '<tr><td colspan="5">Cart is empty.</td></tr>';
+  $('cart').innerHTML = cart.map((c, i) => `<tr>
+    <td>${i + 1}</td><td><strong>${esc(c.name)}</strong><small class="table-subtext">${esc(c.strength || '')}</small></td>
+    <td>${esc(c.shelf_location || '—')}</td><td>${esc(c.batch_no)}</td><td>${esc(c.expiry)}</td>
+    <td>${inr(c.price)}</td><td><input aria-label="Quantity for ${esc(c.name)}" type="number" min="1" max="${c.stock}" value="${c.qty}" data-i="${i}" class="qty-input"></td>
+    <td><span class="not-ready-value">—</span></td><td>${Number(c.tax_rate || 0)}%</td>
+    <td class="align-right"><strong>${inr(c.price * c.qty)}</strong></td><td><button class="remove-item" aria-label="Remove ${esc(c.name)}" data-x="${i}">×</button></td>
+  </tr>`).join('') || '<tr><td colspan="11" class="empty-cart">Your bill is empty. Search and add a medicine above.</td></tr>';
+  $('totalItems').textContent = cart.length;
+  $('totalQty').textContent = cart.reduce((sum, item) => sum + Number(item.qty || 0), 0);
   updateTot();
 }
 
@@ -202,6 +247,8 @@ $('bl').onclick = e => {
     expiry: b.expiry,
     stock: +b.qty,
     price: +pendingMed.selling_price,
+    shelf_location: pendingMed.shelf_location || '',
+    tax_rate: +pendingMed.tax_rate || 0,
     qty: 1
   });
 
@@ -223,7 +270,7 @@ $('q').oninput = () => {
     }
 
     const { data } = await sb.from('medicines')
-      .select('id,name,strength,barcode,selling_price,shelf_location')
+      .select('id,name,strength,barcode,selling_price,shelf_location,tax_rate')
       .eq('branch_id', prof.branch_id)
       .eq('active', true)
       .or(`name.ilike.%${s}%,barcode.eq.${s}`)
@@ -307,6 +354,7 @@ function reset() {
   cart = [];
   pays = [{ method: 'cash', amount: '' }];
   $('disc').value = 0;
+  ['doctorName','patientName','patientPhone','patientAddress','diagnosis'].forEach(id => { if ($(id)) $(id).value = ''; });
   setCust(null);
   renderCart();
 }
@@ -399,7 +447,7 @@ $('held').onclick = async () => {
     if (cart.length && !confirm('Replace the current cart?')) return;
 
     const { data: bs } = await sb.from('medicine_batches')
-      .select('id,batch_no,expiry,qty,quarantined,medicines(name,strength,selling_price)')
+      .select('id,batch_no,expiry,qty,quarantined,medicines(name,strength,selling_price,shelf_location,tax_rate)')
       .eq('branch_id', prof.branch_id)
       .in('id', h.cart.map(c => c.batch_id));
 
@@ -423,6 +471,8 @@ $('held').onclick = async () => {
         expiry: b.expiry,
         stock: +b.qty,
         price: +b.medicines.selling_price,
+        shelf_location: b.medicines.shelf_location || '',
+        tax_rate: +b.medicines.tax_rate || 0,
         qty: Math.min(l.qty, +b.qty)
       });
     }
