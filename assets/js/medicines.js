@@ -51,13 +51,13 @@ v.innerHTML = `
   .med-toolbar input[type=search]{flex:1;min-width:240px}.med-card{background:#fff;border:1px solid #d8e3df;border-radius:14px;padding:16px;box-shadow:0 3px 14px #102c2410}
   .med-table-wrap{overflow:auto}.med-table{width:100%;border-collapse:collapse;min-width:780px}.med-table th{background:#eff5f2;color:#526b65;font-size:12px;text-align:left;padding:12px}.med-table td{padding:11px 12px;border-top:1px solid #e4ece8;vertical-align:middle}
   .med-name-cell{display:flex;align-items:center;gap:10px;min-width:210px}.med-thumb{width:42px;height:42px;border-radius:9px;object-fit:cover;background:#eff4f1;border:1px solid #dce6e1}.med-thumb-placeholder{display:grid;place-items:center;color:#0b8177;font-weight:800}
-  .med-actions{display:flex;gap:6px;flex-wrap:wrap}.med-primary{background:#087f75;color:#fff;border:1px solid #087f75}.med-secondary{background:#fff;color:#087f75;border:1px solid #0c8c80}.med-field{display:grid;gap:6px}.med-field label{font-size:13px;font-weight:700;color:#20332f}.med-field input,.med-field textarea{width:100%;box-sizing:border-box}.med-field textarea{min-height:132px;resize:vertical}.med-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.med-span-2{grid-column:1/-1}.med-checks{display:flex;gap:22px;flex-wrap:wrap;padding:12px;background:#f4f8f6;border-radius:10px}.med-checks label{display:flex;align-items:center;gap:8px;font-weight:600}.med-dialog{border:0;border-radius:16px;padding:0;width:min(900px,94vw);max-height:90vh;box-shadow:0 20px 70px #102b2570}.med-dialog::backdrop{background:#102b2580}.med-dialog-inner{padding:22px;max-height:90vh;overflow:auto}.med-dialog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}.med-detail-grid{display:grid;grid-template-columns:170px 1fr;gap:18px;align-items:start}.med-detail-photo{width:160px;height:160px;border-radius:14px;object-fit:cover;background:#eff4f1;border:1px solid #dce6e1}.med-kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.med-kv div{background:#f5f8f6;border-radius:9px;padding:10px}.med-kv small{display:block;color:#6a817a;margin-bottom:4px}.med-ingredient-profile-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.med-ingredient-profile-row b{flex:1;min-width:120px;overflow-wrap:anywhere}.med-ingredient-profile-row button:disabled{opacity:.45;cursor:not-allowed}.med-stock{width:100%;border-collapse:collapse;min-width:480px}.med-stock th,.med-stock td{padding:10px;border-bottom:1px solid #e2eae6;text-align:left}.med-stock th{background:#eff5f2;font-size:12px}.med-muted{color:#6d817b;font-size:12px}
+  .med-actions{display:flex;gap:6px;flex-wrap:wrap}.med-bulk-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.med-bulk-note{font-size:12px;color:#6d817b;margin-top:6px}.med-import-report{white-space:pre-wrap;background:#f4f8f6;border:1px solid #dce8e2;border-radius:10px;padding:12px;margin-top:10px}.med-primary{background:#087f75;color:#fff;border:1px solid #087f75}.med-secondary{background:#fff;color:#087f75;border:1px solid #0c8c80}.med-field{display:grid;gap:6px}.med-field label{font-size:13px;font-weight:700;color:#20332f}.med-field input,.med-field textarea{width:100%;box-sizing:border-box}.med-field textarea{min-height:132px;resize:vertical}.med-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.med-span-2{grid-column:1/-1}.med-checks{display:flex;gap:22px;flex-wrap:wrap;padding:12px;background:#f4f8f6;border-radius:10px}.med-checks label{display:flex;align-items:center;gap:8px;font-weight:600}.med-dialog{border:0;border-radius:16px;padding:0;width:min(900px,94vw);max-height:90vh;box-shadow:0 20px 70px #102b2570}.med-dialog::backdrop{background:#102b2580}.med-dialog-inner{padding:22px;max-height:90vh;overflow:auto}.med-dialog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}.med-detail-grid{display:grid;grid-template-columns:170px 1fr;gap:18px;align-items:start}.med-detail-photo{width:160px;height:160px;border-radius:14px;object-fit:cover;background:#eff4f1;border:1px solid #dce6e1}.med-kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.med-kv div{background:#f5f8f6;border-radius:9px;padding:10px}.med-kv small{display:block;color:#6a817a;margin-bottom:4px}.med-ingredient-profile-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.med-ingredient-profile-row b{flex:1;min-width:120px;overflow-wrap:anywhere}.med-ingredient-profile-row button:disabled{opacity:.45;cursor:not-allowed}.med-stock{width:100%;border-collapse:collapse;min-width:480px}.med-stock th,.med-stock td{padding:10px;border-bottom:1px solid #e2eae6;text-align:left}.med-stock th{background:#eff5f2;font-size:12px}.med-muted{color:#6d817b;font-size:12px}
   @media(max-width:700px){.med-grid,.med-kv{grid-template-columns:1fr}.med-span-2{grid-column:auto}.med-detail-grid{grid-template-columns:1fr}.med-detail-photo{width:120px;height:120px}}
 </style>
 <div class="med-page">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><div style="font-size:11px;letter-spacing:.12em;color:#087f75;font-weight:800">MEDICINE MASTER</div><h2 style="margin:5px 0">Medicines</h2><p class="med-muted">Add, search, view and manage your medicine catalogue.</p></div><button id="new" class="med-primary">＋ Add medicine</button></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><div style="font-size:11px;letter-spacing:.12em;color:#087f75;font-weight:800">MEDICINE MASTER</div><h2 style="margin:5px 0">Medicines</h2><p class="med-muted">Add, search, view and manage your medicine catalogue.</p></div><div class="med-bulk-actions"><button id="downloadTemplate" type="button" class="med-secondary">↓ Download Excel template</button><button id="bulkImport" type="button" class="med-secondary">↑ Bulk upload Excel</button><input id="bulkFile" type="file" accept=".xlsx,.xls" hidden><button id="new" class="med-primary">＋ Add medicine</button></div></div>
   <div class="med-toolbar"><input id="q" type="search" placeholder="Search medicine name, ingredients, brand, generic name or barcode"><label style="display:flex;align-items:center;gap:7px;white-space:nowrap"><input type="checkbox" id="inact"> Show inactive</label></div>
-  <div id="msg" role="status"></div>
+  <div id="msg" role="status"></div><div id="bulkReport" class="med-import-report" role="status" hidden></div>
   ${isSuperAdmin ? `<section class="med-card"><h3 style="margin-top:0">Medicine Deactivation Requests</h3><div id="deactivationRequests">Loading pending requests...</div></section>` : ''}
   <section class="med-card"><div class="med-table-wrap"><table class="med-table"><thead><tr><th>Medicine</th><th>Ingredients</th><th>Brand / Generic</th><th>Composition</th><th>Strength</th><th>Rack / Shelf</th><th>Status</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div></section>
 </div>
@@ -453,6 +453,181 @@ $('rows').onclick = async e => {
 
     $('msg').textContent = 'Medicine activated.';
     await load();
+  }
+};
+
+// --------------------------------------------------
+// BULK MEDICINE IMPORT (Excel .xlsx / .xls)
+// --------------------------------------------------
+const BULK_HEADERS = [
+  'Medicine name',
+  'Ingredients',
+  'Brand',
+  'Generic name',
+  'Composition',
+  'Strength',
+  'Rack / Shelf',
+  'Need doctor sheet',
+  'Active'
+];
+
+function parseExcelBoolean(value, fallback) {
+  if (value === undefined || value === null || String(value).trim() === '') return fallback;
+  const v = String(value).trim().toLowerCase();
+  return ['yes', 'y', 'true', '1', 'required', 'active'].includes(v);
+}
+
+function excelCell(row, names) {
+  for (const name of names) {
+    if (Object.prototype.hasOwnProperty.call(row, name)) return row[name];
+  }
+  return '';
+}
+
+$('downloadTemplate').onclick = () => {
+  if (!window.XLSX) {
+    $('msg').textContent = 'Excel support could not load. Refresh the page and try again.';
+    return;
+  }
+  const sample = {
+    'Medicine name': 'Paracetamol 500 mg',
+    'Ingredients': 'Paracetamol',
+    'Brand': 'Sample Brand',
+    'Generic name': 'Paracetamol',
+    'Composition': 'Each tablet contains Paracetamol IP 500 mg',
+    'Strength': '500 mg',
+    'Rack / Shelf': 'A-01 / Shelf 1',
+    'Need doctor sheet': 'No',
+    'Active': 'Yes'
+  };
+  const ws = XLSX.utils.json_to_sheet([sample], { header: BULK_HEADERS });
+  ws['!cols'] = [
+    { wch: 28 }, { wch: 34 }, { wch: 22 }, { wch: 22 }, { wch: 42 },
+    { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 12 }
+  ];
+  ws['!autofilter'] = { ref: 'A1:I2' };
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Medicines');
+  XLSX.writeFile(wb, 'ALZA_Medicine_Bulk_Upload_Template.xlsx');
+};
+
+$('bulkImport').onclick = () => $('bulkFile').click();
+
+$('bulkFile').onchange = async event => {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  const report = $('bulkReport');
+  report.hidden = false;
+  report.textContent = 'Reading Excel file…';
+
+  if (!window.XLSX) {
+    report.textContent = 'Excel support could not load. Check your internet connection, refresh the page, and try again.';
+    return;
+  }
+  if (!/\.(xlsx|xls)$/i.test(file.name)) {
+    report.textContent = 'Please select an Excel .xlsx or .xls file.';
+    return;
+  }
+
+  try {
+    const bytes = await file.arrayBuffer();
+    const workbook = XLSX.read(bytes, { type: 'array' });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    if (!firstSheet) throw new Error('The workbook does not contain a worksheet.');
+    const rawRows = XLSX.utils.sheet_to_json(firstSheet, { defval: '', raw: false });
+    if (!rawRows.length) throw new Error('The worksheet has no medicine rows.');
+
+    // Normalize headings so users can retain the template headings or use common variants.
+    const normalizedRows = rawRows.map((raw, index) => {
+      const row = {};
+      for (const [key, value] of Object.entries(raw)) row[String(key).trim().toLowerCase()] = value;
+      const name = excelCell(row, ['medicine name', 'name', 'medicine']);
+      return {
+        excelRow: index + 2,
+        name: String(name ?? '').trim(),
+        ingredients: String(excelCell(row, ['ingredients', 'ingredient']) ?? '').trim(),
+        brand: String(excelCell(row, ['brand']) ?? '').trim(),
+        generic_name: String(excelCell(row, ['generic name', 'generic_name', 'generic']) ?? '').trim(),
+        composition: String(excelCell(row, ['composition']) ?? '').trim(),
+        strength: String(excelCell(row, ['strength']) ?? '').trim(),
+        rack: String(excelCell(row, ['rack / shelf', 'rack/shelf', 'rack', 'shelf']) ?? '').trim(),
+        need_doctor_sheet: parseExcelBoolean(excelCell(row, ['need doctor sheet', 'need_doctor_sheet', 'doctor sheet required']), false),
+        active: parseExcelBoolean(excelCell(row, ['active', 'status']), true)
+      };
+    }).filter(r => r.name || r.ingredients || r.brand || r.generic_name || r.composition || r.strength || r.rack);
+
+    if (!normalizedRows.length) throw new Error('No medicine entries were found. Check the Medicine name column.');
+    const missingNames = normalizedRows.filter(r => !r.name);
+    const candidates = normalizedRows.filter(r => r.name);
+
+    // Prevent duplicate medicine names in this branch and within the uploaded file.
+    const existingNames = new Set(list.map(m => String(m.name || '').trim().toLocaleLowerCase()));
+    const seenUpload = new Set();
+    const duplicates = [];
+    const uniqueRows = [];
+    for (const row of candidates) {
+      const key = row.name.toLocaleLowerCase();
+      if (existingNames.has(key) || seenUpload.has(key)) duplicates.push(row);
+      else { seenUpload.add(key); uniqueRows.push(row); }
+    }
+
+    if (!uniqueRows.length) {
+      report.textContent = `No new medicines to import. ${duplicates.length} duplicate name(s) were skipped; ${missingNames.length} row(s) had no medicine name.`;
+      return;
+    }
+
+    const payload = uniqueRows.map(r => ({
+      branch_id: branchId,
+      name: r.name,
+      ingredients: r.ingredients || null,
+      brand: r.brand || null,
+      generic_name: r.generic_name || null,
+      composition: r.composition || null,
+      strength: r.strength || null,
+      rack: r.rack || null,
+      shelf_location: r.rack || null,
+      need_doctor_sheet: r.need_doctor_sheet,
+      active: r.active,
+      // These legacy columns are required by the existing schema. Pricing and GST
+      // are intentionally left at neutral defaults and can be maintained later.
+      mrp: 0,
+      selling_price: 0,
+      tax_rate: 12,
+      reorder_level: 0
+    }));
+
+    let inserted = 0;
+    const failed = [];
+    for (let i = 0; i < payload.length; i += 50) {
+      const chunk = payload.slice(i, i + 50);
+      const { data, error } = await sb.from('medicines').insert(chunk).select('id');
+      if (error) {
+        // Retry row-by-row so one invalid entry does not block the rest of the workbook.
+        for (let j = 0; j < chunk.length; j++) {
+          const { error: rowError } = await sb.from('medicines').insert(chunk[j]);
+          if (rowError) failed.push(`${uniqueRows[i + j].excelRow}: ${uniqueRows[i + j].name} — ${friendly(rowError)}`);
+          else inserted++;
+        }
+      } else {
+        inserted += (data || chunk).length;
+      }
+    }
+
+    const summary = [
+      `Bulk import finished.`,
+      `Added: ${inserted}`,
+      `Skipped duplicates: ${duplicates.length}`,
+      `Rows without medicine name: ${missingNames.length}`,
+      `Failed: ${failed.length}`
+    ];
+    if (duplicates.length) summary.push(`Duplicate names: ${duplicates.map(r => r.name).join(', ')}`);
+    if (failed.length) summary.push(`Failed rows:\n${failed.join('\n')}`);
+    report.textContent = summary.join('\n');
+    await load();
+  } catch (error) {
+    console.error('Medicine Excel import failed:', error);
+    report.textContent = `Could not import this Excel file: ${error.message || error}`;
   }
 };
 
