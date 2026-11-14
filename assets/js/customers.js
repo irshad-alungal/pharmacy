@@ -34,12 +34,15 @@ function waNumber(value) {
 const fmtDate = value => value ? new Date(value).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—';
 const fmtMoney = value => `₹${Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+let viewedCustomer = null;
+
 async function openCustomerView(customer) {
+  viewedCustomer = customer;
   const dlg = $('customer-view');
   const body = $('customer-view-body');
   $('customer-view-title').textContent = customer.name || 'Customer details';
   body.innerHTML = '<p>Loading customer details and sales bills…</p>';
-  dlg.showModal();
+  if (!dlg.open) dlg.showModal();
 
   const { data: bills, error } = await sb.from('sales_invoices')
     .select('id,invoice_no,total,status,created_at')
@@ -50,6 +53,23 @@ async function openCustomerView(customer) {
 
   const phone = String(customer.phone || '');
   const phoneActions = phone ? `<div class="cust-phone-actions"><a class="cust-mini-action" href="tel:${encodeURIComponent(phone)}">Call</a><a class="cust-mini-action cust-wa" href="https://wa.me/${waNumber(phone)}" target="_blank" rel="noopener">WhatsApp</a></div>` : '—';
+  const invoiceIds = (bills || []).map(b => b.id).filter(Boolean);
+  let doctorSheets = [];
+  let doctorSheetError = null;
+  if (invoiceIds.length) {
+    const sheetResult = await sb.from('customer_doctor_sheets')
+      .select('id,invoice_id,file_name,mime_type,file_size,storage_path,created_at')
+      .eq('branch_id', branchId)
+      .in('invoice_id', invoiceIds)
+      .order('created_at', { ascending: false });
+    doctorSheets = sheetResult.data || [];
+    doctorSheetError = sheetResult.error;
+  }
+  const sheetsByInvoice = new Map();
+  for (const sheet of doctorSheets) {
+    if (!sheetsByInvoice.has(sheet.invoice_id)) sheetsByInvoice.set(sheet.invoice_id, []);
+    sheetsByInvoice.get(sheet.invoice_id).push(sheet);
+  }
   const details = [
     ['Phone', esc(phone || '—')], ['Email', esc(customer.email || '—')],
     ['Address', esc(customer.address || '—')], ['Age', esc(customer.age ?? '—')],
@@ -61,8 +81,20 @@ async function openCustomerView(customer) {
     <div class="cust-detail-grid">${details.map(([label, value]) => `<div><small>${label}</small><p>${value}</p></div>`).join('')}</div>
     <section class="cust-history"><h3>Sales bills <span>${error ? 'Unable to load bills' : `${(bills || []).length} bill(s)`}</span></h3>
       ${error ? `<p class="cust-error">${esc(friendly(error))}</p>` : `
-      <div class="cust-table-wrap"><table><thead><tr><th>Date</th><th>Invoice No.</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>
-      ${(bills || []).map(b => `<tr><td>${fmtDate(b.created_at)}</td><td>${esc(b.invoice_no || '')}</td><td>${esc(b.status || '')}</td><td>${fmtMoney(b.total)}</td><td><button class="sec" data-cust-invoice="${esc(b.id)}">View bill</button></td></tr>`).join('') || '<tr><td colspan="5">No sales bills found for this customer.</td></tr>'}
+      ${doctorSheetError ? `<p class="cust-error">Doctor sheet list: ${esc(friendly(doctorSheetError))}. Apply migration 0013 to enable this feature.</p>` : ''}
+      <div class="cust-table-wrap"><table><thead><tr><th>Date</th><th>Invoice No.</th><th>Status</th><th>Total</th><th>Bill</th><th>Doctor's sheet</th></tr></thead><tbody>
+      ${(bills || []).map(b => {
+        const sheets = sheetsByInvoice.get(b.id) || [];
+        return `<tr><td>${fmtDate(b.created_at)}</td><td>${esc(b.invoice_no || '')}</td><td>${esc(b.status || '')}</td><td>${fmtMoney(b.total)}</td><td><button class="sec" data-cust-invoice="${esc(b.id)}">View bill</button></td><td>
+          <div class="cust-sheet-actions">
+            <button type="button" class="sec" data-sheet-upload="${esc(b.id)}">Upload file</button>
+            <button type="button" class="sec" data-sheet-camera="${esc(b.id)}">Camera</button>
+            <input class="cust-sheet-file" type="file" data-sheet-input="${esc(b.id)}" accept="application/pdf,image/jpeg,image/png,image/webp" hidden>
+            <input class="cust-sheet-file" type="file" data-sheet-camera-input="${esc(b.id)}" accept="image/*" capture="environment" hidden>
+          </div>
+          <div class="cust-sheet-list">${sheets.map(sheet => `<div><button type="button" class="cust-sheet-link" data-sheet-open="${esc(sheet.storage_path)}">${esc(sheet.file_name)}</button><small>${fmtDate(sheet.created_at)}</small></div>`).join('') || "<small>No doctor's sheet saved</small>"}</div>
+        </td></tr>`;
+      }).join('') || '<tr><td colspan="6">No sales bills found for this customer.</td></tr>'}
       </tbody></table></div>`}
     </section>`;
 }
@@ -472,8 +504,80 @@ $('rows').onclick = async e => {
 // Customer detail dialog controls
 $('customer-view-close').onclick = () => $('customer-view').close();
 $('customer-view-body').addEventListener('click', async e => {
-  const button = e.target.closest('button[data-cust-invoice]');
-  if (button) await previewCustomerInvoice(button.dataset.custInvoice, button);
+  const button = e.target.closest('button');
+  if (!button) return;
+  if (button.dataset.custInvoice) {
+    await previewCustomerInvoice(button.dataset.custInvoice, button);
+    return;
+  }
+  if (button.dataset.sheetUpload) {
+    $('customer-view-body').querySelector(`[data-sheet-input="${CSS.escape(button.dataset.sheetUpload)}"]`)?.click();
+    return;
+  }
+  if (button.dataset.sheetCamera) {
+    $('customer-view-body').querySelector(`[data-sheet-camera-input="${CSS.escape(button.dataset.sheetCamera)}"]`)?.click();
+    return;
+  }
+  if (button.dataset.sheetOpen) {
+    const { data, error } = await sb.storage.from('customer-doctor-sheets').createSignedUrl(button.dataset.sheetOpen, 300);
+    if (error) { alert(friendly(error)); return; }
+    window.open(data.signedUrl, '_blank', 'noopener');
+  }
+});
+
+$('customer-view-body').addEventListener('change', async e => {
+  const input = e.target.closest('input[type="file"][data-sheet-input],input[type="file"][data-sheet-camera-input]');
+  if (!input) return;
+  const file = input.files?.[0];
+  const invoiceId = input.dataset.sheetInput || input.dataset.sheetCameraInput;
+  if (!file || !invoiceId) return;
+  const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+  if (!allowed.includes(file.type) || file.size > 15 * 1024 * 1024) {
+    alert('Choose a PDF, JPG, PNG or WEBP file up to 15 MB.');
+    input.value = '';
+    return;
+  }
+  const invoice = await sb.from('sales_invoices').select('id,customer_id').eq('id', invoiceId).eq('branch_id', branchId).maybeSingle();
+  if (invoice.error || !invoice.data || invoice.data.customer_id == null) {
+    alert(invoice.error ? friendly(invoice.error) : 'This invoice is not linked to a customer.');
+    input.value = '';
+    return;
+  }
+  const ext = file.type === 'application/pdf' ? 'pdf' : file.type === 'image/jpeg' ? 'jpg' : file.type.split('/')[1];
+  const path = `${branchId}/${invoiceId}/${crypto.randomUUID()}.${ext}`;
+  const cell = input.closest('td');
+  const status = document.createElement('small');
+  status.className = 'cust-sheet-upload-status';
+  status.textContent = "Uploading doctor\'s sheet…";
+  cell?.append(status);
+  input.disabled = true;
+  const { error: uploadError } = await sb.storage.from('customer-doctor-sheets').upload(path, file, { contentType: file.type, upsert: false });
+  if (uploadError) {
+    status.textContent = friendly(uploadError);
+    input.disabled = false;
+    input.value = '';
+    return;
+  }
+  const { error: insertError } = await sb.from('customer_doctor_sheets').insert({
+    branch_id: branchId,
+    customer_id: invoice.data.customer_id,
+    invoice_id: invoiceId,
+    file_name: file.name,
+    mime_type: file.type,
+    file_size: file.size,
+    storage_path: path
+  });
+  if (insertError) {
+    await sb.storage.from('customer-doctor-sheets').remove([path]);
+    status.textContent = friendly(insertError);
+    input.disabled = false;
+    input.value = '';
+    return;
+  }
+  status.textContent = "Doctor\'s sheet saved.";
+  input.disabled = false;
+  input.value = '';
+  if (viewedCustomer) await openCustomerView(viewedCustomer);
 });
 
 // Page controls
