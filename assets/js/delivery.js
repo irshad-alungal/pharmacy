@@ -122,7 +122,7 @@ $('deliveryModalBody').addEventListener('click', event => {
  if (save) {
   const name = $('assignName').value.trim();
   const phone = $('assignPhone').value.trim();
-  if (!name) { $('assignError').textContent = 'Enter the delivery person's name.'; return; }
+  if (!name) { $('assignError').textContent = "Enter the delivery person's name."; return; }
   const assignedOrder = orders.find(item => item.id === save.dataset.saveAssignment);
   preview.assignments[save.dataset.saveAssignment] = { name, phone, invoice_no: assignedOrder?.invoice_no || '', customer_name: assignedOrder?.customer?.name || 'Customer', customer_phone: assignedOrder?.customer?.phone || '', address: assignedOrder?.customer?.address || '', total: assignedOrder?.total || 0, created_at: assignedOrder?.created_at || '', branch_id: branchId };
   savePreview(); $('deliveryModal').hidden = true; render();
