@@ -1,0 +1,26 @@
+/* Initial Stock Excel workflow */
+.os-wrap{display:grid;gap:1rem}
+.os-toolbar{display:flex;gap:.55rem;flex-wrap:wrap;align-items:center}
+.os-toolbar .spacer{flex:1}
+.os-help{color:#64748b;font-size:.9rem;margin:.25rem 0}
+.os-status{padding:.65rem .85rem;border-radius:.55rem;background:#f1f5f9;color:#334155}
+.os-status.error{background:#fef2f2;color:#991b1b}
+.os-status.success{background:#f0fdf4;color:#166534}
+.os-table-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:.65rem}
+.os-table{width:100%;min-width:1120px;border-collapse:collapse}
+.os-table th,.os-table td{padding:.5rem;border-bottom:1px solid #e2e8f0;text-align:left;vertical-align:middle}
+.os-table th{background:#f8fafc;white-space:nowrap;font-size:.82rem}
+.os-table input{width:100%;min-width:78px;box-sizing:border-box}
+.os-table .os-serial{width:54px;min-width:54px}
+.os-table .os-item{min-width:190px}
+.os-table .os-pack{min-width:76px}
+.os-actions{display:flex;gap:.4rem;flex-wrap:wrap}
+.os-primary{background:#166534!important;color:#fff!important;border:1px solid #166534!important}
+.os-secondary{background:#fff!important;color:#166534!important;border:1px solid #166534!important}
+.os-danger{color:#b91c1c!important}
+.os-summary{display:flex;gap:1rem;flex-wrap:wrap;color:#475569;font-size:.9rem}
+.os-summary strong{color:#0f172a}
+.os-file{max-width:100%}
+.os-readonly{background:#f8fafc}
+.os-small{font-size:.8rem;color:#64748b}
+@media(max-width:640px){.os-toolbar>*{flex:1 1 100%}.os-toolbar button{width:100%}}
