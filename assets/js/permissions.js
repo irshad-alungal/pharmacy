@@ -7,13 +7,13 @@ const ADMIN_ROLES = ['super_admin', 'admin', 'admin_staff'];
 const STORE_ROLES = ['inventory_staff', 'billing_staff'];
 
 const ADMIN_PAGES = [
-  'dashboard', 'billing', 'medicines', 'inventory', 'purchases',
+  'dashboard', 'billing', 'delivery', 'medicines', 'inventory', 'purchases',
   'distributors', 'customers', 'sales', 'returns', 'expenses', 'finance',
   'reports', 'whatsapp', 'staff', 'documents', 'settings', 'audit-logs'
 ];
 
 const STORE_PAGES = [
-  'billing', 'medicines', 'inventory', 'purchases',
+  'billing', 'delivery', 'medicines', 'inventory', 'purchases',
   'distributors', 'customers', 'sales', 'returns', 'reports'
 ];
 

@@ -6,6 +6,7 @@ import { signOut } from './auth.js';
 const PAGES = [
   ['dashboard', 'Dashboard'],
   ['billing', 'Billing'],
+  ['delivery', 'Delivery'],
   ['medicines', 'Medicines'],
   ['inventory', 'Inventory'],
   ['purchases', 'Purchases'],
