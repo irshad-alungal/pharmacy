@@ -1,0 +1,58 @@
+
+/* Reports page — scoped styles; shared application theme remains authoritative. */
+.reports-page{display:grid;gap:1rem;min-width:0}
+.reports-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.reports-kicker{color:var(--g);font-size:.78rem;font-weight:750;letter-spacing:.08em;text-transform:uppercase;margin:0 0 .35rem}
+.reports-subtitle{color:var(--muted,#64748b);margin:.25rem 0 0;max-width:65ch}
+.reports-count{border:1px solid var(--line);border-radius:999px;padding:.4rem .75rem;font-size:.82rem;white-space:nowrap}
+.reports-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem;min-width:0}
+.reports-card h3{margin:.1rem 0 .85rem;font-size:1rem}
+.reports-controls{display:grid;grid-template-columns:minmax(230px,1.25fr) minmax(220px,1fr);gap:1rem}
+.reports-field{display:grid;gap:.35rem;min-width:0}
+.reports-field label,.reports-label{font-size:.83rem;font-weight:650;color:var(--fg)}
+.reports-field select,.reports-field input{width:100%;min-width:0}
+.reports-presets{display:flex;gap:.45rem;flex-wrap:wrap;margin:.85rem 0}
+.reports-presets button{padding:.45rem .7rem;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--fg);cursor:pointer}
+.reports-presets button:hover,.reports-presets button.active{background:var(--g);border-color:var(--g);color:#fff}
+.reports-date-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+.reports-options{display:flex;align-items:end;gap:.75rem;flex-wrap:wrap;margin-top:.85rem}
+.reports-options .reports-field{min-width:170px}
+.reports-actions{display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;margin-top:1rem}
+.reports-actions button{min-height:40px}
+.reports-actions button:disabled{opacity:.48;cursor:not-allowed}
+.reports-message{min-height:1.35rem;margin:.65rem 0 0;font-size:.88rem;color:var(--muted,#64748b)}
+.reports-message.error{color:#b91c1c}
+.reports-message.success{color:#047857}
+.reports-note{border-left:4px solid #d97706;background:#d9770614;border-radius:7px;padding:.65rem .8rem;margin-top:.85rem;font-size:.86rem}
+.reports-result{min-width:0}
+.reports-result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:.85rem}
+.reports-result-head h3{margin:0}
+.reports-result-meta{color:var(--muted,#64748b);font-size:.84rem;margin:.3rem 0 0}
+.reports-stat{border:1px solid var(--line);border-radius:10px;padding:.55rem .75rem;min-width:100px}
+.reports-stat small{display:block;color:var(--muted,#64748b);font-size:.72rem}
+.reports-stat strong{font-size:1.05rem}
+.reports-table-wrap{width:100%;overflow:auto;max-height:68vh;border:1px solid var(--line);border-radius:10px}
+.reports-table{width:100%;border-collapse:separate;border-spacing:0;min-width:680px;font-size:.87rem}
+.reports-table th{position:sticky;top:0;z-index:1;background:var(--g);color:white;font-weight:700;white-space:nowrap}
+.reports-table th,.reports-table td{padding:.65rem .7rem;border-bottom:1px solid var(--line);vertical-align:top}
+.reports-table tbody tr:nth-child(even){background:color-mix(in srgb,var(--line) 22%,transparent)}
+.reports-table td.numeric,.reports-table th.numeric{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.reports-table tfoot td{font-weight:800;border-top:2px solid var(--g);background:var(--card)}
+.reports-empty{text-align:center!important;color:var(--muted,#64748b);padding:2rem!important}
+.reports-hint{color:var(--muted,#64748b);font-size:.8rem}
+@media(max-width:760px){
+ .reports-controls{grid-template-columns:1fr}
+ .reports-card{padding:.8rem}
+ .reports-date-grid{grid-template-columns:1fr 1fr}
+ .reports-result-head{display:grid}
+ .reports-table-wrap{max-height:65vh}
+}
+@media(max-width:420px){.reports-date-grid{grid-template-columns:1fr}.reports-presets button{flex:1 1 auto}}
+@media print{
+ .reports-hero,.reports-controls-card,.reports-actions,.reports-presets,.reports-message{display:none!important}
+ .reports-page{display:block}.reports-card{border:0;padding:0}.reports-table-wrap{max-height:none;overflow:visible;border:0}
+ .reports-table{min-width:0;font-size:8pt}.reports-table th{position:static}
+}
+
+/* Ensure conditional report controls really collapse when hidden. */
+.reports-page [hidden]{display:none!important}
