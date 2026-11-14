@@ -65,6 +65,30 @@ export async function mountShell(page, title) {
     throw new Error('forbidden');
   }
 
+  // A persisted Supabase login can outlive the pharmacy work session.
+  // Check the work session whenever an app page is opened or refreshed.
+  // If it has expired, start a new authenticated work session before any
+  // protected RPC (including Initial Stock) is called.
+  let workSessionActive = false;
+  try {
+    const { data: touchResult, error: touchError } = await sb.rpc('touch_work_session');
+    workSessionActive = !touchError && touchResult === true;
+  } catch (error) {
+    console.warn('Could not check the current work session:', error);
+  }
+
+  if (!workSessionActive) {
+    const { data: startResult, error: startError } = await sb.rpc('start_work_session');
+    if (startError || startResult !== true) {
+      const view = document.getElementById('view');
+      if (view) {
+        view.innerHTML = `<div class="notice">Your pharmacy work session is not active and could not be restarted. Please sign out and sign in again. ${esc(startError?.message || 'Work session could not be started.')}</div>`;
+      }
+      console.error('Could not start a work session:', startError);
+      throw new Error('work session unavailable');
+    }
+  }
+
   // Work-session heartbeat:
   // Refresh only when the user has recently interacted with the page.
   let lastInteraction = Date.now();

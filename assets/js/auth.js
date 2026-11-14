@@ -6,9 +6,9 @@ export const signIn = async (email, password) => {
 
   if (result.error) return result;
 
-  const { error: sessionError } = await sb.rpc('start_work_session');
+  const { data: sessionStarted, error: sessionError } = await sb.rpc('start_work_session');
 
-  if (sessionError) {
+  if (sessionError || sessionStarted !== true) {
     await sb.auth.signOut();
     return { data: result.data, error: sessionError };
   }
