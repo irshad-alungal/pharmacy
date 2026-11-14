@@ -3,6 +3,7 @@ import { sb } from './supabase-client.js';
 import { mountShell } from './navigation.js';
 import { esc } from './utils.js';
 import { nul, friendly, safeQ } from './ui.js';
+import { showInvoice } from './invoice.js';
 
 // Authenticate and load the dashboard
 const prof = await mountShell('customers', 'Customers');
@@ -22,6 +23,72 @@ if (!branchId) {
 }
 
 const $ = id => document.getElementById(id);
+
+function waNumber(value) {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 10) digits = `91${digits}`;
+  if (digits.startsWith('0') && digits.length === 11) digits = `91${digits.slice(1)}`;
+  return digits;
+}
+
+const fmtDate = value => value ? new Date(value).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—';
+const fmtMoney = value => `₹${Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+async function openCustomerView(customer) {
+  const dlg = $('customer-view');
+  const body = $('customer-view-body');
+  $('customer-view-title').textContent = customer.name || 'Customer details';
+  body.innerHTML = '<p>Loading customer details and sales bills…</p>';
+  dlg.showModal();
+
+  const { data: bills, error } = await sb.from('sales_invoices')
+    .select('id,invoice_no,total,status,created_at')
+    .eq('branch_id', branchId)
+    .eq('customer_id', customer.id)
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  const phone = String(customer.phone || '');
+  const phoneActions = phone ? `<div class="cust-phone-actions"><a class="cust-mini-action" href="tel:${encodeURIComponent(phone)}">Call</a><a class="cust-mini-action cust-wa" href="https://wa.me/${waNumber(phone)}" target="_blank" rel="noopener">WhatsApp</a></div>` : '—';
+  const details = [
+    ['Phone', esc(phone || '—')], ['Email', esc(customer.email || '—')],
+    ['Address', esc(customer.address || '—')], ['Age', esc(customer.age ?? '—')],
+    ['Gender', esc(customer.gender || '—')], ['WhatsApp consent', customer.consent ? 'Yes' : 'No'],
+    ['Credit limit', fmtMoney(customer.credit_limit)], ['Status', customer.active ? 'Active' : 'Inactive']
+  ];
+  body.innerHTML = `
+    <section class="cust-profile-card"><div><h3>${esc(customer.name || '')}</h3><p>${phoneActions}</p></div></section>
+    <div class="cust-detail-grid">${details.map(([label, value]) => `<div><small>${label}</small><p>${value}</p></div>`).join('')}</div>
+    <section class="cust-history"><h3>Sales bills <span>${error ? 'Unable to load bills' : `${(bills || []).length} bill(s)`}</span></h3>
+      ${error ? `<p class="cust-error">${esc(friendly(error))}</p>` : `
+      <div class="cust-table-wrap"><table><thead><tr><th>Date</th><th>Invoice No.</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>
+      ${(bills || []).map(b => `<tr><td>${fmtDate(b.created_at)}</td><td>${esc(b.invoice_no || '')}</td><td>${esc(b.status || '')}</td><td>${fmtMoney(b.total)}</td><td><button class="sec" data-cust-invoice="${esc(b.id)}">View bill</button></td></tr>`).join('') || '<tr><td colspan="5">No sales bills found for this customer.</td></tr>'}
+      </tbody></table></div>`}
+    </section>`;
+}
+
+async function previewCustomerInvoice(invoiceId, button) {
+  button.disabled = true;
+  const { data, error } = await sb.rpc('invoice_detail', { p_invoice: invoiceId });
+  button.disabled = false;
+  if (error) { $('customer-view-body').insertAdjacentHTML('afterbegin', `<p class="cust-error">${esc(friendly(error))}</p>`); return; }
+  if (!data?.invoice || !Array.isArray(data.items) || !Array.isArray(data.payments)) {
+    $('customer-view-body').insertAdjacentHTML('afterbegin', '<p class="cust-error">Invoice details returned an unexpected format.</p>'); return;
+  }
+  const invoiceBranchId = data.invoice.branch_id || branchId;
+  let branch = null;
+  if (invoiceBranchId) {
+    const result = await sb.from('branches').select('name,address,city,state,pincode,phone,email,gstin,drug_licence_nos,invoice_footer').eq('id', invoiceBranchId).maybeSingle();
+    branch = result.data;
+  }
+  const address = [branch?.address, branch?.city, branch?.state, branch?.pincode].map(v => String(v || '').trim()).filter(Boolean).join(', ');
+  data.shop = {
+    name: branch?.name || 'ALZA PHARMACY', address, phone: branch?.phone || '', email: branch?.email || '', gstin: branch?.gstin || '',
+    drug_licence: Array.isArray(branch?.drug_licence_nos) ? branch.drug_licence_nos.filter(Boolean).join(' / ') : String(branch?.drug_licence_nos || ''),
+    footer_note: branch?.invoice_footer || ''
+  };
+  showInvoice(data);
+}
 
 // Customers page
 view.innerHTML = `
@@ -117,6 +184,13 @@ view.innerHTML = `
     </div>
   </form>
 </dialog>
+
+<dialog id="customer-view" class="cust-view-dialog">
+  <div class="cust-view-content">
+    <div class="cust-view-head"><h2 id="customer-view-title">Customer details</h2><button type="button" class="sec" id="customer-view-close">Close</button></div>
+    <div id="customer-view-body"><p>Loading customer details…</p></div>
+  </div>
+</dialog>
 `;
 
 const f = $('f');
@@ -161,12 +235,13 @@ async function load() {
   $('rows').innerHTML = list.map(c => `
     <tr style="${c.active ? '' : 'opacity:.5'}">
       <td>${esc(c.name)}</td>
-      <td>${esc(c.phone)}</td>
+      <td><div class="cust-phone-actions"><span>${esc(c.phone)}</span><a class="cust-mini-action" href="tel:${encodeURIComponent(c.phone)}">Call</a><a class="cust-mini-action cust-wa" href="https://wa.me/${waNumber(c.phone)}" target="_blank" rel="noopener">WhatsApp</a></div></td>
       <td>${esc(c.email || '')}</td>
       <td>${c.age ?? ''}</td>
       <td>${c.consent ? 'Yes' : 'No'}</td>
       <td>₹${Number(c.credit_limit || 0).toFixed(2)}</td>
       <td>
+        <button class="sec" data-view="${c.id}">View</button>
         <button class="sec" data-balance="${c.id}">Credit status</button>
         ${['super_admin','admin'].includes(prof.role) ? `<button class="sec" data-credit="${c.id}">Edit limit</button>` : ''}
         <button class="sec" data-e="${c.id}">
@@ -296,6 +371,17 @@ $('rows').onclick = async e => {
 
   if (!b) return;
 
+  if (b.dataset.view) {
+    const customer = list.find(c => c.id === b.dataset.view);
+    if (customer) await openCustomerView(customer);
+    return;
+  }
+
+  if (b.dataset.custInvoice) {
+    await previewCustomerInvoice(b.dataset.custInvoice, b);
+    return;
+  }
+
   if (b.dataset.balance) {
     const customer = list.find(c => c.id === b.dataset.balance);
     if (!customer) return;
@@ -382,6 +468,13 @@ $('rows').onclick = async e => {
     await load();
   }
 };
+
+// Customer detail dialog controls
+$('customer-view-close').onclick = () => $('customer-view').close();
+$('customer-view-body').addEventListener('click', async e => {
+  const button = e.target.closest('button[data-cust-invoice]');
+  if (button) await previewCustomerInvoice(button.dataset.custInvoice, button);
+});
 
 // Page controls
 $('new').onclick = () => open();
