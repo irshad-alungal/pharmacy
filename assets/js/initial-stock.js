@@ -249,7 +249,7 @@ export async function mountInitialStock(panel, prof) {
         }));
         if(target.id==='os-submit'){
           const summary=data.map((r,i)=>`${i+1}. ${r.item} / ${r.batch} — ${r.pack} × ${r.qty} = ${r.pack*r.qty} units; Exp ${r.exp}; MRP ₹${r.srate}/pack; Purchase ₹${r.prate}/pack`).join('\n');
-          if(!confirm(`CONFIRM INITIAL STOCK\n\n${summary}\n\nThis will create live batches and post stock movements. This action cannot be undone from this screen. Continue?`){render();msg('Draft saved. Submission cancelled.','');return;}
+          if(!confirm(`CONFIRM INITIAL STOCK\n\n${summary}\n\nThis will create live batches and post stock movements. This action cannot be undone from this screen. Continue?`)){render();msg('Draft saved. Submission cancelled.','');return;}
           const {error:submitError}=await sb.rpc('opening_stock_submit');
           if(submitError)throw submitError;
           const {data:after,error:afterError}=await sb.rpc('opening_stock_get_draft');
