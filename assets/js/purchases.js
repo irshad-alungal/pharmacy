@@ -2,69 +2,118 @@ import { sb } from './supabase-client.js';
 import { mountShell } from './navigation.js';
 import { esc, inr } from './utils.js';
 import { friendly, safeQ } from './ui.js';
+
 const prof = await mountShell('purchases', 'Purchases');
 const $ = id => document.getElementById(id);
+const canWrite = ['super_admin', 'admin', 'inventory'].includes(prof.role);
 const isAdmin = ['super_admin', 'admin'].includes(prof.role);
-const dists = (await sb.from('distributors').select('id,name').eq('active', true).order('name')).data || [];
-const units = (await sb.from('units').select('id,name').eq('active', true).order('name')).data || [];
-document.getElementById('view').innerHTML = `<button id="new">+ New purchase</button><div id="msg"></div>
-<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Supplier invoice</th><th>Distributor</th><th>Status</th>${isAdmin ? '<th>Total</th>' : ''}</tr></thead><tbody id="rows"></tbody></table></div>
-<dialog id="dlg"><form id="f" method="dialog" style="display:grid;gap:.6rem;width:min(96vw,980px)"><h3>New purchase (confirming adds stock immediately)</h3>
-<div style="display:flex;gap:.5rem;flex-wrap:wrap"><select id="dist" required><option value="">Distributor *</option>${dists.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select>
-<input id="inv" placeholder="Supplier invoice no. *" required><input id="dt" type="date" required></div>
-<datalist id="ml"></datalist><div style="overflow-x:auto"><table><thead><tr><th>Medicine</th><th>Batch</th><th>Expiry</th><th>Qty</th><th>Unit</th><th>Price ₹ (ex-tax)</th><th>Tax %</th><th>Disc ₹</th><th></th></tr></thead><tbody id="lines"></tbody></table></div>
-<button type="button" class="sec" id="addl">+ Add line</button>
-<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><input id="disc" type="number" min="0" step="0.01" placeholder="Invoice discount ₹" value="0"><input id="fr" type="number" min="0" step="0.01" placeholder="Freight ₹" value="0">
-<strong id="tot" style="flex:1;text-align:right"></strong></div><div id="err" style="color:#b91c1c"></div>
-<div style="display:flex;gap:.5rem"><button>Confirm purchase</button><button type="button" class="sec" id="cancel">Cancel</button></div></form></dialog>`;
-const map = new Map();
-const unitOpts = sel => '<option value="">Base unit</option>' + units.map(u => `<option value="${u.id}" ${u.id === sel ? 'selected' : ''}>${esc(u.name)}</option>`).join('');
-function addLine() {
-  const tr = document.createElement('tr');
-  tr.innerHTML = `<td><input class="med" list="ml" placeholder="Search medicine" style="min-width:180px"></td><td><input class="bn" style="width:6rem"></td><td><input class="ex" type="date"></td>
-  <td><input class="q" type="number" min="0.001" step="any" style="width:5rem"></td><td><select class="u">${unitOpts()}</select></td><td><input class="p" type="number" min="0" step="0.01" style="width:6rem"></td>
-  <td><input class="t" type="number" min="0" max="40" step="0.01" value="12" style="width:4.5rem"></td><td><input class="d" type="number" min="0" step="0.01" value="0" style="width:5rem"></td><td><button type="button" class="sec rm">✕</button></td>`;
-  $('lines').appendChild(tr);
+const [distRes, unitRes] = await Promise.all([
+  sb.from('distributors').select('id,name,phone,email,address,gstin,drug_licence').eq('active', true).order('name'),
+  sb.from('units').select('id,name').eq('active', true).order('name')
+]);
+const dists = distRes.data || [];
+const units = unitRes.data || [];
+const medicineMap = new Map();
+let purchaseRows = [];
+let attachments = [];
+let cameraStream = null;
+
+$('view').innerHTML = `
+<div class="purchase-page">
+  <div class="purchase-toolbar"><div><h3 style="margin:.1rem 0">Purchase management</h3><div class="purchase-muted">Supplier invoices, stock-in, bill documents and payment tracking</div></div>
+    <div class="purchase-actions"><button class="purchase-btn" id="excelTemplate">↓ Excel template</button><button class="purchase-btn" id="excelUploadBtn">↑ Upload Excel</button><input id="excelFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="purchase-btn primary" id="newPurchase">+ New purchase</button></div>
+  </div>
+  <div class="purchase-stats"><div class="purchase-stat"><small>Purchase invoices</small><strong id="statCount">—</strong></div><div class="purchase-stat"><small>Posted value</small><strong id="statValue">—</strong></div><div class="purchase-stat"><small>Draft bills</small><strong id="statDraft">—</strong></div><div class="purchase-stat"><small>Attachments</small><strong id="statFiles">—</strong></div></div>
+  <section class="purchase-card"><div class="purchase-section-head"><h3>Purchase invoices</h3><span class="purchase-muted" id="listCount"></span></div>
+    <div class="purchase-filters" style="margin:.7rem 0"><input id="searchPurchase" placeholder="Search invoice number or supplier"><select id="statusFilter"><option value="">All statuses</option><option value="confirmed">Posted</option><option value="draft">Draft</option><option value="cancelled">Cancelled</option></select><input id="fromDate" type="date" aria-label="From date"><input id="toDate" type="date" aria-label="To date"><button class="purchase-btn" id="clearFilters">Clear</button></div>
+    <div class="purchase-table-wrap"><table class="purchase-table"><thead><tr><th>Date</th><th>Invoice No.</th><th>Supplier</th><th>Status</th><th>Bill</th>${isAdmin ? '<th>Total</th>' : ''}<th>Actions</th></tr></thead><tbody id="purchaseRows"><tr><td colspan="7" class="purchase-empty">Loading purchases…</td></tr></tbody></table></div>
+  </section>
+  <div class="purchase-notice">Draft saving, invoice attachments and assisted bill extraction will be activated with the purchase database upgrade. This frontend preview does not save drafts or files yet.</div>
+</div>
+
+<dialog class="purchase-dialog" id="purchaseDialog"><div class="purchase-dialog-head"><div><h3 id="formTitle">New purchase</h3><div class="purchase-muted">Enter the supplier invoice and verify every batch before posting stock.</div></div><button class="purchase-btn" id="closePurchase" type="button">Close</button></div>
+<form id="purchaseForm" class="purchase-form">
+  <section class="purchase-card"><h3>1. Supplier and invoice</h3><div class="purchase-grid">
+    <div class="purchase-field span2"><label for="supplier">Supplier / Distributor *</label><select id="supplier" required><option value="">Select supplier</option>${dists.map(d=>`<option value="${esc(d.id)}">${esc(d.name)}</option>`).join('')}</select></div>
+    <div class="purchase-field"><label for="invoiceNo">Supplier invoice number *</label><input id="invoiceNo" required maxlength="100"></div>
+    <div class="purchase-field"><label for="invoiceDate">Invoice date *</label><input id="invoiceDate" type="date" required></div>
+    <div class="purchase-field"><label for="dueDate">Due date</label><input id="dueDate" type="date"></div>
+    <div class="purchase-field"><label for="orderNo">Order number</label><input id="orderNo"></div>
+    <div class="purchase-field"><label for="orderDate">Order date</label><input id="orderDate" type="date"></div>
+    <div class="purchase-field"><label for="paymentTerms">Payment terms</label><select id="paymentTerms"><option value="credit">Credit</option><option value="cash">Cash</option><option value="other">Other</option></select></div>
+    <div class="purchase-field"><label for="invoiceTaxMode">Default purchase rate mode</label><select id="invoiceTaxMode"><option value="exclusive">Tax exclusive</option><option value="inclusive">Tax inclusive</option><option value="mixed">Set per item</option></select></div>
+    <div class="purchase-field span2"><label for="notes">Notes / reference</label><input id="notes" placeholder="Optional note"></div>
+  </div></section>
+  <section class="purchase-card"><div class="purchase-section-head"><h3>2. Medicine items</h3><button class="purchase-btn" type="button" id="addItem">+ Add medicine</button></div><p class="purchase-mobile-hint">Scroll the item table horizontally to see all columns.</p>
+    <div class="purchase-table-wrap"><table class="purchase-table" style="min-width:1500px"><thead><tr><th>Medicine *</th><th>Manufacturer</th><th>HSN</th><th>Pack factor</th><th>Batch *</th><th>Expiry *</th><th>Qty *</th><th>Free</th><th>MRP</th><th>Rate *</th><th>Rate mode</th><th>Discount ₹</th><th>GST %</th><th>Line total</th><th></th></tr></thead><tbody id="itemRows"></tbody></table></div>
+    <div id="unknownMedicineNotice" class="purchase-warning" hidden>One or more medicines are not in the master. Review and create them before posting. The medicine creation workflow will be connected in the backend phase.</div>
+  </section>
+  <section class="purchase-card"><h3>3. Invoice totals</h3><div class="purchase-grid">
+    <div class="purchase-field"><label for="invoiceDiscount">Invoice discount ₹</label><input id="invoiceDiscount" type="number" min="0" step=".01" value="0"></div>
+    <div class="purchase-field"><label for="freight">Freight / other charges ₹</label><input id="freight" type="number" min="0" step=".01" value="0"></div>
+    <div class="purchase-field"><label for="printedTotal">Supplier printed total ₹</label><input id="printedTotal" type="number" min="0" step=".01" placeholder="Optional"></div>
+    <div class="purchase-field"><label for="roundOff">Round off ₹</label><input id="roundOff" type="number" step=".01" value="0"></div>
+  </div><div class="purchase-summary"><div class="purchase-summary-box"><div class="purchase-summary-line"><span>Taxable subtotal</span><strong id="sumSubtotal">₹0.00</strong></div><div class="purchase-summary-line"><span>GST</span><strong id="sumTax">₹0.00</strong></div><div class="purchase-summary-line"><span>Invoice discount</span><strong id="sumDiscount">₹0.00</strong></div><div class="purchase-summary-line"><span>Freight / charges</span><strong id="sumFreight">₹0.00</strong></div><div class="purchase-summary-line total"><span>Calculated total</span><strong id="sumTotal">₹0.00</strong></div><div id="totalCompare" class="purchase-muted" style="font-size:.82rem"></div></div></div>
+  </section>
+  <section class="purchase-card"><h3>4. Payment details</h3><div class="purchase-grid"><div class="purchase-field"><label for="paymentStatus">Payment status</label><select id="paymentStatus"><option value="unpaid">Unpaid</option><option value="partial">Partially paid</option><option value="paid">Paid</option></select></div><div class="purchase-field"><label for="amountPaid">Amount paid ₹</label><input id="amountPaid" type="number" min="0" step=".01" value="0"></div><div class="purchase-field"><label for="paymentMode">Payment mode</label><select id="paymentMode"><option>Bank</option><option>Cash</option><option>UPI</option><option>Cheque</option><option>Other</option></select></div><div class="purchase-field"><label for="paymentRef">Payment reference</label><input id="paymentRef"></div></div></section>
+  <section class="purchase-card"><h3>5. Bill attachments</h3><div class="purchase-actions"><label class="purchase-btn" for="billFiles">↑ Upload PDF / images</label><input id="billFiles" type="file" accept="application/pdf,image/jpeg,image/png" multiple hidden><label class="purchase-btn" for="cameraFiles">▣ Capture with camera</label><input id="cameraFiles" type="file" accept="image/*" capture="environment" multiple hidden></div><div id="attachmentList" class="purchase-file-list"><span class="purchase-muted">No bill files selected.</span></div><div class="purchase-notice" style="margin-top:.7rem">Selected files can be previewed in this frontend. Secure upload and OCR extraction will be connected after the storage and database changes are approved.</div></section>
+  <div id="formError" class="purchase-error" role="alert"></div><div class="purchase-actions"><button type="button" class="purchase-btn" id="saveDraft">Save draft</button><button type="button" class="purchase-btn dark" id="confirmPurchase">Review & confirm stock-in</button></div>
+</form></dialog>
+
+<dialog class="purchase-dialog" id="viewDialog"><div class="purchase-dialog-head"><h3>Purchase invoice</h3><button class="purchase-btn" id="closeView" type="button">Close</button></div><div id="viewContent"></div></dialog>
+<dialog class="purchase-dialog" id="fileDialog"><div class="purchase-dialog-head"><h3>Bill preview</h3><button class="purchase-btn" id="closeFile" type="button">Close</button></div><div id="filePreview"></div></dialog>
+<dialog class="purchase-dialog" id="confirmDialog"><h3>Confirm purchase and update stock?</h3><p>This action posts the purchase and increases batch stock. Please verify invoice, batch, expiry, quantity, rates and tax before continuing.</p><div class="purchase-actions"><button class="purchase-btn" id="backToEdit" type="button">Go back</button><button class="purchase-btn dark" id="postNow" type="button">Confirm and post stock</button></div></dialog>
+`;
+
+function dateToday(){return new Date().toISOString().slice(0,10)}
+function number(v){const n=Number(v);return Number.isFinite(n)?n:0}
+function fmt(v){return inr(number(v))}
+function setMsg(message, type='info') { const el=$('formError'); el.className=type==='error'?'purchase-error':type==='warning'?'purchase-warning':'purchase-muted'; el.textContent=message; }
+function unitOptions(){return '<option value="">Base unit</option>'+units.map(u=>`<option value="${esc(u.id)}">${esc(u.name)}</option>`).join('')}
+function makeItemRow(seed={}){
+ const tr=document.createElement('tr');tr.className='purchase-item-row';
+ tr.innerHTML=`<td><input class="med-name" list="medicineSuggestions" placeholder="Search medicine" value="${esc(seed.medicine_label||'')}"></td><td><input class="manufacturer" placeholder="Manufacturer" value="${esc(seed.manufacturer||'')}"></td><td><input class="hsn small-num" placeholder="HSN" value="${esc(seed.hsn||'')}"></td><td><input class="pack small-num" type="number" min=".0001" step="any" value="${seed.pack??1}"></td><td><input class="batch" placeholder="Batch no." value="${esc(seed.batch_no||'')}"></td><td><input class="expiry" type="date" value="${esc(seed.expiry||'')}"></td><td><input class="qty small-num" type="number" min=".001" step="any" value="${seed.qty??1}"></td><td><input class="free small-num" type="number" min="0" step="any" value="${seed.free_qty??0}"></td><td><input class="mrp small-num" type="number" min="0" step=".01" value="${seed.mrp??0}"></td><td><input class="rate small-num" type="number" min="0" step=".01" value="${seed.rate??0}"></td><td><select class="rate-mode taxmode"><option value="exclusive">Exclusive</option><option value="inclusive">Inclusive</option></select></td><td><input class="line-discount small-num" type="number" min="0" step=".01" value="${seed.discount??0}"></td><td><input class="gst small-num" type="number" min="0" max="40" step=".01" value="${seed.tax_rate??12}"></td><td class="line-total">₹0.00</td><td><button class="purchase-btn danger remove-line" type="button" title="Remove row">×</button></td>`;
+ tr.querySelector('.rate-mode').value=seed.rate_mode || ($('invoiceTaxMode').value==='inclusive' ? 'inclusive' : 'exclusive');
+ if(seed.medicine_id)tr.dataset.medicineId=seed.medicine_id;
+ if(seed.unit_id)tr.dataset.unitId=seed.unit_id;
+ $('itemRows').appendChild(tr);calcTotals();return tr;
 }
-function totals() {
-  let sub = 0, tx = 0;
-  for (const r of $('lines').children) {
-    const net = (+r.querySelector('.q').value || 0) * (+r.querySelector('.p').value || 0) - (+r.querySelector('.d').value || 0);
-    sub += net; tx += net * (+r.querySelector('.t').value || 0) / 100;
-  }
-  $('tot').textContent = `Subtotal ${inr(sub)} + tax ${inr(tx)} = ${inr(sub + tx - (+$('disc').value || 0) + (+$('fr').value || 0))} (server recalculates)`;
+function calcLine(tr){
+ const qty=number(tr.querySelector('.qty').value),pack=Math.max(number(tr.querySelector('.pack').value),.0001),rate=number(tr.querySelector('.rate').value),disc=number(tr.querySelector('.line-discount').value),gst=number(tr.querySelector('.gst').value),mode=tr.querySelector('.rate-mode').value;
+ const gross=qty*rate;const discount=Math.min(disc,gross);const netEntered=Math.max(0,gross-discount);const taxable=mode==='inclusive'?netEntered/(1+gst/100):netEntered;const tax=taxable*gst/100;const total=mode==='inclusive'?netEntered:taxable+tax;
+ return {qty,pack,rate,discount,gst,mode,taxable,tax,total,unitPrice:taxable/Math.max(qty,1e-9),baseQty:qty*pack};
 }
-$('lines').oninput = async e => {
-  const r = e.target.closest('tr');
-  if (e.target.classList.contains('med')) {
-    const v = e.target.value, hit = map.get(v);
-    if (hit) { r.dataset.id = hit.id; r.querySelector('.t').value = hit.tax_rate; r.querySelector('.u').innerHTML = unitOpts(hit.base_unit_id); }
-    else {
-      delete r.dataset.id; const s = safeQ(v); if (s.length < 2) return;
-      const { data } = await sb.from('medicines').select('id,name,strength,tax_rate,base_unit_id').eq('active', true).or(`name.ilike.%${s}%,barcode.eq.${s}`).limit(15);
-      $('ml').innerHTML = ''; for (const m of data || []) { const label = `${m.name}${m.strength ? ' ' + m.strength : ''}`; map.set(label, m); $('ml').insertAdjacentHTML('beforeend', `<option value="${esc(label)}">`); }
-    }
-  }
-  totals();
-};
-$('lines').onclick = e => { if (e.target.classList.contains('rm')) { e.target.closest('tr').remove(); totals(); } };
-$('disc').oninput = $('fr').oninput = totals; $('addl').onclick = () => { addLine(); totals(); };
-$('new').onclick = () => { $('f').reset(); $('dt').value = new Date().toISOString().slice(0, 10); $('lines').innerHTML = ''; $('err').textContent = ''; addLine(); totals(); $('dlg').showModal(); };
-$('cancel').onclick = () => $('dlg').close();
-$('f').onsubmit = async e => {
-  e.preventDefault(); $('err').textContent = '';
-  const items = [...$('lines').children].map(r => ({ medicine_id: r.dataset.id, batch_no: r.querySelector('.bn').value, expiry: r.querySelector('.ex').value, qty: +r.querySelector('.q').value,
-    unit_id: r.querySelector('.u').value || null, price: +r.querySelector('.p').value, tax_rate: +r.querySelector('.t').value, discount: +r.querySelector('.d').value || 0 }));
-  if (items.some(i => !i.medicine_id)) { $('err').textContent = 'Pick every medicine from the suggestion list.'; return; }
-  if (items.some(i => !i.expiry || !i.batch_no.trim() || !(i.qty > 0))) { $('err').textContent = 'Each line needs batch, expiry and quantity.'; return; }
-  const { error } = await sb.rpc('confirm_purchase', { p_distributor: $('dist').value, p_invoice_no: $('inv').value, p_date: $('dt').value,
-    p_discount: +$('disc').value || 0, p_freight: +$('fr').value || 0, p_items: items });
-  if (error) { $('err').textContent = error.code === '23505' ? 'This supplier invoice number is already recorded for that distributor.' : friendly(error); return; }
-  $('dlg').close(); $('msg').textContent = 'Purchase confirmed and stock updated.'; load();
-};
-async function load() {
-  const { data, error } = await sb.rpc('purchase_list', { p_limit: 100 });
-  if (error) { $('msg').textContent = friendly(error); return; }
-  $('rows').innerHTML = (data || []).map(p => `<tr><td>${esc(p.invoice_date)}</td><td>${esc(p.supplier_invoice_no)}</td><td>${esc(p.distributor)}</td><td>${esc(p.status)}</td>${isAdmin ? `<td>${inr(p.total)}</td>` : ''}</tr>`).join('') || '<tr><td colspan="5">No purchases yet.</td></tr>';
-}
-load();
+function calcTotals(){let sub=0,tax=0;for(const tr of $('itemRows').children){const c=calcLine(tr);sub+=c.taxable;tax+=c.tax;tr.querySelector('.line-total').textContent=fmt(c.total)}const disc=number($('invoiceDiscount').value),freight=number($('freight').value),round=number($('roundOff').value),total=sub+tax-disc+freight+round;$('sumSubtotal').textContent=fmt(sub);$('sumTax').textContent=fmt(tax);$('sumDiscount').textContent=fmt(disc);$('sumFreight').textContent=fmt(freight);$('sumTotal').textContent=fmt(total);const printed=$('printedTotal').value?number($('printedTotal').value):null;$('totalCompare').textContent=printed===null?'':Math.abs(printed-total)>.02?`Warning: printed total ${fmt(printed)} differs by ${fmt(Math.abs(printed-total))}.`:'Printed invoice total matches.';return {sub,tax,total}}
+async function findMedicine(label){const hit=medicineMap.get(label);if(hit)return hit;const q=safeQ(label);if(q.length<2)return null;const {data,error}=await sb.from('medicines').select('id,name,strength,tax_rate,base_unit_id').eq('active',true).or(`name.ilike.%${q}%,barcode.eq.${q}`).limit(15);if(error)throw error;const dl=$('medicineSuggestions');dl?.remove();const next=document.createElement('datalist');next.id='medicineSuggestions';for(const m of data||[]){const title=`${m.name}${m.strength?' '+m.strength:''}`;medicineMap.set(title,m);const op=document.createElement('option');op.value=title;next.appendChild(op)}document.body.appendChild(next);return medicineMap.get(label)||null}
+$('itemRows').addEventListener('change',async e=>{const tr=e.target.closest('tr');if(!tr)return;if(e.target.classList.contains('med-name')){try{const m=await findMedicine(e.target.value.trim());if(m){tr.dataset.medicineId=m.id;tr.dataset.unitId=m.base_unit_id||'';tr.querySelector('.gst').value=m.tax_rate??12;tr.querySelector('.manufacturer').value=tr.querySelector('.manufacturer').value||'';tr.classList.remove('unknown')}else{delete tr.dataset.medicineId;tr.classList.add('unknown');$('unknownMedicineNotice').hidden=false}}catch(err){setMsg(friendly(err),'error')}}calcTotals()});
+$('itemRows').addEventListener('input',e=>{if(e.target.matches('input,select'))calcTotals()});
+$('itemRows').addEventListener('click',e=>{if(e.target.classList.contains('remove-line')){e.target.closest('tr').remove();calcTotals()}});
+$('addItem').onclick=()=>makeItemRow();['invoiceDiscount','freight','roundOff','printedTotal','invoiceTaxMode'].forEach(id=>$(id).addEventListener('input',calcTotals));
+$('invoiceTaxMode').onchange=()=>{if($('invoiceTaxMode').value!=='mixed')for(const tr of $('itemRows').children)tr.querySelector('.rate-mode').value=$('invoiceTaxMode').value;calcTotals()};
+
+function clearForm(){ $('purchaseForm').reset();$('itemRows').innerHTML='';attachments=[];$('attachmentList').innerHTML='<span class="purchase-muted">No bill files selected.</span>';$('invoiceDate').value=dateToday();$('invoiceDiscount').value='0';$('freight').value='0';$('roundOff').value='0';$('amountPaid').value='0';$('unknownMedicineNotice').hidden=true;setMsg('');makeItemRow();calcTotals() }
+$('newPurchase').onclick=()=>{if(!canWrite)return;clearForm();$('purchaseDialog').showModal()};$('closePurchase').onclick=()=>$('purchaseDialog').close();
+$('supplier').onchange=()=>{const d=dists.find(x=>x.id===$('supplier').value);if(d){$('notes').placeholder=[d.phone,d.gstin].filter(Boolean).join(' · ')||'Optional note'}};
+
+function selectedFileList(){const files=[...attachments];$('attachmentList').innerHTML=files.length?files.map((f,i)=>`<div class="purchase-file"><span>${esc(f.name)} <small class="purchase-muted">(${Math.round(f.size/1024)} KB)</small></span><span><button class="purchase-btn preview-file" data-index="${i}" type="button">View</button> <button class="purchase-btn danger remove-file" data-index="${i}" type="button">Remove</button></span></div>`).join(''):'<span class="purchase-muted">No bill files selected.</span>'}
+function addFiles(fileList){for(const f of fileList){if(!/^(application\/pdf|image\/(jpeg|png))$/.test(f.type)){setMsg(`Unsupported file: ${f.name}. Use PDF, JPG or PNG.`,'error');continue}attachments.push(f)}selectedFileList()}
+$('billFiles').onchange=e=>{addFiles(e.target.files);e.target.value=''};$('cameraFiles').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+$('attachmentList').onclick=e=>{const i=Number(e.target.dataset.index);if(e.target.classList.contains('remove-file')){attachments.splice(i,1);selectedFileList()}if(e.target.classList.contains('preview-file')){const f=attachments[i];if(!f)return;const url=URL.createObjectURL(f);$('filePreview').innerHTML=f.type==='application/pdf'?`<iframe title="Bill PDF" src="${url}" style="width:100%;height:70vh;border:0"></iframe>`:`<img class="purchase-preview" alt="Bill preview" src="${url}">`;$('fileDialog').showModal();$('fileDialog').dataset.url=url}};
+$('closeFile').onclick=()=>{$('fileDialog').close();if($('fileDialog').dataset.url)URL.revokeObjectURL($('fileDialog').dataset.url);$('filePreview').innerHTML=''};
+
+$('excelUploadBtn').onclick=()=>$('excelFile').click();
+$('excelTemplate').onclick=()=>{if(!window.XLSX){alert('Excel library is not available. Please check your internet connection.');return}const headers=['sl no','Supplier','Invoice No','Invoice Date','Item Name','Manufacturer','HSN','batch','pack','Qty','Free Qty','Exp','MRP','Rate','Rate Mode','Discount','GST %'];const ws=XLSX.utils.aoa_to_sheet([headers,[1,'','',dateToday(),'','','','',1,1,0,'',0,0,'exclusive',0,12]]);ws['!cols']=headers.map(h=>({wch:Math.max(12,h.length+2)}));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Purchase Items');XLSX.writeFile(wb,'ALZA_Purchase_Template.xlsx')};
+$('excelFile').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{if(!window.XLSX)throw new Error('Excel reader unavailable. Check your internet connection.');const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{defval:''});if(!rows.length)throw new Error('The workbook contains no item rows.');$('itemRows').innerHTML='';for(const r of rows){const pick=(...keys)=>{for(const k of keys){const found=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());if(found)return r[found]}return ''};const expiry=pick('Exp','Expiry');const exp=expiry instanceof Date?expiry.toISOString().slice(0,10):String(expiry||'').trim();makeItemRow({medicine_label:pick('Item Name','Medicine','Description'),manufacturer:pick('Manufacturer','MFR'),hsn:pick('HSN','HSN Code'),batch_no:pick('batch','Batch'),pack:Number(pick('pack','Pack'))||1,qty:Number(pick('Qty','Quantity'))||1,free_qty:Number(pick('Free Qty','Free','ORF'))||0,expiry:exp,mrp:Number(pick('MRP'))||0,rate:Number(pick('Rate','Trade Price'))||0,rate_mode:String(pick('Rate Mode')||'exclusive').toLowerCase(),discount:Number(pick('Discount','Discount Amount'))||0,tax_rate:Number(pick('GST %','GST','Tax %'))||12})}const first=rows[0];const supplier=Object.keys(first).find(k=>k.trim().toLowerCase()==='supplier');if(supplier){const d=dists.find(x=>x.name.toLowerCase()===String(first[supplier]).trim().toLowerCase());if(d)$('supplier').value=d.id}const invKey=Object.keys(first).find(k=>k.trim().toLowerCase()==='invoice no');if(invKey)$('invoiceNo').value=first[invKey];const dtKey=Object.keys(first).find(k=>k.trim().toLowerCase()==='invoice date');if(dtKey&&first[dtKey] instanceof Date)$('invoiceDate').value=first[dtKey].toISOString().slice(0,10);$('purchaseDialog').showModal();setMsg(`${rows.length} Excel item row(s) imported into the preview. Review all values before posting.`);calcTotals()}catch(err){alert(err.message||String(err))}finally{e.target.value=''}};
+
+function validateForm(){if(!$('supplier').value)return 'Select a supplier.';if(!$('invoiceNo').value.trim())return 'Enter the supplier invoice number.';if(!$('invoiceDate').value)return 'Enter the invoice date.';if(!$('itemRows').children.length)return 'Add at least one medicine item.';for(const [idx,tr] of [...$('itemRows').children].entries()){const c=calcLine(tr);if(!tr.dataset.medicineId)return `Select an existing medicine for row ${idx+1}. New-medicine creation requires the reviewed backend workflow.`;if(!tr.querySelector('.batch').value.trim()||!tr.querySelector('.expiry').value||!(c.qty>0)||!(c.pack>0))return `Row ${idx+1} needs batch, expiry, positive quantity and pack factor.`;if(new Date(tr.querySelector('.expiry').value+'T00:00:00')<=new Date(dateToday()+'T00:00:00'))return `Row ${idx+1} has an expired batch.`;if(c.pack!==1||number(tr.querySelector('.free').value)!==0)return `Row ${idx+1}: pack factors and free quantity need the purchase database upgrade. Use pack factor 1 and free quantity 0 for this frontend test.`;if(c.discount>c.qty*c.rate)return `Row ${idx+1} discount exceeds its line amount.`}return ''}
+$('saveDraft').onclick=()=>setMsg('Draft saving is not enabled yet. The database upgrade is required before this invoice can be safely saved without changing stock. No data has been saved.','warning');
+$('confirmPurchase').onclick=()=>{const err=validateForm();if(err){setMsg(err,'error');return}const total=calcTotals();const paid=number($('amountPaid').value);if(paid>total.total+.01){setMsg('Amount paid cannot exceed the calculated invoice total.','error');return}$('confirmDialog').showModal()};$('backToEdit').onclick=()=>$('confirmDialog').close();
+$('postNow').onclick=async()=>{ $('confirmDialog').close();setMsg('Posting purchase…');const items=[...$('itemRows').children].map(tr=>{const c=calcLine(tr);const qty=c.qty;const price=c.mode==='inclusive'?c.rate/(1+c.gst/100):c.rate;const discount=c.mode==='inclusive'?c.discount/(1+c.gst/100):c.discount;return {medicine_id:tr.dataset.medicineId,batch_no:tr.querySelector('.batch').value.trim(),expiry:tr.querySelector('.expiry').value,qty,unit_id:tr.dataset.unitId||null,price,tax_rate:c.gst,discount}});const {error}=await sb.rpc('confirm_purchase',{p_distributor:$('supplier').value,p_invoice_no:$('invoiceNo').value.trim(),p_date:$('invoiceDate').value,p_discount:number($('invoiceDiscount').value),p_freight:number($('freight').value)+number($('roundOff').value),p_items:items,p_notes:$('notes').value||null});if(error){setMsg(error.code==='23505'?'This supplier invoice number already exists. Review the existing invoice before proceeding.':friendly(error),'error');return}$('purchaseDialog').close();alert('Purchase confirmed and stock updated. Payment recording and attachments will be connected in the next backend phase.');await loadPurchases()};
+
+async function loadPurchases(){const {data,error}=await sb.rpc('purchase_list',{p_limit:200});if(error){$('purchaseRows').innerHTML=`<tr><td colspan="7" class="purchase-empty">${esc(friendly(error))}</td></tr>`;return}purchaseRows=data||[];renderList()}
+function renderList(){const query=$('searchPurchase').value.trim().toLowerCase(),status=$('statusFilter').value,from=$('fromDate').value,to=$('toDate').value;const rows=purchaseRows.filter(p=>(!query||`${p.supplier_invoice_no} ${p.distributor}`.toLowerCase().includes(query))&&(!status||p.status===status)&&(!from||p.invoice_date>=from)&&(!to||p.invoice_date<=to));$('statCount').textContent=purchaseRows.length;$('statDraft').textContent=purchaseRows.filter(p=>p.status==='draft').length;$('statFiles').textContent='—';$('statValue').textContent=isAdmin?fmt(purchaseRows.filter(p=>p.status==='confirmed').reduce((s,p)=>s+number(p.total),0)):'Restricted';$('listCount').textContent=`${rows.length} shown`;$('purchaseRows').innerHTML=rows.length?rows.map(p=>`<tr><td>${esc(p.invoice_date||'')}</td><td>${esc(p.supplier_invoice_no||'')}</td><td>${esc(p.distributor||'')}</td><td><span class="purchase-status ${p.status==='confirmed'?'posted':p.status==='draft'?'draft':'cancelled'}">${p.status==='confirmed'?'Posted':esc(p.status)}</span></td><td>—</td>${isAdmin?`<td>${fmt(p.total)}</td>`:''}<td class="purchase-actions-cell"><button class="purchase-btn view-purchase" data-id="${esc(p.id)}" type="button">View</button></td></tr>`).join(''):'<tr><td colspan="7" class="purchase-empty">No matching purchase invoices.</td></tr>'}
+['searchPurchase','statusFilter','fromDate','toDate'].forEach(id=>$(id).addEventListener('input',renderList));$('clearFilters').onclick=()=>{['searchPurchase','statusFilter','fromDate','toDate'].forEach(id=>$(id).value='');renderList()};
+$('purchaseRows').onclick=async e=>{const btn=e.target.closest('.view-purchase');if(!btn)return;const p=purchaseRows.find(x=>x.id===btn.dataset.id);if(!p)return;$('viewContent').innerHTML=`<div class="purchase-view-grid"><div class="purchase-detail"><small>Supplier</small><strong>${esc(p.distributor)}</strong></div><div class="purchase-detail"><small>Invoice number</small><strong>${esc(p.supplier_invoice_no)}</strong></div><div class="purchase-detail"><small>Invoice date</small><strong>${esc(p.invoice_date)}</strong></div><div class="purchase-detail"><small>Status</small><strong>${esc(p.status)}</strong></div>${isAdmin?`<div class="purchase-detail"><small>Invoice total</small><strong>${fmt(p.total)}</strong></div>`:''}</div><div class="purchase-notice" style="margin-top:1rem">Detailed medicine lines, GST breakdown, payment history and original bill documents will appear here after the purchase-detail and attachment backend endpoints are added.</div>`;$('viewDialog').showModal()};$('closeView').onclick=()=>$('viewDialog').close();
+
+if(!canWrite){$('newPurchase').disabled=true;$('excelUploadBtn').disabled=true;$('excelTemplate').disabled=true}
+await loadPurchases();
