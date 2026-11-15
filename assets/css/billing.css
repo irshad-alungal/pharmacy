@@ -9,3 +9,12 @@
 
 /* FEFO allocation feedback */
 .qty-input{font-variant-numeric:tabular-nums}.bill-table tr:has(.qty-input) td{background:#fbfdfc}.billing-message{min-height:1.2em}
+
+/* Shop open / closed control */
+.shop-state-control{display:flex;align-items:center;gap:10px;justify-content:flex-end;margin-top:12px}
+.shop-state-label{font-size:.82rem;color:var(--muted,#64748b);font-weight:650}
+.shop-state-toggle{border:0;border-radius:999px;padding:10px 22px;min-width:104px;font-weight:800;font-size:.95rem;cursor:pointer;color:#fff;box-shadow:0 3px 10px #00000018;transition:background .18s ease,transform .18s ease}
+.shop-state-toggle:hover{transform:translateY(-1px)}
+.shop-state-toggle.is-open{background:#15803d}
+.shop-state-toggle.is-closed{background:#dc2626}
+@media(max-width:760px){.shop-state-control{justify-content:flex-start;margin-top:8px}}

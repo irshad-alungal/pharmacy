@@ -20,6 +20,10 @@ $('view').innerHTML = `
   <div class="billing-topbar">
     <div><div class="eyebrow">POINT OF SALE</div><h2>New bill</h2><p class="muted">Create a pharmacy invoice and record payment.</p></div>
     <div class="bill-meta"><div><span>Bill number</span><strong>Generated on save</strong></div><div><span>Date</span><strong id="billDate"></strong></div></div>
+    <div class="shop-state-control">
+      <span class="shop-state-label">Shop status</span>
+      <button id="shopStateToggle" class="shop-state-toggle is-closed" type="button" aria-pressed="false">Closed</button>
+    </div>
   </div>
   <aside class="delivery-indicator" aria-live="polite"><span class="delivery-dot"></span><div><strong>Delivery status</strong><small>Delivery status connection will be enabled in the next step</small></div></aside>
   <section class="billing-card">
@@ -61,6 +65,30 @@ $('view').innerHTML = `
 </div>
 <dialog id="hd" class="billing-dialog"><div id="hl"></div><button class="sec" onclick="this.closest('dialog').close()">Close</button></dialog>
 <dialog id="bd" class="billing-dialog"><div id="bl"></div><button class="sec" id="bc" type="button">Close</button></dialog>`;
+
+// Shop open/closed status is shared with the public home page in this browser.
+const SHOP_STATUS_KEY = 'alza_shop_open_status_v1';
+const shopToggle = $('shopStateToggle');
+function renderShopStatus(isOpen) {
+  shopToggle.textContent = isOpen ? 'Open' : 'Closed';
+  shopToggle.classList.toggle('is-open', isOpen);
+  shopToggle.classList.toggle('is-closed', !isOpen);
+  shopToggle.setAttribute('aria-pressed', String(isOpen));
+  shopToggle.setAttribute('aria-label', isOpen ? 'Shop is open. Click to close.' : 'Shop is closed. Click to open.');
+}
+let shopIsOpen = localStorage.getItem(SHOP_STATUS_KEY) === 'open';
+renderShopStatus(shopIsOpen);
+shopToggle.addEventListener('click', () => {
+  shopIsOpen = !shopIsOpen;
+  localStorage.setItem(SHOP_STATUS_KEY, shopIsOpen ? 'open' : 'closed');
+  renderShopStatus(shopIsOpen);
+});
+window.addEventListener('storage', event => {
+  if (event.key === SHOP_STATUS_KEY) {
+    shopIsOpen = event.newValue === 'open';
+    renderShopStatus(shopIsOpen);
+  }
+});
 
 // The bill date element is created by the markup above, so populate it only after mounting the form.
 $('billDate').textContent = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeZone: 'Asia/Kolkata' }).format(new Date());
