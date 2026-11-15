@@ -21,6 +21,13 @@
     .public-shop-status.is-closed{background:#fee2e2;color:#991b1b}
     @media(max-width:760px){.nav{height:auto;min-height:70px;flex-wrap:wrap;padding:13px 0}.navlinks{order:3;width:100%;justify-content:center;gap:18px;font-size:.9rem}.hero{padding:55px 0}.hero-grid,.about-grid{grid-template-columns:1fr;gap:30px}.hero-art{min-height:260px}.cards{grid-template-columns:1fr}.contact-inner{align-items:flex-start;flex-direction:column}.section{padding:58px 0}}
     @media(max-width:390px){.wrap{width:calc(100% - 28px)}.brand{font-size:1rem}.brand-mark{width:36px;height:36px}.login summary{padding:9px 13px}.navlinks{gap:13px}}
+
+    .language-toggle{border:1px solid var(--green);background:white;color:var(--green);border-radius:999px;padding:9px 14px;font-weight:800;cursor:pointer;white-space:nowrap}.language-toggle:hover{background:var(--mint)}
+    .offer-section{padding:34px 0 10px}.offer-banner{min-height:220px;border-radius:26px;padding:35px 42px;background:linear-gradient(115deg,#0f766e,#164a43 68%,#1e6257);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:25px;overflow:hidden;position:relative;box-shadow:0 18px 40px #174e4420}.offer-copy{max-width:700px;position:relative;z-index:1}.offer-kicker{font-size:.78rem;font-weight:850;letter-spacing:.16em;color:#baf2d9}.offer-banner h2{font-size:clamp(1.65rem,3.3vw,2.55rem);line-height:1.12;margin:10px 0;color:#fff}.offer-banner p{margin:0;color:#d9f2e9;max-width:620px}.offer-art{width:145px;height:145px;flex:0 0 145px;border-radius:50%;background:#ffffff1c;border:1px solid #ffffff50;display:grid;place-items:center;font-size:5rem;font-weight:900;color:#fff;position:relative}.offer-art span{position:absolute;font-size:2rem;right:2px;top:2px;color:#baf2d9}
+    .delivery-section{padding:34px 0 20px}.delivery-notice{display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:center;background:#e6f5ee;border:1px solid #c9e8d8;border-radius:22px;padding:27px 30px}.delivery-icon{width:58px;height:58px;border-radius:18px;background:#c9ead8;color:#166534;display:grid;place-items:center;font-size:2rem}.delivery-notice h2{font-size:1.5rem;color:var(--deep);margin:7px 0}.delivery-notice p{margin:0;color:var(--muted);max-width:720px}.delivery-rule{display:grid;grid-template-columns:auto auto;gap:2px 12px;align-items:center;border-left:1px solid #c2dfce;padding-left:25px}.delivery-rule strong{font-size:1.25rem;color:#166534}.delivery-rule span{font-size:.8rem;color:#527064}
+    .ayurvedic-section{padding:72px 0;background:#f0f6ed}.ayurvedic-grid{display:grid;grid-template-columns:90px 1.1fr .9fr;gap:30px;align-items:center}.ayurvedic-mark{width:82px;height:82px;border-radius:25px;background:#dcebd6;color:#386b42;display:grid;place-items:center;font-size:3.2rem}.ayurvedic-copy h2{font-size:2.2rem;color:var(--deep);margin:10px 0}.ayurvedic-copy>p{color:var(--muted);margin:0 0 14px}.demo-label{display:inline-block;background:#fff2cc;color:#805b12;border-radius:7px;padding:5px 9px;font-size:.78rem;font-weight:750;margin-bottom:10px}.ayurvedic-details p{margin:5px 0;color:var(--muted);font-size:.93rem}.ayurvedic-details a{color:var(--green);font-weight:650}.outline-link{display:inline-flex;margin-top:15px;border:1px solid var(--green);color:var(--green);border-radius:999px;padding:10px 16px;font-weight:750}.map-placeholder{min-height:250px;border-radius:22px;background:linear-gradient(135deg,#dbe9d9,#c5ddce);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#315c43;text-align:center;padding:20px;position:relative;overflow:hidden}.map-placeholder:before,.map-placeholder:after{content:'';position:absolute;width:150%;height:1px;background:#ffffffa8;transform:rotate(-25deg)}.map-placeholder:after{transform:rotate(25deg)}.map-pin{font-size:3.2rem;z-index:1}.map-placeholder strong,.map-placeholder span{z-index:1}.map-placeholder span{font-size:.83rem;color:#55745e}
+    @media(max-width:850px){.delivery-notice{grid-template-columns:auto 1fr}.delivery-rule{grid-column:2;border-left:0;border-top:1px solid #c2dfce;padding:14px 0 0}.ayurvedic-grid{grid-template-columns:70px 1fr}.map-placeholder{grid-column:1/-1}.nav{gap:12px}}
+    @media(max-width:560px){.language-toggle{padding:8px 10px;font-size:.82rem}.offer-banner{padding:26px 23px;min-height:190px}.offer-art{width:85px;height:85px;flex-basis:85px;font-size:3rem}.delivery-notice{grid-template-columns:1fr;padding:22px}.delivery-rule{grid-column:1}.ayurvedic-grid{grid-template-columns:1fr}.ayurvedic-mark{width:65px;height:65px}.navlinks{flex-wrap:wrap}}
   </style>
 </head>
 <body>
@@ -28,14 +35,15 @@
     <div class="wrap nav">
       <a class="brand" href="#home" aria-label="ALZA Pharmacy home"><span class="brand-mark" aria-hidden="true">＋</span><span>ALZA PHARMACY</span></a>
       <span id="publicShopStatus" class="public-shop-status is-closed" role="status" aria-live="polite"><span class="public-shop-dot"></span><span id="publicShopStatusText">Shop Closed</span></span>
+      <button class="language-toggle" id="languageToggle" type="button" aria-label="Switch language">മലയാളം</button>
       <nav class="navlinks" aria-label="Main navigation">
-        <a href="#home">Home</a><a href="#services">Services</a><a href="#about">About</a><a href="#contact">Contact</a>
+        <a href="#home" data-i18n="navHome">Home</a><a href="#services" data-i18n="navServices">Services</a><a href="#about" data-i18n="navAbout">About</a><a href="#ayurvedic" data-i18n="navAyur">Ayurvedic Store</a><a href="#contact" data-i18n="navContact">Contact</a>
       </nav>
       <details class="login">
-        <summary>Login</summary>
+        <summary data-i18n="login">Login</summary>
         <div class="dropdown">
-          <a href="staff-login.html">Staff login</a>
-          <a href="admin-login.html">Admin login</a>
+          <a href="staff-login.html" data-i18n="staffLogin">Staff login</a>
+          <a href="admin-login.html" data-i18n="adminLogin">Admin login</a>
         </div>
       </details>
     </div>
@@ -45,22 +53,39 @@
     <section class="hero" id="home">
       <div class="wrap hero-grid">
         <div>
-          <span class="eyebrow">Welcome to ALZA Pharmacy</span>
-          <h1>Your health.<br>Our priority.</h1>
-          <p>Thoughtful pharmacy care and everyday health essentials, with a team focused on helping you make informed choices for your wellbeing.</p>
-          <a class="primary" href="#services">Explore our services <span aria-hidden="true">→</span></a>
+          <span class="eyebrow" data-i18n="welcome">Welcome to ALZA Pharmacy</span>
+          <h1 data-i18n="heroTitle">Your health.<br>Our priority.</h1>
+          <p data-i18n="heroText">Thoughtful pharmacy care and everyday health essentials, with a team focused on helping you make informed choices for your wellbeing.</p>
+          <a class="primary" href="#services"><span data-i18n="explore">Explore our services</span> <span aria-hidden="true">→</span></a>
         </div>
-        <div class="hero-art" aria-label="Pharmacy care symbol"><div class="cross" aria-hidden="true">＋</div><div class="art-label">CARE · TRUST · WELLBEING</div></div>
+        <div class="hero-art" aria-label="Pharmacy care symbol"><div class="cross" aria-hidden="true">＋</div><div class="art-label" data-i18n="heroTag">CARE · TRUST · WELLBEING</div></div>
+      </div>
+    </section>
+
+    <section class="offer-section" id="offers" aria-label="Offers">
+      <div class="wrap">
+        <article class="offer-banner">
+          <div class="offer-copy"><span class="offer-kicker" data-i18n="offerKicker">SPECIAL OFFERS</span><h2 data-i18n="offerTitle">Offers and updates from ALZA Pharmacy</h2><p data-i18n="offerText">Check this space for our latest offers. Visit us or contact our team for current details.</p></div>
+          <div class="offer-art" aria-hidden="true">%<span>✦</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="delivery-section" id="delivery-info">
+      <div class="wrap delivery-notice">
+        <div class="delivery-icon" aria-hidden="true">⌂</div>
+        <div><span class="eyebrow" data-i18n="deliveryKicker">DELIVERY AVAILABLE</span><h2 data-i18n="deliveryTitle">Get your medicines delivered to your doorstep</h2><p data-i18n="deliveryText">Delivery is available within a 5 km radius for purchases of ₹300 or more. Please contact the pharmacy to confirm service availability for your address.</p></div>
+        <div class="delivery-rule"><strong>5 km</strong><span data-i18n="radius">Service radius</span><strong>₹300+</strong><span data-i18n="minimum">Minimum purchase</span></div>
       </div>
     </section>
 
     <section class="section" id="services">
       <div class="wrap">
-        <div class="section-head"><span class="eyebrow">What we focus on</span><h2>Care for your everyday health</h2><p>Support and essentials to help you look after yourself and your family.</p></div>
+        <div class="section-head"><span class="eyebrow" data-i18n="servicesKicker">WHAT WE FOCUS ON</span><h2 data-i18n="servicesTitle">Care for your everyday health</h2><p data-i18n="servicesText">Support and essentials to help you look after yourself and your family.</p></div>
         <div class="cards">
-          <article class="card"><div class="card-icon" aria-hidden="true">✚</div><h3>Medicine support</h3><p>Help with finding medicines and understanding the information provided with them.</p></article>
-          <article class="card"><div class="card-icon" aria-hidden="true">♡</div><h3>Everyday wellness</h3><p>Health and personal-care essentials for your day-to-day needs.</p></article>
-          <article class="card"><div class="card-icon" aria-hidden="true">☏</div><h3>Helpful guidance</h3><p>A welcoming place to ask questions and get support with your pharmacy needs.</p></article>
+          <article class="card"><div class="card-icon" aria-hidden="true">✚</div><h3 data-i18n="service1Title">Medicine support</h3><p data-i18n="service1Text">Help with finding medicines and understanding the information provided with them.</p></article>
+          <article class="card"><div class="card-icon" aria-hidden="true">♡</div><h3 data-i18n="service2Title">Everyday wellness</h3><p data-i18n="service2Text">Health and personal-care essentials for your day-to-day needs.</p></article>
+          <article class="card"><div class="card-icon" aria-hidden="true">☏</div><h3 data-i18n="service3Title">Helpful guidance</h3><p data-i18n="service3Text">A welcoming place to ask questions and get support with your pharmacy needs.</p></article>
         </div>
       </div>
     </section>
@@ -68,16 +93,39 @@
     <section class="section about" id="about">
       <div class="wrap about-grid">
         <div class="about-symbol" aria-hidden="true">＋</div>
-        <div class="about-copy"><span class="eyebrow">About us</span><h2>Here to support healthier days</h2><p>At ALZA Pharmacy, we believe pharmacy care should feel clear, respectful and approachable. Our focus is on helping customers access everyday health essentials and make informed decisions.</p></div>
+        <div class="about-copy"><span class="eyebrow" data-i18n="aboutKicker">ABOUT US</span><h2 data-i18n="aboutTitle">Here to support healthier days</h2><p data-i18n="aboutText">At ALZA Pharmacy, we believe pharmacy care should feel clear, respectful and approachable. Our focus is on helping customers access everyday health essentials and make informed decisions.</p></div>
+      </div>
+    </section>
+
+    <section class="ayurvedic-section" id="ayurvedic">
+      <div class="wrap ayurvedic-grid">
+        <div class="ayurvedic-mark" aria-hidden="true">❋</div>
+        <div class="ayurvedic-copy"><span class="eyebrow" data-i18n="ayurKicker">OUR SISTER STORE</span><h2 data-i18n="ayurTitle">Ayurvedic Store</h2><p data-i18n="ayurText">Explore traditional Ayurvedic products and wellness essentials at our associated store.</p>
+          <div class="demo-label" data-i18n="demoDetails">Demo contact details — replace before publishing</div>
+          <div class="ayurvedic-details"><p><strong data-i18n="addressLabel">Address:</strong> <span data-i18n="demoAddress">Demo address, Thrissur, Kerala, India</span></p><p><strong data-i18n="phoneLabel">Phone:</strong> <a href="tel:+919876543210">+91 98765 43210</a></p><p><strong>Email:</strong> <a href="mailto:ayurvedic.demo@example.com">ayurvedic.demo@example.com</a></p><p><strong data-i18n="websiteLabel">Website:</strong> <a href="https://example.com" target="_blank" rel="noopener">www.example.com</a></p></div>
+          <a class="outline-link" href="https://www.google.com/maps/search/?api=1&query=Ayurvedic+Store+Thrissur+Kerala" target="_blank" rel="noopener"><span data-i18n="viewLocation">View location</span> ↗</a>
+        </div>
+        <div class="map-placeholder"><div class="map-pin">⌖</div><strong data-i18n="locationDemo">Store location (demo)</strong><span data-i18n="locationNote">Update with the actual address and map pin</span></div>
       </div>
     </section>
 
     <section class="contact" id="contact">
-      <div class="wrap contact-inner"><div><h2>How can we help?</h2><p>Visit ALZA Pharmacy or speak with our team about your pharmacy needs.</p></div><a class="primary" href="staff-login.html">Staff portal <span aria-hidden="true">→</span></a></div>
+      <div class="wrap contact-inner"><div><h2 data-i18n="contactTitle">How can we help?</h2><p data-i18n="contactText">Visit ALZA Pharmacy or speak with our team about your pharmacy needs.</p></div><a class="primary" href="staff-login.html"><span data-i18n="staffPortal">Staff portal</span> <span aria-hidden="true">→</span></a></div>
     </section>
   </main>
 
-  <footer class="footer"><div class="wrap footer-inner"><span>© <span id="year"></span> ALZA PHARMACY</span><span>Care · Trust · Wellbeing</span></div></footer>
+  <footer class="footer"><div class="wrap footer-inner"><span>© <span id="year"></span> ALZA PHARMACY</span><span data-i18n="footerTag">Care · Trust · Wellbeing</span></div></footer>
+  <script>
+    (function(){
+      const translations={
+        en:{navHome:'Home',navServices:'Services',navAbout:'About',navAyur:'Ayurvedic Store',navContact:'Contact',login:'Login',staffLogin:'Staff login',adminLogin:'Admin login',welcome:'Welcome to ALZA Pharmacy',heroTitle:'Your health.<br>Our priority.',heroText:'Thoughtful pharmacy care and everyday health essentials, with a team focused on helping you make informed choices for your wellbeing.',explore:'Explore our services',heroTag:'CARE · TRUST · WELLBEING',offerKicker:'SPECIAL OFFERS',offerTitle:'Offers and updates from ALZA Pharmacy',offerText:'Check this space for our latest offers. Visit us or contact our team for current details.',deliveryKicker:'DELIVERY AVAILABLE',deliveryTitle:'Get your medicines delivered to your doorstep',deliveryText:'Delivery is available within a 5 km radius for purchases of ₹300 or more. Please contact the pharmacy to confirm service availability for your address.',radius:'Service radius',minimum:'Minimum purchase',servicesKicker:'WHAT WE FOCUS ON',servicesTitle:'Care for your everyday health',servicesText:'Support and essentials to help you look after yourself and your family.',service1Title:'Medicine support',service1Text:'Help with finding medicines and understanding the information provided with them.',service2Title:'Everyday wellness',service2Text:'Health and personal-care essentials for your day-to-day needs.',service3Title:'Helpful guidance',service3Text:'A welcoming place to ask questions and get support with your pharmacy needs.',aboutKicker:'ABOUT US',aboutTitle:'Here to support healthier days',aboutText:'At ALZA Pharmacy, we believe pharmacy care should feel clear, respectful and approachable. Our focus is on helping customers access everyday health essentials and make informed decisions.',ayurKicker:'OUR SISTER STORE',ayurTitle:'Ayurvedic Store',ayurText:'Explore traditional Ayurvedic products and wellness essentials at our associated store.',demoDetails:'Demo contact details — replace before publishing',addressLabel:'Address:',demoAddress:'Demo address, Thrissur, Kerala, India',phoneLabel:'Phone:',websiteLabel:'Website:',viewLocation:'View location',locationDemo:'Store location (demo)',locationNote:'Update with the actual address and map pin',contactTitle:'How can we help?',contactText:'Visit ALZA Pharmacy or speak with our team about your pharmacy needs.',staffPortal:'Staff portal',footerTag:'Care · Trust · Wellbeing'},
+        ml:{navHome:'ഹോം',navServices:'സേവനങ്ങൾ',navAbout:'ഞങ്ങളെക്കുറിച്ച്',navAyur:'ആയുർവേദ സ്റ്റോർ',navContact:'ബന്ധപ്പെടുക',login:'ലോഗിൻ',staffLogin:'സ്റ്റാഫ് ലോഗിൻ',adminLogin:'അഡ്മിൻ ലോഗിൻ',welcome:'ALZA ഫാർമസിയിലേക്ക് സ്വാഗതം',heroTitle:'നിങ്ങളുടെ ആരോഗ്യം.<br>ഞങ്ങളുടെ മുൻഗണന.',heroText:'നിങ്ങളുടെ ക്ഷേമത്തിനായി അറിവോടെയുള്ള തീരുമാനങ്ങൾ എടുക്കാൻ സഹായിക്കുന്ന ആത്മാർത്ഥമായ ഫാർമസി സേവനങ്ങളും ദൈനംദിന ആരോഗ്യ ഉൽപ്പന്നങ്ങളും.',explore:'ഞങ്ങളുടെ സേവനങ്ങൾ കാണുക',heroTag:'പരിചരണം · വിശ്വാസം · ക്ഷേമം',offerKicker:'പ്രത്യേക ഓഫറുകൾ',offerTitle:'ALZA ഫാർമസിയിലെ ഓഫറുകളും അറിയിപ്പുകളും',offerText:'ഞങ്ങളുടെ പുതിയ ഓഫറുകൾക്കായി ഈ ഭാഗം പരിശോധിക്കുക. കൂടുതൽ വിവരങ്ങൾക്ക് സന്ദർശിക്കുകയോ ബന്ധപ്പെടുകയോ ചെയ്യുക.',deliveryKicker:'ഹോം ഡെലിവറി ലഭ്യമാണ്',deliveryTitle:'മരുന്നുകൾ നിങ്ങളുടെ വീട്ടിലെത്തിക്കുന്നു',deliveryText:'₹300 അല്ലെങ്കിൽ അതിലധികം വിലയുള്ള വാങ്ങലുകൾക്ക് 5 കിലോമീറ്റർ പരിധിക്കുള്ളിൽ ഡെലിവറി ലഭ്യമാണ്. നിങ്ങളുടെ വിലാസത്തിൽ സേവനം ലഭ്യമാണെന്ന് ഫാർമസിയുമായി ബന്ധപ്പെട്ടു ഉറപ്പാക്കുക.',radius:'സേവന പരിധി',minimum:'കുറഞ്ഞ വാങ്ങൽ തുക',servicesKicker:'ഞങ്ങളുടെ ശ്രദ്ധ',servicesTitle:'നിങ്ങളുടെ ദൈനംദിന ആരോഗ്യത്തിനായുള്ള പരിചരണം',servicesText:'നിങ്ങളെയും കുടുംബത്തെയും ആരോഗ്യത്തോടെ പരിപാലിക്കാൻ ആവശ്യമായ സഹായവും ഉൽപ്പന്നങ്ങളും.',service1Title:'മരുന്ന് സഹായം',service1Text:'മരുന്നുകൾ കണ്ടെത്താനും അവയോടൊപ്പമുള്ള വിവരങ്ങൾ മനസ്സിലാക്കാനും സഹായം.',service2Title:'ദൈനംദിന ക്ഷേമം',service2Text:'ദൈനംദിന ആവശ്യങ്ങൾക്കുള്ള ആരോഗ്യ-വ്യക്തിഗത പരിചരണ ഉൽപ്പന്നങ്ങൾ.',service3Title:'സഹായകരമായ മാർഗനിർദേശം',service3Text:'നിങ്ങളുടെ ഫാർമസി ആവശ്യങ്ങളെക്കുറിച്ച് ചോദ്യങ്ങൾ ചോദിക്കാനും സഹായം നേടാനും സ്വാഗതം.',aboutKicker:'ഞങ്ങളെക്കുറിച്ച്',aboutTitle:'ആരോഗ്യകരമായ ദിവസങ്ങൾക്ക് നിങ്ങളോടൊപ്പം',aboutText:'ALZA ഫാർമസിയിൽ, വ്യക്തവും മാന്യവും സമീപിക്കാവുന്നതുമായ ഫാർമസി സേവനമാണ് ഞങ്ങൾ വിശ്വസിക്കുന്നത്. ദൈനംദിന ആരോഗ്യ ഉൽപ്പന്നങ്ങൾ ലഭ്യമാക്കാനും അറിവോടെയുള്ള തീരുമാനങ്ങൾ എടുക്കാനും ഉപഭോക്താക്കളെ സഹായിക്കുകയാണ് ഞങ്ങളുടെ ലക്ഷ്യം.',ayurKicker:'ഞങ്ങളുടെ അനുബന്ധ സ്ഥാപനം',ayurTitle:'ആയുർവേദ സ്റ്റോർ',ayurText:'ഞങ്ങളുടെ അനുബന്ധ സ്റ്റോറിൽ പരമ്പരാഗത ആയുർവേദ ഉൽപ്പന്നങ്ങളും ആരോഗ്യസംരക്ഷണ സാധനങ്ങളും ലഭ്യമാണ്.',demoDetails:'ഡെമോ ബന്ധപ്പെടാനുള്ള വിവരങ്ങൾ — പ്രസിദ്ധീകരിക്കുന്നതിന് മുമ്പ് മാറ്റുക',addressLabel:'വിലാസം:',demoAddress:'ഡെമോ വിലാസം, തൃശ്ശൂർ, കേരളം, ഇന്ത്യ',phoneLabel:'ഫോൺ:',websiteLabel:'വെബ്സൈറ്റ്:',viewLocation:'ലൊക്കേഷൻ കാണുക',locationDemo:'സ്റ്റോർ ലൊക്കേഷൻ (ഡെമോ)',locationNote:'യഥാർത്ഥ വിലാസവും മാപ്പ് ലൊക്കേഷനും ചേർക്കുക',contactTitle:'ഞങ്ങൾക്ക് എങ്ങനെ സഹായിക്കാം?',contactText:'ALZA ഫാർമസി സന്ദർശിക്കുകയോ നിങ്ങളുടെ ഫാർമസി ആവശ്യങ്ങൾക്കായി ഞങ്ങളുടെ ടീമുമായി ബന്ധപ്പെടുകയോ ചെയ്യുക.',staffPortal:'സ്റ്റാഫ് പോർട്ടൽ',footerTag:'പരിചരണം · വിശ്വാസം · ക്ഷേമം'}
+      };
+      const button=document.getElementById('languageToggle');
+      function setLanguage(lang){document.documentElement.lang=lang;document.querySelectorAll('[data-i18n]').forEach(el=>{const value=translations[lang][el.dataset.i18n];if(value!==undefined)el.innerHTML=value;});button.textContent=lang==='en'?'മലയാളം':'English';localStorage.setItem('alza_public_language',lang);}
+      const saved=localStorage.getItem('alza_public_language');setLanguage(saved==='ml'?'ml':'en');button.addEventListener('click',()=>setLanguage(document.documentElement.lang==='en'?'ml':'en'));
+    })();
+  </script>
   <script>
     (function () {
       const key = 'alza_shop_open_status_v1';
