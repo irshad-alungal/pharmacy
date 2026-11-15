@@ -4,6 +4,7 @@ import { mountShell } from './navigation.js';
 import { esc, inr } from './utils.js';
 import { friendly, safeQ } from './ui.js';
 import { showInvoice } from './invoice.js';
+import { requireOpeningBalance } from './daily-session.js';
 
 const prof = await mountShell('billing', 'Billing');
 const allowedRoles = ['super_admin', 'admin', 'pharmacist', 'billing_staff'];
@@ -12,6 +13,11 @@ if (!allowedRoles.includes(prof.role)) {
   document.getElementById('view').textContent = 'Not authorised for billing.';
   throw new Error('Not authorised for billing');
 }
+
+// Require an opening cash balance once per authenticated user per IST date.
+// This runs before the billing form is rendered. Existing shop Open/Closed
+// control below is intentionally preserved.
+await requireOpeningBalance(prof.user_id || prof.id);
 
 const $ = id => document.getElementById(id);
 
