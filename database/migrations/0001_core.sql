@@ -1,4 +1,4 @@
--- ALZA PHARMACY core schema (run in Supabase SQL editor). Idempotent where practical.
+-- PALLIKKAL MEDICALS core schema (run in Supabase SQL editor). Idempotent where practical.
 create table if not exists roles(code text primary key);
 insert into roles values ('super_admin'),('admin'),('pharmacist'),('billing'),('inventory') on conflict do nothing;
 create table if not exists profiles(

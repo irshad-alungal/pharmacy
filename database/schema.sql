@@ -1,6 +1,6 @@
 
 -- ============================================================
--- ALZA PHARMACY V2
+-- PALLIKKAL MEDICALS V2
 -- MIGRATION FOR EXISTING SUPABASE DATABASE
 --
 -- PRESERVES:
@@ -900,5 +900,5 @@ ORDER BY table_name;
 
 
 -- ============================================================
--- END ALZA PHARMACY V2
+-- END PALLIKKAL MEDICALS V2
 -- ============================================================

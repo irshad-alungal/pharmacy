@@ -1,4 +1,4 @@
--- ALZA PHARMACY: branch-scoped supplier purchase returns
+-- PALLIKKAL MEDICALS: branch-scoped supplier purchase returns
 -- This file documents the migration already applied in the Supabase project.
 -- Do NOT rerun against a database where these objects already exist.
 

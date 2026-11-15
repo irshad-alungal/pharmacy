@@ -1,4 +1,4 @@
-# ALZA Pharmacy — Distributor frontend update
+# Pallikkal Medicals — Distributor frontend update
 
 ## Included
 - Distributor list now has a **View** action next to each entry.

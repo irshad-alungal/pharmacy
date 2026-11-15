@@ -1,4 +1,4 @@
--- ALZA Pharmacy: Initial Stock Excel fields + submitted batch editor
+-- Pallikkal Medicals: Initial Stock Excel fields + submitted batch editor
 -- Review against the live schema before applying. Run once in Supabase SQL Editor.
 -- This migration preserves the existing opening-stock session workflow.
 

@@ -1,4 +1,4 @@
-# ALZA PHARMACY — Customers page fix
+# PALLIKKAL MEDICALS — Customers page fix
 
 Based on the latest uploaded GitHub project ZIP.
 

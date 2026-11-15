@@ -1,4 +1,4 @@
--- ALZA Pharmacy: Initial / takeover stock with persistent draft and atomic posting.
+-- Pallikkal Medicals: Initial / takeover stock with persistent draft and atomic posting.
 -- Run once in Supabase SQL Editor. Does not alter confirm_purchase().
 
 ALTER TABLE public.medicine_batches

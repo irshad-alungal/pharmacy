@@ -3,7 +3,7 @@ import { createClient } from
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
 
 // =====================================================
-// ALZA PHARMACY - SUPABASE CONFIGURATION
+// PALLIKKAL MEDICALS - SUPABASE CONFIGURATION
 // =====================================================
 
 export const SUPABASE_URL =

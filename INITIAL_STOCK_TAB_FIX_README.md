@@ -1,4 +1,4 @@
-# ALZA Pharmacy — Initial Stock tab fix
+# Pallikkal Medicals — Initial Stock tab fix
 
 ## What was fixed
 `assets/js/initial-stock.js` assigned to an undeclared variable (`draft = saved`).

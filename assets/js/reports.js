@@ -10,7 +10,7 @@ const $ = id => document.getElementById(id);
 const todayResult = await sb.rpc('ist_today');
 const today = todayResult.data || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 const settings = await sb.from('pharmacy_settings').select('name').eq('id', 1).single();
-const shop = settings.data?.name || 'ALZA PHARMACY';
+const shop = settings.data?.name || 'PALLIKKAL MEDICALS';
 
 const addDays = (iso, amount) => {
   const d = new Date(`${iso}T00:00:00Z`);

@@ -1,4 +1,4 @@
--- ALZA Pharmacy: attach doctor's sheets to individual customer sales invoices.
+-- Pallikkal Medicals: attach doctor's sheets to individual customer sales invoices.
 -- Private storage; access is limited to the signed-in user's branch.
 -- Review against the live Supabase schema and take a backup before applying.
 begin;

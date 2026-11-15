@@ -1,4 +1,4 @@
--- ALZA Pharmacy: distributor logo storage support
+-- Pallikkal Medicals: distributor logo storage support
 -- Review against the live Supabase schema before applying.
 begin;
 

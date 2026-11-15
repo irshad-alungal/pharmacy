@@ -1,5 +1,5 @@
 
--- ALZA PHARMACY
+-- PALLIKKAL MEDICALS
 -- Phase 2: Purchasing and Stock-In
 -- Run after 0004_master_data.sql
 -- Branch-aware version for the existing database.

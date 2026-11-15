@@ -1,4 +1,4 @@
--- ALZA Pharmacy: read-only preflight for the Billing redesign and Delivery Boy feature.
+-- Pallikkal Medicals: read-only preflight for the Billing redesign and Delivery Boy feature.
 -- Safe to run in Supabase SQL Editor. This script performs SELECTs only.
 -- It does NOT create/alter tables, functions, policies, roles, or data.
 

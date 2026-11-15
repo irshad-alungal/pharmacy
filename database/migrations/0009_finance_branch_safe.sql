@@ -1,4 +1,4 @@
--- ALZA PHARMACY - Finance-only migration
+-- PALLIKKAL MEDICALS - Finance-only migration
 -- Adapted for the existing branch-scoped schema. Does NOT create/alter Returns tables
 -- and does NOT replace any Billing, Inventory, customer-return, or purchase-return RPC.
 -- Run once in Supabase SQL Editor after taking a database backup.

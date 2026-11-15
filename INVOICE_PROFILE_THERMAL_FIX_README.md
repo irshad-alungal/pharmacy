@@ -1,4 +1,4 @@
-# ALZA PHARMACY — Invoice profile and thermal PDF fix
+# PALLIKKAL MEDICALS — Invoice profile and thermal PDF fix
 
 This update:
 - Loads the active branch profile from `public.branches` when opening an invoice.

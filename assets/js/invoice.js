@@ -33,7 +33,7 @@ export function buildPdf(JsPDF, d, fmt) {
     const wrap = (txt, w, o = {}) => { for (const l of doc.setFontSize(o.s || (th ? 8 : 10)).splitTextToSize(String(txt), w)) { T(l, o.a === 'center' ? W / 2 : M, o); nl(); } };
     const pair = (a, b, o = {}) => { T(a, M, o); T(b, X2, { ...o, a: 'right' }); nl(); };
     const money = n => R(n);
-    wrap(s.name || 'ALZA PHARMACY', W - 2 * M, { a: 'center', b: 1, s: th ? 12 : 16 });
+    wrap(s.name || 'PALLIKKAL MEDICALS', W - 2 * M, { a: 'center', b: 1, s: th ? 12 : 16 });
     if (s.address) wrap(s.address, W - 2 * M, { a: 'center' }); if (s.phone) wrap('Ph: ' + s.phone, W, { a: 'center' });
     if (s.gstin) wrap('GSTIN: ' + s.gstin, W, { a: 'center' }); if (s.drug_licence) wrap('Drug Licence: ' + s.drug_licence, W, { a: 'center' });
     rule(); T('Invoice: ' + i.invoice_no, M, { b: 1 }); nl(); T('Date: ' + when(i.created_at), M); nl(); T('Customer: ' + (c ? `${c.name} (${c.phone})` : 'Walk-in'), M); nl(); rule();
