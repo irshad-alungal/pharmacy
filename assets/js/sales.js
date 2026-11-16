@@ -140,7 +140,7 @@ $('sales-rows').onclick = async e => {
   const addressParts = [branch?.address, branch?.city, branch?.state, branch?.pincode]
     .map(v => String(v || '').trim()).filter(Boolean);
   data.shop = {
-    name: branch?.name || 'PALLIKKAL MEDICALS',
+    name: branch?.name || 'PALLIKKAL PHARMACY',
     address: addressParts.join(', '),
     phone: branch?.phone || '',
     email: branch?.email || '',

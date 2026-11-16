@@ -115,7 +115,7 @@ async function previewCustomerInvoice(invoiceId, button) {
   }
   const address = [branch?.address, branch?.city, branch?.state, branch?.pincode].map(v => String(v || '').trim()).filter(Boolean).join(', ');
   data.shop = {
-    name: branch?.name || 'PALLIKKAL MEDICALS', address, phone: branch?.phone || '', email: branch?.email || '', gstin: branch?.gstin || '',
+    name: branch?.name || 'PALLIKKAL PHARMACY', address, phone: branch?.phone || '', email: branch?.email || '', gstin: branch?.gstin || '',
     drug_licence: Array.isArray(branch?.drug_licence_nos) ? branch.drug_licence_nos.filter(Boolean).join(' / ') : String(branch?.drug_licence_nos || ''),
     footer_note: branch?.invoice_footer || ''
   };

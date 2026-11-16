@@ -1,4 +1,4 @@
-# Pallikkal Medicals — Distributor frontend update
+# Pallikkal Pharmacy — Distributor frontend update
 
 ## Included
 - Distributor list now has a **View** action next to each entry.

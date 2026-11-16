@@ -1,4 +1,4 @@
-# Pallikkal Medicals - WhatsApp Bulk Campaign Frontend
+# Pallikkal Pharmacy - WhatsApp Bulk Campaign Frontend
 
 This update adds a branch-scoped promotional campaign preparation interface to `whatsapp.html`.
 

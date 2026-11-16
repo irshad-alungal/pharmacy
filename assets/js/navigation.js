@@ -38,12 +38,12 @@ export async function mountShell(page, title) {
     )
     .join('');
 
-  document.title = `PALLIKKAL MEDICALS — ${title}`;
+  document.title = `PALLIKKAL PHARMACY — ${title}`;
 
   document.body.innerHTML = `
     <div class="shell">
       <nav class="side">
-        <h1>PALLIKKAL MEDICALS</h1>
+        <h1>PALLIKKAL PHARMACY</h1>
         ${links}
         <a href="#" id="so">Sign out (${esc(prof.staff_id)})</a>
       </nav>

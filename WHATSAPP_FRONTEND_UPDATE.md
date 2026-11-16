@@ -1,4 +1,4 @@
-# Pallikkal Medicals WhatsApp frontend update
+# Pallikkal Pharmacy WhatsApp frontend update
 
 Replaces the previous WhatsApp stub with a branch-scoped customer messaging workspace.
 

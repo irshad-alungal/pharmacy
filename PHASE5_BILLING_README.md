@@ -1,4 +1,4 @@
-# PALLIKKAL MEDICALS — Phase 5 Billing website integration
+# PALLIKKAL PHARMACY — Phase 5 Billing website integration
 
 This package is based on the latest `pharmacy-main (3).zip`, not the older Phase 5 project.
 
