@@ -45,7 +45,7 @@ $('view').innerHTML = `
   </section>
   <section class="billing-card medicine-card">
     <div class="section-heading"><div><span class="step-label">02 · MEDICINES</span><h3>Bill items</h3></div><span class="muted">Search by medicine name or scan barcode</span></div>
-    <div class="medicine-search"><span class="search-symbol">⌕</span><input id="q" placeholder="Search medicine name or scan barcode" autocomplete="off" autofocus></div>
+    <div class="medicine-search"><span class="search-symbol">⌕</span><input id="q" placeholder="Search medicine name, batch number or scan barcode" autocomplete="off" autofocus></div>
     <div id="res" class="medicine-results"></div>
     <div class="table-scroll"><table class="bill-table"><thead><tr><th>Sl no</th><th>Item</th><th>Rack / Shelf</th><th>Batch</th><th>Exp</th><th>Rate</th><th>Qty</th><th>Disc %</th><th>GST %</th><th class="align-right">Amount</th><th></th></tr></thead><tbody id="cart"></tbody></table></div>
     <div class="table-footnote">Batches are allocated by earliest expiry (FEFO) by default. Use the batch selector to choose a specific eligible batch. Line discounts and GST handling follow the current billing configuration.</div>
@@ -290,11 +290,11 @@ async function allocateMedicine(med, requestedQty, key = groupKey(med), selected
   }
 }
 
-async function add(med) {
+async function add(med, selectedBatchId = null) {
   const key = groupKey(med);
   const existing = groupRows(key);
   const nextQty = (existing[0]?.requested_qty || 0) + 1;
-  await allocateMedicine(med, nextQty, key);
+  await allocateMedicine(med, nextQty, key, selectedBatchId);
   $('q').value = '';
   $('res').innerHTML = '';
 }
@@ -309,28 +309,63 @@ $('q').oninput = () => {
       return;
     }
 
-    const { data } = await sb.from('medicines')
-      .select('id,name,strength,barcode,selling_price,shelf_location,tax_rate')
-      .eq('branch_id', prof.branch_id)
-      .eq('active', true)
-      .or(`name.ilike.%${s}%,barcode.eq.${s}`)
-      .limit(8);
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const [{ data: medicineData, error: medicineError }, { data: batchData, error: batchError }] = await Promise.all([
+      sb.from('medicines')
+        .select('id,name,strength,barcode,selling_price,shelf_location,tax_rate')
+        .eq('branch_id', prof.branch_id).eq('active', true)
+        .or(`name.ilike.%${s}%,barcode.eq.${s}`).limit(12),
+      sb.from('medicine_batches')
+        .select('id,medicine_id,batch_no,expiry,qty')
+        .eq('branch_id', prof.branch_id).eq('quarantined', false)
+        .gt('qty', 0).gt('expiry', today).ilike('batch_no', `%${s}%`)
+        .order('expiry', { ascending: true }).limit(20)
+    ]);
 
-    if (data?.length === 1 && data[0].barcode === s) {
-      add(data[0]);
+    if (medicineError || batchError) {
+      note(friendly(medicineError || batchError), true);
+      $('res').innerHTML = '';
+      return;
+    }
+
+    const batchMedicineIds = [...new Set((batchData || []).map(b => b.medicine_id))];
+    let batchMedicines = [];
+    if (batchMedicineIds.length) {
+      const { data: byBatch, error: byBatchError } = await sb.from('medicines')
+        .select('id,name,strength,barcode,selling_price,shelf_location,tax_rate')
+        .eq('branch_id', prof.branch_id).eq('active', true).in('id', batchMedicineIds);
+      if (byBatchError) {
+        note(friendly(byBatchError), true);
+        $('res').innerHTML = '';
+        return;
+      }
+      batchMedicines = byBatch || [];
+    }
+
+    const medicines = new Map();
+    for (const m of [...(medicineData || []), ...batchMedicines]) medicines.set(m.id, m);
+    const results = [...medicines.values()];
+    if (results.length === 1 && results[0].barcode === s && !(batchData || []).length) {
+      add(results[0]);
       $('q').value = '';
       $('res').innerHTML = '';
       return;
     }
 
-    $('res').innerHTML = (data || []).map(m => `<button class="sec" style="display:block;width:100%;text-align:left;margin:2px 0" data-m='${esc(JSON.stringify(m))}'>${esc(m.name)} ${esc(m.strength || '')} — ${inr(m.selling_price)} · shelf ${esc(m.shelf_location || '-')}</button>`).join('');
+    $('res').innerHTML = results.map(m => {
+      const matchedBatches = (batchData || []).filter(b => b.medicine_id === m.id);
+      if (matchedBatches.length) {
+        return matchedBatches.map(b => `<button class="sec" style="display:block;width:100%;text-align:left;margin:2px 0" data-m='${esc(JSON.stringify(m))}' data-batch="${esc(b.id)}">${esc(m.name)} ${esc(m.strength || '')} — batch ${esc(b.batch_no)} · exp ${esc(b.expiry)} · ${Number(b.qty).toLocaleString('en-IN')} available · ${inr(m.selling_price)}</button>`).join('');
+      }
+      return `<button class="sec" style="display:block;width:100%;text-align:left;margin:2px 0" data-m='${esc(JSON.stringify(m))}'>${esc(m.name)} ${esc(m.strength || '')} — ${inr(m.selling_price)} · shelf ${esc(m.shelf_location || '-')}</button>`;
+    }).join('') || '<div class="muted" style="padding:8px">No matching medicines or sellable batch numbers found.</div>';
   }, 250);
 };
 
 $('res').onclick = e => {
   const b = e.target.closest('button');
   if (b) {
-    add(JSON.parse(b.dataset.m));
+    add(JSON.parse(b.dataset.m), b.dataset.batch || null);
     $('q').value = '';
     $('res').innerHTML = '';
   }

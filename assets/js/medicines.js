@@ -56,7 +56,7 @@ v.innerHTML = `
 </style>
 <div class="med-page">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><div style="font-size:11px;letter-spacing:.12em;color:#087f75;font-weight:800">MEDICINE MASTER</div><h2 style="margin:5px 0">Medicines</h2><p class="med-muted">Add, search, view and manage your medicine catalogue.</p></div><div class="med-bulk-actions"><button id="downloadTemplate" type="button" class="med-secondary">↓ Download Excel template</button><button id="bulkImport" type="button" class="med-secondary">↑ Bulk upload Excel</button><input id="bulkFile" type="file" accept=".xlsx,.xls" hidden><button id="new" class="med-primary">＋ Add medicine</button></div></div>
-  <div class="med-toolbar"><input id="q" type="search" placeholder="Search medicine name, ingredients, brand, generic name or barcode"><label style="display:flex;align-items:center;gap:7px;white-space:nowrap"><input type="checkbox" id="inact"> Show inactive</label></div>
+  <div class="med-toolbar"><input id="q" type="search" placeholder="Search medicine name, ingredients, brand, generic name, barcode or batch number"><label style="display:flex;align-items:center;gap:7px;white-space:nowrap"><input type="checkbox" id="inact"> Show inactive</label></div>
   <div id="msg" role="status"></div><div id="bulkReport" class="med-import-report" role="status" hidden></div>
   ${isSuperAdmin ? `<section class="med-card"><h3 style="margin-top:0">Medicine Deactivation Requests</h3><div id="deactivationRequests">Loading pending requests...</div></section>` : ''}
   <section class="med-card"><div class="med-table-wrap"><table class="med-table"><thead><tr><th>Medicine</th><th>Ingredients</th><th>Brand / Generic</th><th>Composition</th><th>Strength</th><th>Rack / Shelf</th><th>Status</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div></section>
@@ -128,11 +128,35 @@ async function load() {
   const s = safeQ($('q').value);
 
   if (s) {
-    qb = qb.or(
-      ['name', 'ingredients', 'brand', 'generic_name', 'barcode', 'sku']
-        .map(c => `${c}.ilike.%${s}%`)
-        .join(',')
-    );
+    // Search both the medicine master and its batch numbers. A batch-number
+    // match brings the owning medicine into the results without changing stock.
+    const [{ data: medicineMatches, error: medicineSearchError },
+      { data: batchMatches, error: batchSearchError }] = await Promise.all([
+      sb.from('medicines').select('id').eq('branch_id', branchId)
+        .or(['name', 'ingredients', 'brand', 'generic_name', 'barcode', 'sku']
+          .map(c => `${c}.ilike.%${s}%`).join(',')),
+      sb.from('medicine_batches').select('medicine_id')
+        .eq('branch_id', branchId).ilike('batch_no', `%${s}%`)
+    ]);
+
+    if (medicineSearchError || batchSearchError) {
+      const searchError = medicineSearchError || batchSearchError;
+      $('msg').textContent = friendly(searchError);
+      console.error('Medicine / batch search failed:', searchError);
+      return;
+    }
+
+    const matchedIds = [...new Set([
+      ...(medicineMatches || []).map(x => x.id),
+      ...(batchMatches || []).map(x => x.medicine_id)
+    ])];
+    if (!matchedIds.length) {
+      $('msg').textContent = '';
+      list = [];
+      $('rows').innerHTML = '<tr><td colspan="8" style="padding:22px;text-align:center;color:#6d817b">No medicines or batch numbers found.</td></tr>';
+      return;
+    }
+    qb = qb.in('id', matchedIds);
   }
 
   const { data, error } = await qb;
