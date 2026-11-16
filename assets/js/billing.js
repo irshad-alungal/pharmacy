@@ -48,7 +48,7 @@ $('view').innerHTML = `
     <div class="medicine-search"><span class="search-symbol">⌕</span><input id="q" placeholder="Search medicine name or scan barcode" autocomplete="off" autofocus></div>
     <div id="res" class="medicine-results"></div>
     <div class="table-scroll"><table class="bill-table"><thead><tr><th>Sl no</th><th>Item</th><th>Rack / Shelf</th><th>Batch</th><th>Exp</th><th>Rate</th><th>Qty</th><th>Disc %</th><th>GST %</th><th class="align-right">Amount</th><th></th></tr></thead><tbody id="cart"></tbody></table></div>
-    <div class="table-footnote">Automatic batch allocation, line discounts and GST calculation will be connected in the next implementation steps.</div>
+    <div class="table-footnote">Batches are allocated by earliest expiry (FEFO) by default. Use the batch selector to choose a specific eligible batch. Line discounts and GST handling follow the current billing configuration.</div>
   </section>
   <div class="billing-bottom-grid">
     <section class="billing-card payment-card">
@@ -195,7 +195,7 @@ function renderCart() {
     const first = rows[0] === c;
     return `<tr>
       <td>${i + 1}</td><td><strong>${esc(c.name)}</strong><small class="table-subtext">${esc(c.strength || '')}${rows.length > 1 ? ` · FEFO split ${rows.indexOf(c) + 1}/${rows.length}` : ''}</small></td>
-      <td>${esc(c.shelf_location || '—')}</td><td>${esc(c.batch_no)}</td><td>${esc(c.expiry)}</td>
+      <td>${esc(c.shelf_location || '—')}</td><td>${first ? `<select class="batch-select" aria-label="Choose batch for ${esc(c.name)}" data-group-batch="${esc(c.group_key)}"><option value="" ${!c.selected_batch_id ? 'selected' : ''}>Auto (FEFO)</option>${(c.batch_options || []).map(b => `<option value="${esc(b.id)}" ${c.selected_batch_id === b.id ? 'selected' : ''}>${esc(b.batch_no)} · ${esc(b.expiry)} · ${Number(b.qty).toLocaleString('en-IN')} available</option>`).join('')}</select>` : esc(c.batch_no)}</td><td>${esc(c.expiry)}</td>
       <td>${inr(c.price)}</td><td>${first ? `<input aria-label="Total quantity for ${esc(c.name)}" type="number" min="1" step="1" value="${c.requested_qty}" data-group-qty="${esc(c.group_key)}" class="qty-input">` : `<strong>${Number(c.qty).toLocaleString('en-IN')}</strong>`}</td>
       <td><span class="not-ready-value">—</span></td><td>${Number(c.tax_rate || 0)}%</td>
       <td class="align-right"><strong>${inr(c.price * c.qty)}</strong></td><td>${first ? `<button class="remove-item" aria-label="Remove ${esc(c.name)}" data-group-remove="${esc(c.group_key)}">×</button>` : ''}</td>
@@ -209,12 +209,15 @@ function renderCart() {
 }
 
 $('cart').onchange = async e => {
-  const key = e.target.dataset.groupQty;
+  const batchKey = e.target.dataset.groupBatch;
+  const qtyKey = e.target.dataset.groupQty;
+  const key = batchKey || qtyKey;
   if (!key) return;
-  const qty = Math.max(1, Math.floor(Number(e.target.value) || 1));
   const current = groupRows(key)[0];
   if (!current) return;
-  await allocateMedicine(current.medicine, qty, key);
+  const qty = qtyKey ? Math.max(1, Math.floor(Number(e.target.value) || 1)) : current.requested_qty;
+  const selectedBatchId = batchKey ? (e.target.value || null) : (current.selected_batch_id || null);
+  await allocateMedicine(current.medicine, qty, key, selectedBatchId);
 };
 
 $('cart').onclick = e => {
@@ -241,16 +244,18 @@ async function fetchEligibleBatches(medicineId) {
   return data || [];
 }
 
-async function allocateMedicine(med, requestedQty, key = groupKey(med)) {
+async function allocateMedicine(med, requestedQty, key = groupKey(med), selectedBatchId = null) {
   const run = ++allocationRun;
   note(`Allocating ${requestedQty} ${med.name} by earliest expiry…`);
   try {
     const batches = await fetchEligibleBatches(med.id);
     if (run !== allocationRun) return;
-    const available = batches.reduce((sum, b) => sum + Number(b.qty || 0), 0);
+    const batchOptions = batches;
+    const eligibleBatches = selectedBatchId ? batches.filter(b => b.id === selectedBatchId) : batches;
+    const available = eligibleBatches.reduce((sum, b) => sum + Number(b.qty || 0), 0);
     let remaining = requestedQty;
     const allocated = [];
-    for (const b of batches) {
+    for (const b of eligibleBatches) {
       if (remaining <= 0) break;
       const take = Math.min(remaining, Number(b.qty || 0));
       if (take <= 0) continue;
@@ -260,7 +265,8 @@ async function allocateMedicine(med, requestedQty, key = groupKey(med)) {
         batch_no: b.batch_no, expiry: b.expiry, stock: Number(b.qty),
         price: Number(med.selling_price), shelf_location: med.shelf_location || '',
         tax_rate: Number(med.tax_rate || 0), qty: take,
-        requested_qty: requestedQty, shortage: false
+        requested_qty: requestedQty, shortage: false,
+        batch_options: batchOptions, selected_batch_id: selectedBatchId
       });
       remaining -= take;
     }
@@ -275,7 +281,9 @@ async function allocateMedicine(med, requestedQty, key = groupKey(med)) {
     if (remaining > 0) {
       note(`${med.name}: requested ${requestedQty}, but only ${available} is available. Reduce quantity by ${remaining}.`, true);
     } else {
-      note(`${med.name}: ${requestedQty} allocated across ${allocated.length} batch${allocated.length === 1 ? '' : 'es'} using earliest expiry first.`);
+      note(selectedBatchId
+        ? `${med.name}: ${requestedQty} allocated from batch ${allocated[0]?.batch_no}.`
+        : `${med.name}: ${requestedQty} allocated across ${allocated.length} batch${allocated.length === 1 ? '' : 'es'} using earliest expiry first.`);
     }
   } catch (error) {
     note(friendly(error), true);
