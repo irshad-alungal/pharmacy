@@ -1,4 +1,4 @@
-# Pallikkal Pharmacy Billing redesign — preflight findings
+# Pallikkal Medicals Billing redesign — preflight findings
 
 Baseline: `pharmacy-main (29).zip`.
 

@@ -1,4 +1,4 @@
-# Pallikkal Pharmacy — Purchase frontend preview
+# Pallikkal Medicals — Purchase frontend preview
 
 This update replaces the old purchase screen with a responsive purchase-management interface.
 

@@ -1,4 +1,4 @@
-# Pallikkal Pharmacy — Delivery Frontend Update
+# Pallikkal Medicals — Delivery Frontend Update
 
 ## Requested-delivery workflow
 - The default Delivery queue shows only invoices marked as delivery requested in the current frontend session.

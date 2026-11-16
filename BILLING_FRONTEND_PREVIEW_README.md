@@ -1,4 +1,4 @@
-# Pallikkal Pharmacy Billing Frontend — first UI pass
+# Pallikkal Medicals Billing Frontend — first UI pass
 
 This update refreshes the Billing page layout while retaining the current page shell and existing search, customer selection, cart, split payment, hold/resume, invoice and finalize-sale flows.
 

@@ -18,7 +18,3 @@
 .shop-state-toggle.is-open{background:#15803d}
 .shop-state-toggle.is-closed{background:#dc2626}
 @media(max-width:760px){.shop-state-control{justify-content:flex-start;margin-top:8px}}
-
-/* Explicit batch selection */
-.batch-select{max-width:190px;min-width:145px;padding:.38rem .45rem;border:1px solid #a9bbb4;border-radius:7px;background:var(--card);color:var(--fg);font-size:.74rem}
-.batch-select:focus{outline:2px solid #0f766e;outline-offset:1px}

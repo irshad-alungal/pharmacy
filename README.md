@@ -1,4 +1,4 @@
-# PALLIKKAL PHARMACY (core foundation)
+# PALLIKKAL MEDICALS (core foundation)
 ## Setup
 1. Supabase > SQL Editor: run `database/schema.sql`, then `database/bootstrap-admin.sql` (links your existing Auth user to super_admin).
 2. Put your project URL and publishable key in `assets/js/supabase-client.js`.

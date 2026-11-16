@@ -1,4 +1,4 @@
-# PALLIKKAL PHARMACY — Sales & Invoice module
+# PALLIKKAL MEDICALS — Sales & Invoice module
 
 This update replaces the Sales page placeholder with a branch-filtered invoice list.
 
