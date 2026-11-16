@@ -508,7 +508,7 @@ $('downloadTemplate').onclick = () => {
   ws['!autofilter'] = { ref: 'A1:I2' };
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Medicines');
-  XLSX.writeFile(wb, 'ALZA_Medicine_Bulk_Upload_Template.xlsx');
+  XLSX.writeFile(wb, 'PALLIKKAL_MEDICALS_Medicine_Bulk_Upload_Template.xlsx');
 };
 
 $('bulkImport').onclick = () => $('bulkFile').click();

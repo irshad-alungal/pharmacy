@@ -5,7 +5,7 @@ const when = d => new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata'
 const PM = { cash: 'Cash', upi: 'UPI', card: 'Card', credit: 'Credit (due)' };
 export function invoiceHTML(d, fmt = 'thermal') {
   const th = fmt === 'thermal', s = d.shop || {}, i = d.invoice, c = d.customer;
-  const head = `<div style="text-align:center"><b style="font-size:${th ? 14 : 20}px">${e(s.name)}</b><br>${e(s.address || '')}${s.phone ? '<br>Ph: ' + e(s.phone) : ''}${s.gstin ? '<br>GSTIN: ' + e(s.gstin) : ''}${s.drug_licence ? '<br>Drug Licence: ' + e(s.drug_licence) : ''}</div><hr>
+  const head = `<div style="text-align:center"><b style="font-size:${th ? 14 : 20}px">${e(s.name || 'PALLIKKAL MEDICALS')}</b><br>${e(s.address || '')}${s.phone ? '<br>Ph: ' + e(s.phone) : ''}${s.gstin ? '<br>GSTIN: ' + e(s.gstin) : ''}${s.drug_licence ? '<br>Drug Licence: ' + e(s.drug_licence) : ''}</div><hr>
   <div>Invoice: <b>${e(i.invoice_no)}</b><br>Date: ${e(when(i.created_at))}<br>Customer: ${c ? e(c.name) + ' (' + e(c.phone) + ')' : 'Walk-in'}</div><hr>`;
   const items = th
     ? d.items.map(x => `<div><b>${e(x.name)} ${e(x.strength || '')}</b><br><span style="font-size:10px">Batch ${e(x.batch_no)} · Exp ${e(String(x.expiry).slice(0, 7))}</span><div style="display:flex;justify-content:space-between"><span>${x.qty} x ${R(x.unit_price)}</span><span>${R(x.line_total)}</span></div></div>`).join('')
@@ -81,7 +81,7 @@ export function printHTML(html, title, fmt = 'thermal') {
 }
 export function creditNoteHTML(d) {
   const s = d.shop || {}, n = d.note, c = d.customer, M = { cash: 'Cash', upi: 'UPI', card: 'Card', reduce_dues: 'Adjusted against dues' };
-  return `<div style="width:72mm;font:11px/1.35 monospace;color:#000;background:#fff;padding:2mm"><div style="text-align:center"><b style="font-size:14px">${e(s.name)}</b><br>${e(s.address || '')}${s.phone ? '<br>Ph: ' + e(s.phone) : ''}${s.gstin ? '<br>GSTIN: ' + e(s.gstin) : ''}${s.drug_licence ? '<br>Drug Licence: ' + e(s.drug_licence) : ''}<br><b>CREDIT NOTE</b></div><hr>
+  return `<div style="width:72mm;font:11px/1.35 monospace;color:#000;background:#fff;padding:2mm"><div style="text-align:center"><b style="font-size:14px">${e(s.name || 'PALLIKKAL MEDICALS')}</b><br>${e(s.address || '')}${s.phone ? '<br>Ph: ' + e(s.phone) : ''}${s.gstin ? '<br>GSTIN: ' + e(s.gstin) : ''}${s.drug_licence ? '<br>Drug Licence: ' + e(s.drug_licence) : ''}<br><b>CREDIT NOTE</b></div><hr>
   Note: <b>${e(n.return_no)}</b><br>Date: ${e(when(n.created_at))}<br>Against invoice: ${e(d.invoice_no)}<br>Customer: ${c ? e(c.name) + ' (' + e(c.phone) + ')' : 'Walk-in'}<br>Reason: ${e(n.reason)}<hr>
   ${d.items.map(x => `<div><b>${e(x.name)} ${e(x.strength || '')}</b><br><span style="font-size:10px">Batch ${e(x.batch_no)}</span><div style="display:flex;justify-content:space-between"><span>Qty ${x.qty}</span><span>${R(x.line_total)}</span></div></div>`).join('')}<hr>
   <div style="display:flex;justify-content:space-between"><span>GST included</span><span>${R(n.tax)}</span></div><div style="display:flex;justify-content:space-between;font-weight:bold;font-size:13px"><span>REFUND</span><span>₹${R(n.total)}</span></div>

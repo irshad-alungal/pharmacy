@@ -88,7 +88,7 @@ export async function mountInitialStock(panel, prof) {
       ['Cost calculation', 'Unit acquisition cost = Prate / pack']
     ];
     window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(guide), 'Instructions');
-    window.XLSX.writeFile(wb, 'ALZA_Initial_Stock_Template.xlsx');
+    window.XLSX.writeFile(wb, 'PALLIKKAL_MEDICALS_Initial_Stock_Template.xlsx');
   };
   const createMedicineIfMissing = async name => {
     const key = name.trim().toLocaleLowerCase();
