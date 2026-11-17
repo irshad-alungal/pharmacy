@@ -179,6 +179,7 @@ Deno.serve(async (req) => {
         'pharmacist',
         'billing_staff',
         'inventory_staff',
+        'delivery_person',
         'admin'
       ];
 

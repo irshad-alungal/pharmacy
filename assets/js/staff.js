@@ -5,11 +5,16 @@ const prof = await mountShell('staff', 'Staff Management');
 const view = document.getElementById('view');
 const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const isSuperAdmin = prof?.role === 'super_admin';
-const roleOptions = [
-  { value: 'pharmacist', label: 'Pharmacist' },
-  { value: 'billing_staff', label: 'Billing Staff' },
-  { value: 'inventory_staff', label: 'Inventory Staff' },
-  ...(isSuperAdmin ? [{ value: 'admin', label: 'Admin' }] : [])
+const roleGroups = [
+  { label: 'Staff', roles: [
+    { value: 'pharmacist', label: 'Pharmacist' },
+    { value: 'billing_staff', label: 'Billing Staff' },
+    { value: 'inventory_staff', label: 'Inventory Staff' }
+  ] },
+  { label: 'Delivery', roles: [
+    { value: 'delivery_person', label: 'Delivery Person' }
+  ] },
+  ...(isSuperAdmin ? [{ label: 'Admin', roles: [{ value: 'admin', label: 'Admin' }] }] : [])
 ];
 let staffRows = [];
 let selectedPhotoUrl = '';
@@ -18,22 +23,22 @@ view.innerHTML = `
 <section class="staff-page">
   <header class="staff-heading"><div><h2>Staff Management</h2><p>Manage staff accounts and contact information for your branch.</p></div><button id="refreshStaff" class="staff-btn staff-secondary">↻ Refresh</button></header>
   <section class="staff-panel">
-    <div class="staff-panel-title"><div><h3>Add staff member</h3><p>Create a staff login and save their contact details.</p></div><span class="staff-lock">Branch restricted</span></div>
+    <div class="staff-panel-title"><div><h3>Add team member</h3><p>Create a staff, delivery-person or (where permitted) admin login for this branch.</p></div><span class="staff-lock">Branch restricted</span></div>
     <form id="staffForm" class="staff-form">
       <div class="staff-grid">
         <label>Staff ID <input id="staffId" required maxlength="40" pattern="[A-Za-z0-9_-]{2,40}" placeholder="Example: PHARM01"></label>
         <label>Full name <input id="fullName" required maxlength="120" placeholder="Staff full name"></label>
         <label>Phone number <input id="phone" type="tel" maxlength="30" placeholder="+91 98765 43210"></label>
-        <label>Role <select id="staffRole" required>${roleOptions.map(r=>`<option value="${r.value}">${r.label}</option>`).join('')}</select></label>
+        <label>Role <select id="staffRole" required>${roleGroups.map(group=>`<optgroup label="${group.label}">${group.roles.map(r=>`<option value="${r.value}">${r.label}</option>`).join('')}</optgroup>`).join('')}</select></label>
         <label class="staff-wide">Address <textarea id="staffAddress" rows="2" maxlength="500" placeholder="House / street, locality, city, PIN code"></textarea></label>
         <label>Temporary password <input id="tempPassword" type="password" required minlength="12" maxlength="128" autocomplete="new-password" placeholder="Minimum 12 characters"></label>
         <div class="staff-photo-field"><span class="staff-label">Staff photo</span><div class="staff-photo-row"><div id="photoPreview" class="staff-photo-preview"><span>👤</span></div><div class="staff-photo-actions"><label class="staff-btn staff-secondary staff-file-label">Choose photo<input id="staffPhoto" type="file" accept="image/*" capture="user" hidden></label><small>JPG, PNG or WEBP · up to 5 MB</small></div></div></div>
       </div>
-      <div class="staff-form-footer"><p id="formMessage" role="status" aria-live="polite"></p><button type="submit" id="createBtn" class="staff-btn">Create staff account</button></div>
-      <p class="staff-note">Staff sign in using their Staff ID and temporary password. They must change the password at first login. Address and photo are collected in this form; persistent storage requires the staff-profile backend upgrade.</p>
+      <div class="staff-form-footer"><p id="formMessage" role="status" aria-live="polite"></p><button type="submit" id="createBtn" class="staff-btn">Create account</button></div>
+      <p class="staff-note">Staff and delivery personnel sign in using their assigned ID and temporary password. They must change the password at first login. Delivery-person accounts open the Delivery page only. Address and photo are collected in this form; persistent storage requires the staff-profile backend upgrade.</p>
     </form>
   </section>
-  <section class="staff-panel staff-list-panel"><div class="staff-panel-title"><div><h3>Staff members</h3><p>View contact details and account status.</p></div><input id="staffSearch" class="staff-search" type="search" placeholder="Search staff name, ID or phone"></div><div id="staffList" class="staff-list">Loading staff accounts…</div></section>
+  <section class="staff-panel staff-list-panel"><div class="staff-panel-title"><div><h3>Staff and delivery accounts</h3><p>View branch team members, delivery personnel and account status.</p></div><input id="staffSearch" class="staff-search" type="search" placeholder="Search staff name, ID or phone"></div><div id="staffList" class="staff-list">Loading staff accounts…</div></section>
 </section>
 <div id="staffModal" class="staff-modal" hidden><div class="staff-modal-backdrop" data-close-staff></div><section class="staff-modal-card" role="dialog" aria-modal="true" aria-labelledby="staffModalTitle"><button class="staff-modal-close" type="button" data-close-staff aria-label="Close">×</button><div id="staffModalBody"></div></section></div>`;
 
@@ -115,7 +120,7 @@ form.addEventListener('submit', async event => {
     document.getElementById('photoPreview').innerHTML = '<span>👤</span>';
     await loadStaff();
   } catch (error) { message.textContent = 'Could not create staff account: ' + error.message; }
-  finally { createBtn.disabled = false; createBtn.textContent = 'Create staff account'; }
+  finally { createBtn.disabled = false; createBtn.textContent = 'Create account'; }
 });
 
 await loadStaff();
