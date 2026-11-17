@@ -1,6 +1,6 @@
 # Pallikkal Pharmacy brand update
 
-- Visible frontend branding changed from PALLIKKAL MEDICALS to PALLIKKAL PHARMACY.
+- Visible frontend branding changed from PALLIKKAL PHARMACY to PALLIKKAL PHARMACY.
 - Shared navigation, login screens, page titles and public homepage updated.
 - Invoice rendering and credit-note fallback branding updated.
 - Billing finalization now loads the current branch profile before showing the invoice, so thermal/A4 print and PDF use the branch name.

@@ -3,7 +3,8 @@ import { mountShell } from './navigation.js';
 import { esc, inr } from './utils.js';
 import { friendly } from './ui.js';
 
-await mountShell('finance', 'Finance');
+const prof = await mountShell('finance', 'Finance');
+const canManageOpeningBalances = ['super_admin', 'admin'].includes(String(prof?.role || '').toLowerCase());
 
 const $ = id => document.getElementById(id);
 
@@ -12,7 +13,8 @@ const TABS = [
   ['led', 'Ledger'],
   ['rec', 'Customer dues'],
   ['pay', 'Supplier payables'],
-  ['hist', 'Receipts & payments']
+  ['hist', 'Receipts & payments'],
+  ...(canManageOpeningBalances ? [['ob', 'Opening balances']] : [])
 ];
 
 $('view').innerHTML = `
@@ -72,10 +74,10 @@ const show = k => {
   views[k]();
 };
 
-const ask = (title, max, fn) => {
+const ask = (title, fn) => {
   $('dt').textContent = title;
   $('am').value = '';
-  $('am').max = max ?? '';
+  $('am').removeAttribute('max');
   $('nt').value = '';
   $('de').textContent = '';
   onSave = fn;
@@ -93,11 +95,6 @@ $('f').onsubmit = async e => {
 
   if (!Number.isFinite(amount) || amount <= 0) {
     $('de').textContent = 'Enter a valid positive amount.';
-    return;
-  }
-
-  if ($('am').max && amount > +$('am').max) {
-    $('de').textContent = 'Amount exceeds the outstanding balance.';
     return;
   }
 
@@ -184,6 +181,7 @@ const views = {
             ${row('Cash', D('cash') - C('cash'))}
             ${row('UPI', D('upi') - C('upi'))}
             ${row('Card', D('card') - C('card'))}
+            ${row('Bank', D('bank') - C('bank'))}
             ${row(
               'Customers owe you',
               D('receivables') - C('receivables')
@@ -202,6 +200,7 @@ const views = {
               D('purchases') - C('purchase_returns'),
               'Purchases minus returns'
             )}
+            ${row('Expenses', D('expenses') - C('expenses'))}
           </tbody>
         </table>
 
@@ -223,8 +222,9 @@ const views = {
         <select id="ac">
           <option value="">All accounts</option>
           ${[
-            'cash','upi','card','receivables','payables',
-            'sales','sales_returns','purchases','purchase_returns'
+            'cash','upi','card','bank','receivables','payables',
+            'sales','sales_returns','purchases','purchase_returns',
+            'expenses','opening_balance_equity'
           ].map(a => `<option value="${a}">${a}</option>`).join('')}
         </select>
 
@@ -344,8 +344,7 @@ const views = {
       if (!b) return;
 
       ask(
-        `Receive from ${b.dataset.n} (owes ${inr(b.dataset.o)})`,
-        b.dataset.o,
+        `Receive from ${b.dataset.n} (current due ${inr(b.dataset.o)}; excess becomes an advance)`,
         async (amt, method, n) => {
           const { error } = await sb.rpc(
             'record_customer_receipt',
@@ -377,7 +376,7 @@ const views = {
         <thead>
           <tr>
             <th>Distributor</th>
-            <th>You owe</th>
+            <th>Net balance</th>
             <th></th>
           </tr>
         </thead>
@@ -385,16 +384,18 @@ const views = {
           ${(data || []).map(d => `
             <tr>
               <td>${esc(d.name)}</td>
-              <td>${inr(d.balance)}</td>
               <td>
-                ${+d.balance > 0 ? `
-                  <button
-                    data-d="${d.distributor_id}"
-                    data-n="${esc(d.name)}"
-                    data-o="${d.balance}">
-                    Record payment
-                  </button>
-                ` : ''}
+                ${+d.balance > 0
+                  ? `<span>${inr(d.balance)} payable</span>`
+                  : `<span>${inr(Math.abs(+d.balance))} advance with supplier</span>`}
+              </td>
+              <td>
+                <button
+                  data-d="${d.distributor_id}"
+                  data-n="${esc(d.name)}"
+                  data-o="${d.balance}">
+                  Record payment / advance
+                </button>
               </td>
             </tr>
           `).join('') ||
@@ -407,8 +408,7 @@ const views = {
       if (!b) return;
 
       ask(
-        `Pay ${b.dataset.n} (you owe ${inr(b.dataset.o)})`,
-        b.dataset.o,
+        `Pay ${b.dataset.n} (current payable ${inr(b.dataset.o)}; excess becomes a supplier advance)`,
         async (amt, method, n) => {
           const { error } = await sb.rpc(
             'record_supplier_payment',
@@ -498,6 +498,221 @@ const views = {
           b.dataset.l
         );
       }
+    };
+  },
+
+  // OPENING BALANCES
+  async ob() {
+    if (!canManageOpeningBalances) {
+      $('panel').innerHTML = '<p>Only Admin and Super Admin can manage opening balances.</p>';
+      return;
+    }
+
+    $('panel').innerHTML = `
+      <section style="display:grid;gap:1rem">
+        <div>
+          <h3>Record party opening balance</h3>
+          <p class="muted">Enter the balance as it stood on the selected date. Reversals remain in the audit history.</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.65rem">
+            <label>Party type
+              <select id="obType">
+                <option value="customer">Customer</option>
+                <option value="distributor">Distributor / Supplier</option>
+              </select>
+            </label>
+            <label>Party
+              <select id="obParty" required><option value="">Loading parties…</option></select>
+            </label>
+            <label>Opening amount (₹)
+              <input id="obAmount" type="number" min="0.01" step="0.01" placeholder="0.00" required>
+            </label>
+            <label>Balance type
+              <select id="obSide"></select>
+            </label>
+            <label>As of date
+              <input id="obDate" type="date" required>
+            </label>
+            <label>Note / reference
+              <input id="obNote" type="text" maxlength="500" placeholder="Optional note">
+            </label>
+          </div>
+          <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-top:.8rem">
+            <button id="obSave">Post opening balance</button>
+            <span id="obError" role="status"></span>
+          </div>
+          <small>Customer debit = customer owes you; customer credit = customer advance. Supplier credit = you owe supplier; supplier debit = advance with supplier.</small>
+        </div>
+        <hr>
+        <div>
+          <h3>Opening balance history</h3>
+          <div id="obHistory">Loading…</div>
+        </div>
+      </section>`;
+
+    const typeEl = $('obType');
+    const partyEl = $('obParty');
+    const sideEl = $('obSide');
+    const amountEl = $('obAmount');
+    const dateEl = $('obDate');
+    const noteEl = $('obNote');
+    const errorEl = $('obError');
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    dateEl.value = today;
+    dateEl.max = today;
+
+    let customers = [];
+    let distributors = [];
+
+    const updateSides = () => {
+      if (typeEl.value === 'customer') {
+        sideEl.innerHTML = `
+          <option value="debit">Customer owes pharmacy (Debit)</option>
+          <option value="credit">Customer advance (Credit)</option>`;
+      } else {
+        sideEl.innerHTML = `
+          <option value="credit">Pharmacy owes supplier (Credit)</option>
+          <option value="debit">Supplier advance (Debit)</option>`;
+      }
+    };
+
+    const updateParties = () => {
+      const rows = (typeEl.value === 'customer' ? customers : distributors)
+        .filter(x => x.active);
+      partyEl.innerHTML = '<option value="">Select party…</option>' +
+        rows.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
+      updateSides();
+    };
+
+    const [{ data: customerRows, error: customerError },
+      { data: distributorRows, error: distributorError }] = await Promise.all([
+      sb.from('customers')
+        .select('id,name,active')
+        .eq('branch_id', prof.branch_id)
+        .order('name')
+        .limit(1000),
+      sb.from('distributors')
+        .select('id,name,active')
+        .eq('branch_id', prof.branch_id)
+        .order('name')
+        .limit(1000)
+    ]);
+
+    if (customerError || distributorError) {
+      errorEl.textContent = friendly(customerError || distributorError);
+      return;
+    }
+
+    customers = customerRows || [];
+    distributors = distributorRows || [];
+    updateParties();
+    typeEl.onchange = updateParties;
+
+    $('obSave').onclick = async () => {
+      errorEl.textContent = '';
+      const partyId = partyEl.value;
+      const amount = Number(amountEl.value);
+      if (!partyId) {
+        errorEl.textContent = 'Select a customer or distributor.';
+        return;
+      }
+      if (!Number.isFinite(amount) || amount <= 0) {
+        errorEl.textContent = 'Enter an opening amount greater than zero.';
+        return;
+      }
+      if (!dateEl.value || dateEl.value > today) {
+        errorEl.textContent = 'Choose a valid date that is not in the future.';
+        return;
+      }
+
+      $('obSave').disabled = true;
+      const { error } = await sb.rpc('record_party_opening_balance', {
+        p_party_type: typeEl.value,
+        p_party_id: partyId,
+        p_amount: amount,
+        p_balance_side: sideEl.value,
+        p_as_of_date: dateEl.value,
+        p_note: noteEl.value.trim() || null
+      });
+      $('obSave').disabled = false;
+
+      if (error) {
+        errorEl.textContent = friendly(error);
+        return;
+      }
+
+      note('Opening balance posted successfully.');
+      amountEl.value = '';
+      noteEl.value = '';
+      await views.ob();
+    };
+
+    const [{ data: entries, error: entriesError }] = await Promise.all([
+      sb.from('party_opening_balances')
+        .select('*')
+        .eq('branch_id', prof.branch_id)
+        .order('created_at', { ascending: false })
+        .limit(200)
+    ]);
+
+    if (entriesError) {
+      $('obHistory').innerHTML = `<p>${esc(friendly(entriesError))}</p>`;
+      return;
+    }
+
+    const customerNames = new Map(customers.map(x => [x.id, x.name]));
+    const distributorNames = new Map(distributors.map(x => [x.id, x.name]));
+    const rows = entries || [];
+
+    $('obHistory').innerHTML = rows.length ? `
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Party</th><th>Type</th><th>Opening date</th>
+              <th>Amount</th><th>Balance side</th><th>Status</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(x => {
+              const partyName = x.party_type === 'customer'
+                ? customerNames.get(x.customer_id)
+                : distributorNames.get(x.distributor_id);
+              const sideLabel = x.party_type === 'customer'
+                ? (x.balance_side === 'debit' ? 'Customer due' : 'Customer advance')
+                : (x.balance_side === 'credit' ? 'Supplier payable' : 'Supplier advance');
+              return `<tr>
+                <td>${esc(partyName || (x.party_type === 'customer' ? 'Customer' : 'Supplier'))}</td>
+                <td>${x.party_type === 'customer' ? 'Customer' : 'Supplier'}</td>
+                <td>${esc(x.as_of_date)}</td>
+                <td>${inr(x.amount)}</td>
+                <td>${sideLabel}</td>
+                <td>${x.status === 'posted' ? 'Active' : 'Reversed'}</td>
+                <td>${x.status === 'posted'
+                  ? `<button class="sec" data-ob-reverse="${x.id}">Reverse</button>`
+                  : esc(x.reversal_reason || '—')}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>` : '<p>No opening balances have been recorded yet.</p>';
+
+    $('obHistory').onclick = async e => {
+      const b = e.target.closest('[data-ob-reverse]');
+      if (!b) return;
+      const reason = prompt('Reason for reversing this opening balance:');
+      if (!reason || !reason.trim()) return;
+      b.disabled = true;
+      const { error } = await sb.rpc('reverse_party_opening_balance', {
+        p_entry_id: b.dataset.obReverse,
+        p_reason: reason.trim()
+      });
+      if (error) {
+        b.disabled = false;
+        note(friendly(error), true);
+        return;
+      }
+      note('Opening balance reversed. You can now post a replacement entry.');
+      await views.ob();
     };
   }
 };

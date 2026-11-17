@@ -1,6 +1,6 @@
 
 -- ============================================================
--- PALLIKKAL MEDICALS V2
+-- PALLIKKAL PHARMACY V2
 -- MIGRATION FOR EXISTING SUPABASE DATABASE
 --
 -- PRESERVES:
@@ -900,5 +900,5 @@ ORDER BY table_name;
 
 
 -- ============================================================
--- END PALLIKKAL MEDICALS V2
+-- END PALLIKKAL PHARMACY V2
 -- ============================================================

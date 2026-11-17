@@ -1,4 +1,4 @@
-# PALLIKKAL MEDICALS — Customers page fix
+# PALLIKKAL PHARMACY — Customers page fix
 
 Based on the latest uploaded GitHub project ZIP.
 

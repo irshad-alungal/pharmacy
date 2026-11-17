@@ -1,4 +1,4 @@
--- PALLIKKAL MEDICALS: branch-safe customer returns (Cash / UPI only)
+-- PALLIKKAL PHARMACY: branch-safe customer returns (Cash / UPI only)
 -- Run in Supabase SQL Editor after the existing 0001-0006 migrations.
 -- Does NOT install the Phase 4/5 finance ledger or alter billing/finalize_sale.
 
