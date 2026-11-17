@@ -10,6 +10,7 @@ button{background:var(--g);color:#fff;border:0;cursor:pointer}#m{color:#b91c1c;m
 <script type="module">
 import { sb } from './assets/js/supabase-client.js';
 import { signIn } from './assets/js/auth.js';
+import { completeDailyLogin } from './assets/js/daily-session.js';
 
 const form = document.getElementById('f');
 const email = document.getElementById('e');
@@ -41,6 +42,8 @@ form.addEventListener('submit', async (event) => {
       return;
     }
 
+    message.textContent = 'Checking today’s opening balance...';
+    await completeDailyLogin(result.data.user.id);
     window.location.assign('billing.html');
   } catch (error) {
     console.error('Administrator sign-in failed:', error);

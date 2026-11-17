@@ -116,6 +116,7 @@ import {
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 } from './assets/js/supabase-client.js';
+import { completeDailyLogin } from './assets/js/daily-session.js';
 
 const form = document.getElementById('f');
 const staffId = document.getElementById('staffId');
@@ -204,7 +205,12 @@ form.addEventListener('submit', async (event) => {
       return;
     }
 
-    // STEP 6: Open Billing
+    // STEP 6: Collect/reuse the branch-wide opening balance and mark this
+    // authenticated user as logged in for the current IST day.
+    message.textContent = 'Checking today’s opening balance...';
+    await completeDailyLogin(result.session.user.id);
+
+    // STEP 7: Open Billing
     window.location.assign('billing.html');
 
   } catch (error) {

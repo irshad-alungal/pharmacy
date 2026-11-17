@@ -47,10 +47,9 @@ export async function requireOpeningBalance(userId) {
     return record;
   }
 
-  try {
-    const saved = JSON.parse(localStorage.getItem(OPENING_KEY) || 'null');
-    if (saved?.key === key && Number.isFinite(Number(saved.amount)) && saved.serverId) return saved;
-  } catch { /* show the required dialog */ }
+  // Supabase is the source of truth. Never trust a browser-only cached
+  // submission when the branch-wide database record is missing.
+  localStorage.removeItem(OPENING_KEY);
 
   return await new Promise(resolve => {
     const overlay = document.createElement('div');
@@ -91,17 +90,28 @@ export async function requireOpeningBalance(userId) {
       sb.rpc('record_daily_cash_opening', {
         p_opening_date: today,
         p_amount: Math.round(value * 100) / 100
-      }).then(({ data, error: saveError }) => {
+      }).then(async ({ data, error: saveError }) => {
+        let savedId = data;
+        let savedAmount = Math.round(value * 100) / 100;
         if (saveError) {
-          error.textContent = saveError.message || 'Could not save opening balance. Please try again.';
-          submit.disabled = false;
-          submit.textContent = 'Submit';
-          return;
+          // Another staff/admin may have submitted the branch opening at the
+          // same time. If the database now has today's record, accept it.
+          const { data: concurrentRecord, error: recheckError } = await sb.rpc('get_daily_cash_opening', {
+            p_opening_date: today
+          });
+          if (recheckError || !concurrentRecord) {
+            error.textContent = saveError.message || 'Could not save opening balance. Please try again.';
+            submit.disabled = false;
+            submit.textContent = 'Submit';
+            return;
+          }
+          savedId = concurrentRecord.id;
+          savedAmount = Number(concurrentRecord.amount);
         }
         const record = {
           key, userId, date: today,
-          amount: Math.round(value * 100) / 100,
-          serverId: data,
+          amount: savedAmount,
+          serverId: savedId,
           savedAt: new Date().toISOString()
         };
         localStorage.setItem(OPENING_KEY, JSON.stringify(record));
@@ -115,4 +125,13 @@ export async function requireOpeningBalance(userId) {
     });
     amount.focus();
   });
+}
+
+// Complete the mandatory once-per-day login flow. The opening is branch-wide,
+// so the first authorised staff/admin login records it; later logins that day
+// reuse the database record and do not prompt again.
+export async function completeDailyLogin(userId) {
+  const opening = await requireOpeningBalance(userId);
+  markDailyLogin(userId);
+  return opening;
 }

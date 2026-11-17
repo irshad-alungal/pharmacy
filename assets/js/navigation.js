@@ -2,6 +2,7 @@
 import { requireProfile, esc, sb } from './supabase-client.js';
 import { can } from './permissions.js';
 import { signOut } from './auth.js';
+import { hasDailyLogin, clearDailyLogin } from './daily-session.js';
 
 const PAGES = [
   ['dashboard', 'Dashboard'],
@@ -29,6 +30,19 @@ export async function mountShell(page, title) {
 
   if (!prof) {
     throw new Error('no session');
+  }
+
+  // A persisted Supabase auth token must not carry yesterday's login into a
+  // new IST day. Require a fresh credential login once per day.
+  const dailyUserId = prof.user_id || prof.id;
+  if (!hasDailyLogin(dailyUserId)) {
+    try { await sb.rpc('end_work_session', { p_reason: 'manual' }); } catch (_) {}
+    clearDailyLogin();
+    await sb.auth.signOut();
+    const loginPage = ['super_admin', 'admin'].includes(prof.role)
+      ? 'admin-login.html' : 'staff-login.html';
+    location.replace(loginPage);
+    throw new Error('daily login required');
   }
 
   const links = PAGES
@@ -68,8 +82,8 @@ export async function mountShell(page, title) {
 
   // A persisted Supabase login can outlive the pharmacy work session.
   // Check the work session whenever an app page is opened or refreshed.
-  // If it has expired, start a new authenticated work session before any
-  // protected RPC (including Initial Stock) is called.
+  // An inactive work session requires a fresh credential login; it is never
+  // silently restarted from a protected application page.
   let workSessionActive = false;
   try {
     const { data: touchResult, error: touchError } = await sb.rpc('touch_work_session');
@@ -79,15 +93,15 @@ export async function mountShell(page, title) {
   }
 
   if (!workSessionActive) {
-    const { data: startResult, error: startError } = await sb.rpc('start_work_session');
-    if (startError || startResult !== true) {
-      const view = document.getElementById('view');
-      if (view) {
-        view.innerHTML = `<div class="notice">Your pharmacy work session is not active and could not be restarted. Please sign out and sign in again. ${esc(startError?.message || 'Work session could not be started.')}</div>`;
-      }
-      console.error('Could not start a work session:', startError);
-      throw new Error('work session unavailable');
-    }
+    // Do not silently restart an ended/expired work session. A new work
+    // session must be established through the login screen. The opening
+    // balance remains saved branch-wide and will not be requested twice.
+    clearDailyLogin();
+    await sb.auth.signOut();
+    const loginPage = ['super_admin', 'admin'].includes(prof.role)
+      ? 'admin-login.html' : 'staff-login.html';
+    location.replace(loginPage);
+    throw new Error('work session unavailable; fresh login required');
   }
 
   // Work-session heartbeat:
@@ -95,6 +109,18 @@ export async function mountShell(page, title) {
   let lastInteraction = Date.now();
   let lastTouch = 0;
   let touching = false;
+  let dailyLogoutInProgress = false;
+
+  const forceLogin = async reason => {
+    if (dailyLogoutInProgress) return;
+    dailyLogoutInProgress = true;
+    clearDailyLogin();
+    try { await sb.rpc('end_work_session', { p_reason: 'manual' }); } catch (_) {}
+    await sb.auth.signOut();
+    const loginPage = ['super_admin', 'admin'].includes(prof.role)
+      ? 'admin-login.html' : 'staff-login.html';
+    location.replace(loginPage);
+  };
 
   const recordActivity = () => {
     lastInteraction = Date.now();
@@ -112,6 +138,10 @@ export async function mountShell(page, title) {
   });
 
   const heartbeat = async () => {
+    if (!hasDailyLogin(dailyUserId)) {
+      await forceLogin('new_day');
+      return;
+    }
     if (document.visibilityState !== 'visible') return;
 
     const now = Date.now();
@@ -139,7 +169,8 @@ console.log('WORK SESSION HEARTBEAT:', {
 if (error) {
   console.error('Work-session heartbeat failed:', error);
 } else if (data === false) {
-  console.warn('Work session is not active. No automatic logout.');
+  console.warn('Work session is not active; requesting a fresh login.');
+  await forceLogin('session_expired');
 }
     } catch (error) {
       console.error('Work-session heartbeat error:', error);

@@ -1,5 +1,6 @@
 
 import { sb } from './supabase-client.js';
+import { clearDailyLogin } from './daily-session.js';
 
 export const signIn = async (email, password) => {
   const result = await sb.auth.signInWithPassword({ email, password });
@@ -17,6 +18,7 @@ export const signIn = async (email, password) => {
 };
 
 export const signOut = async () => {
+  clearDailyLogin();
   await sb.rpc('end_work_session', { p_reason: 'manual' });
   await sb.auth.signOut();
   location.href = 'index.html';
