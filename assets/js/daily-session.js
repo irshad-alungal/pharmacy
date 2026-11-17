@@ -1,6 +1,7 @@
-// ALZA daily sign-in and opening-balance helpers (frontend preview).
+// PALLIKKAL PHARMACY daily sign-in and cash opening helpers.
+import { sb } from './supabase-client.js';
 const STORAGE_KEY = 'alza_daily_login_v1';
-const OPENING_KEY = 'alza_opening_balance_v1';
+const OPENING_KEY = 'alza_opening_balance_v2';
 
 export function istDateKey(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -28,9 +29,27 @@ export function hasDailyLogin(userId) {
 export async function requireOpeningBalance(userId) {
   const today = istDateKey();
   const key = `${userId}:${today}`;
+
+  // The opening is branch-wide, not per device or per staff member.
+  // Check Supabase first so every staff login sees the same saved amount.
+  const { data: existing, error: lookupError } = await sb.rpc('get_daily_cash_opening', {
+    p_opening_date: today
+  });
+  if (lookupError) {
+    throw new Error(lookupError.message || 'Could not verify today’s opening cash balance.');
+  }
+  if (existing) {
+    const record = {
+      key, userId, date: today, amount: Number(existing.amount),
+      serverId: existing.id, savedAt: new Date().toISOString()
+    };
+    localStorage.setItem(OPENING_KEY, JSON.stringify(record));
+    return record;
+  }
+
   try {
     const saved = JSON.parse(localStorage.getItem(OPENING_KEY) || 'null');
-    if (saved?.key === key && Number.isFinite(Number(saved.amount))) return saved;
+    if (saved?.key === key && Number.isFinite(Number(saved.amount)) && saved.serverId) return saved;
   } catch { /* show the required dialog */ }
 
   return await new Promise(resolve => {
@@ -65,10 +84,34 @@ export async function requireOpeningBalance(userId) {
         error.textContent = 'Enter a valid opening balance.';
         return;
       }
-      const record = { key, userId, date: today, amount: Math.round(value * 100) / 100, savedAt: new Date().toISOString() };
-      localStorage.setItem(OPENING_KEY, JSON.stringify(record));
-      overlay.remove();
-      resolve(record);
+      const submit = form.querySelector('button[type=submit]');
+      submit.disabled = true;
+      submit.textContent = 'Saving…';
+      error.textContent = '';
+      sb.rpc('record_daily_cash_opening', {
+        p_opening_date: today,
+        p_amount: Math.round(value * 100) / 100
+      }).then(({ data, error: saveError }) => {
+        if (saveError) {
+          error.textContent = saveError.message || 'Could not save opening balance. Please try again.';
+          submit.disabled = false;
+          submit.textContent = 'Submit';
+          return;
+        }
+        const record = {
+          key, userId, date: today,
+          amount: Math.round(value * 100) / 100,
+          serverId: data,
+          savedAt: new Date().toISOString()
+        };
+        localStorage.setItem(OPENING_KEY, JSON.stringify(record));
+        overlay.remove();
+        resolve(record);
+      }).catch(saveError => {
+        error.textContent = saveError?.message || 'Could not save opening balance. Please try again.';
+        submit.disabled = false;
+        submit.textContent = 'Submit';
+      });
     });
     amount.focus();
   });
