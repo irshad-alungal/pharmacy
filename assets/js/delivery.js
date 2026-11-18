@@ -20,7 +20,7 @@ async function mountDeliveryPersonPage(user) {
   // Delivery accounts use the same daily work-session rules as pharmacy staff.
   if (!hasDailyLogin(user.id)) {
     clearDailyLogin();
-    await sb.rpc('end_work_session', { p_reason: 'manual' });
+    await sb.rpc('end_work_session', { p_reason: 'new_day' });
     await sb.auth.signOut();
     location.replace('delivery-boy-login.html');
     return;
@@ -52,38 +52,53 @@ async function mountDeliveryPersonPage(user) {
         <div><button id="riderRefresh" class="sec" type="button">↻ Refresh</button> <button id="riderLogout" class="sec" type="button">Sign out</button></div>
       </header>
       <div class="delivery-notice"><strong>Delivery account:</strong> You can view only deliveries assigned to your account. Update each delivery when its status changes.</div>
+      <section class="card rider-presence-card" aria-labelledby="riderPresenceTitle">
+        <h2 id="riderPresenceTitle">Your availability</h2>
+        <p class="delivery-muted">Choose your current status. Billing will show the branch delivery status using active delivery-person selections.</p>
+        <div class="rider-presence-actions">
+          <button class="rider-presence-btn is-available" data-presence="available" type="button">Delivery Available</button>
+          <button class="rider-presence-btn is-purchasing" data-presence="purchasing" type="button">Purchasing</button>
+          <button class="rider-presence-btn is-offline" data-presence="offline" type="button">Offline</button>
+        </div>
+        <p id="riderPresenceMessage" class="delivery-muted" role="status" aria-live="polite">Choose a status.</p>
+      </section>
       <p id="riderMessage" class="delivery-muted" role="status" aria-live="polite">Loading assigned deliveries…</p>
       <section class="delivery-stats"><div class="delivery-stat"><small>Assigned to me</small><strong id="riderTotal">0</strong></div><div class="delivery-stat"><small>Pending</small><strong id="riderPending">0</strong></div><div class="delivery-stat"><small>Out for delivery</small><strong id="riderOut">0</strong></div><div class="delivery-stat"><small>Delivered</small><strong id="riderDone">0</strong></div></section>
       <section class="card"><h2>Assigned deliveries</h2><div id="riderJobs" class="delivery-rider-jobs">Loading…</div></section>
     </main>`;
 
   const $ = id => document.getElementById(id);
-  let riderLastInteraction = Date.now();
-  let riderHeartbeatBusy = false;
-  const recordRiderActivity = () => { riderLastInteraction = Date.now(); };
-  ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(name =>
-    document.addEventListener(name, recordRiderActivity, { passive: true })
-  );
-  const riderHeartbeat = async () => {
-    if (document.visibilityState !== 'visible' || Date.now() - riderLastInteraction > 5 * 60 * 1000 || riderHeartbeatBusy) return;
-    riderHeartbeatBusy = true;
-    try {
-      const { data, error } = await sb.rpc('touch_work_session');
-      if (error || data !== true) {
-        clearDailyLogin();
-        await sb.auth.signOut();
-        location.replace('delivery-boy-login.html');
-      }
-    } finally {
-      riderHeartbeatBusy = false;
-    }
-  };
-  setTimeout(riderHeartbeat, 5000);
-  setInterval(riderHeartbeat, 60000);
+  // No idle timer or automatic sign-out. The current-day work session is
+  // validated once when this page opens; manual sign-out is explicit.
   $('riderName').textContent = profile.full_name || 'Delivery person';
   const money = value => `₹${Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const statusName = value => ({ pending: 'Pending', out: 'Out for delivery', done: 'Delivered' }[value] || 'Pending');
   let jobs = [];
+  const presenceButtons = [...document.querySelectorAll('[data-presence]')];
+  let currentPresence = null;
+  function renderPresence() {
+    presenceButtons.forEach(button => {
+      const selected = button.dataset.presence === currentPresence;
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+    $('riderPresenceMessage').textContent = currentPresence
+      ? `Your status: ${{available:'Delivery Available', purchasing:'Purchasing', offline:'Offline'}[currentPresence]}.`
+      : 'Choose your current status.';
+  }
+  presenceButtons.forEach(button => button.addEventListener('click', async () => {
+    const next = button.dataset.presence;
+    presenceButtons.forEach(item => item.disabled = true);
+    $('riderPresenceMessage').textContent = 'Updating status…';
+    const { error } = await sb.rpc('delivery_set_presence', { p_status: next });
+    if (error) {
+      $('riderPresenceMessage').textContent = `Could not update status: ${error.message}`;
+    } else {
+      currentPresence = next;
+      renderPresence();
+    }
+    presenceButtons.forEach(item => item.disabled = false);
+  }));
 
   function renderJobs() {
     $('riderTotal').textContent = jobs.length;
@@ -146,9 +161,15 @@ async function mountDeliveryPersonPage(user) {
   $('riderLogout').addEventListener('click', async () => {
     $('riderLogout').disabled = true;
     $('riderMessage').textContent = 'Signing out…';
+    await sb.rpc('delivery_set_presence', { p_status: 'offline' });
+    await sb.rpc('end_work_session', { p_reason: 'manual' });
+    clearDailyLogin();
     await sb.auth.signOut();
     location.replace('delivery-boy-login.html');
   });
+  const { data: savedPresence, error: savedPresenceError } = await sb.rpc('delivery_presence_my_status');
+  if (!savedPresenceError) currentPresence = savedPresence;
+  renderPresence();
   await loadJobs();
 }
 
