@@ -69,40 +69,29 @@ $('view').innerHTML = `
 <dialog id="hd" class="billing-dialog"><div id="hl"></div><button class="sec" onclick="this.closest('dialog').close()">Close</button></dialog>
 <dialog id="bd" class="billing-dialog"><div id="bl"></div><button class="sec" id="bc" type="button">Close</button></dialog>`;
 
-// Shop status is stored in Supabase so the admin billing page and the
-// public website show the same value on every device/browser.
+// Shop open/closed status is shared with the public home page in this browser.
+const SHOP_STATUS_KEY = 'alza_shop_open_status_v1';
 const shopToggle = $('shopStateToggle');
-let shopIsOpen = false;
 function renderShopStatus(isOpen) {
-  shopIsOpen = Boolean(isOpen);
-  shopToggle.textContent = shopIsOpen ? 'Open' : 'Closed';
-  shopToggle.classList.toggle('is-open', shopIsOpen);
-  shopToggle.classList.toggle('is-closed', !shopIsOpen);
-  shopToggle.setAttribute('aria-pressed', String(shopIsOpen));
-  shopToggle.setAttribute('aria-label', shopIsOpen ? 'Shop is open. Click to close.' : 'Shop is closed. Click to open.');
+  shopToggle.textContent = isOpen ? 'Open' : 'Closed';
+  shopToggle.classList.toggle('is-open', isOpen);
+  shopToggle.classList.toggle('is-closed', !isOpen);
+  shopToggle.setAttribute('aria-pressed', String(isOpen));
+  shopToggle.setAttribute('aria-label', isOpen ? 'Shop is open. Click to close.' : 'Shop is closed. Click to open.');
 }
-async function loadShopStatus() {
-  const { data, error } = await sb.rpc('public_shop_is_open');
-  if (error) {
-    console.error('Could not load shop status:', error);
-    $('msg').textContent = 'Could not load shop status. Check the Supabase migration.';
-    return;
-  }
-  renderShopStatus(data === true);
-}
-shopToggle.addEventListener('click', async () => {
-  shopToggle.disabled = true;
-  const next = !shopIsOpen;
-  const { error } = await sb.rpc('set_shop_open_status', { p_is_open: next });
-  shopToggle.disabled = false;
-  if (error) {
-    console.error('Could not save shop status:', error);
-    $('msg').textContent = `Could not update shop status: ${error.message}`;
-    return;
-  }
-  renderShopStatus(next);
+let shopIsOpen = localStorage.getItem(SHOP_STATUS_KEY) === 'open';
+renderShopStatus(shopIsOpen);
+shopToggle.addEventListener('click', () => {
+  shopIsOpen = !shopIsOpen;
+  localStorage.setItem(SHOP_STATUS_KEY, shopIsOpen ? 'open' : 'closed');
+  renderShopStatus(shopIsOpen);
 });
-loadShopStatus();
+window.addEventListener('storage', event => {
+  if (event.key === SHOP_STATUS_KEY) {
+    shopIsOpen = event.newValue === 'open';
+    renderShopStatus(shopIsOpen);
+  }
+});
 
 // The bill date element is created by the markup above, so populate it only after mounting the form.
 $('billDate').textContent = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeZone: 'Asia/Kolkata' }).format(new Date());
