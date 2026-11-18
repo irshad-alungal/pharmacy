@@ -4,6 +4,7 @@
 </style></head><body><main class="db-login"><h1>PALLIKKAL PHARMACY</h1><h2>Delivery Person Login</h2><p>Sign in to view only the deliveries assigned to your account and update their delivery status.</p><form id="loginForm"><label>Delivery ID<input id="deliveryId" required maxlength="40" autocomplete="username" autocapitalize="none" placeholder="Enter Delivery ID"></label><label>Password<input id="deliveryPassword" type="password" required autocomplete="current-password" placeholder="Enter password"></label><p class="db-status" id="loginStatus" role="status" aria-live="polite"></p><button id="loginButton" type="submit">Sign in</button></form><p><a class="db-link" href="delivery.html">Back to Delivery Management</a></p></main>
 <script type="module">
 import { sb, SUPABASE_URL, SUPABASE_ANON_KEY } from './assets/js/supabase-client.js';
+import { markDailyLogin } from './assets/js/daily-session.js';
 const form = document.getElementById('loginForm');
 const status = document.getElementById('loginStatus');
 const button = document.getElementById('loginButton');
@@ -20,8 +21,22 @@ form.addEventListener('submit', async event => {
   if (roleError || role !== 'delivery_person') { await sb.auth.signOut(); throw new Error('This account is not authorized for the delivery portal.'); }
   const { data: profile, error: profileError } = await sb.from('profiles').select('must_change_password,is_active').eq('id', result.session.user.id).single();
   if (profileError || !profile?.is_active) { await sb.auth.signOut(); throw new Error('This delivery account is inactive. Contact the administrator.'); }
+  if (profile.must_change_password) {
+    status.textContent = 'First login: please set a new password…';
+    window.location.assign('change-password.html');
+    return;
+  }
+
+  status.textContent = 'Starting delivery session…';
+  const { data: started, error: sessionError } = await sb.rpc('start_work_session');
+  if (sessionError || started !== true) {
+    await sb.auth.signOut();
+    throw new Error(sessionError?.message || 'Could not start your delivery work session. Contact the administrator.');
+  }
+
+  markDailyLogin(result.session.user.id);
   status.textContent = 'Login successful. Redirecting…';
-  window.location.assign(profile.must_change_password ? 'change-password.html' : 'delivery.html');
+  window.location.assign('delivery.html');
  } catch (error) {
   console.error('Delivery login failed:', error); status.className = 'db-status error'; status.textContent = error.message || 'Unable to sign in. Please try again.';
  } finally { button.disabled = false; button.textContent = 'Sign in'; }

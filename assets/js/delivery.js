@@ -1,6 +1,7 @@
 import { sb } from './supabase-client.js';
 import { mountShell } from './navigation.js';
 import { esc } from './utils.js';
+import { hasDailyLogin, clearDailyLogin } from './daily-session.js';
 
 const { data: { user: currentUser }, error: currentUserError } = await sb.auth.getUser();
 let currentRole = null;
@@ -16,6 +17,22 @@ if (currentRole === 'delivery_person') {
 }
 
 async function mountDeliveryPersonPage(user) {
+  // Delivery accounts use the same daily work-session rules as pharmacy staff.
+  if (!hasDailyLogin(user.id)) {
+    clearDailyLogin();
+    await sb.rpc('end_work_session', { p_reason: 'manual' });
+    await sb.auth.signOut();
+    location.replace('delivery-boy-login.html');
+    return;
+  }
+  const { data: activeSession, error: activeSessionError } = await sb.rpc('touch_work_session');
+  if (activeSessionError || activeSession !== true) {
+    clearDailyLogin();
+    await sb.auth.signOut();
+    location.replace('delivery-boy-login.html');
+    return;
+  }
+
   const { data: profile, error: profileError } = await sb
     .from('profiles')
     .select('full_name,is_active,branch_id')
@@ -41,6 +58,28 @@ async function mountDeliveryPersonPage(user) {
     </main>`;
 
   const $ = id => document.getElementById(id);
+  let riderLastInteraction = Date.now();
+  let riderHeartbeatBusy = false;
+  const recordRiderActivity = () => { riderLastInteraction = Date.now(); };
+  ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(name =>
+    document.addEventListener(name, recordRiderActivity, { passive: true })
+  );
+  const riderHeartbeat = async () => {
+    if (document.visibilityState !== 'visible' || Date.now() - riderLastInteraction > 5 * 60 * 1000 || riderHeartbeatBusy) return;
+    riderHeartbeatBusy = true;
+    try {
+      const { data, error } = await sb.rpc('touch_work_session');
+      if (error || data !== true) {
+        clearDailyLogin();
+        await sb.auth.signOut();
+        location.replace('delivery-boy-login.html');
+      }
+    } finally {
+      riderHeartbeatBusy = false;
+    }
+  };
+  setTimeout(riderHeartbeat, 5000);
+  setInterval(riderHeartbeat, 60000);
   $('riderName').textContent = profile.full_name || 'Delivery person';
   const money = value => `₹${Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const statusName = value => ({ pending: 'Pending', out: 'Out for delivery', done: 'Delivered' }[value] || 'Pending');
