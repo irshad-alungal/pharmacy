@@ -139,20 +139,35 @@
       const saved=localStorage.getItem('alza_public_language');setLanguage(saved==='ml'?'ml':'en');button.addEventListener('click',()=>setLanguage(document.documentElement.lang==='en'?'ml':'en'));
     })();
   </script>
-  <script>
-    (function () {
-      const key = 'alza_shop_open_status_v1';
-      const badge = document.getElementById('publicShopStatus');
-      const label = document.getElementById('publicShopStatusText');
-      function update() {
-        const open = localStorage.getItem(key) === 'open';
-        badge.classList.toggle('is-open', open);
-        badge.classList.toggle('is-closed', !open);
-        label.textContent = open ? 'Shop Open' : 'Shop Closed';
+  <script type="module">
+    import { sb } from './assets/js/supabase-client.js';
+
+    const badge = document.getElementById('publicShopStatus');
+    const label = document.getElementById('publicShopStatusText');
+
+    async function updatePublicShopStatus() {
+      try {
+        const { data, error } = await sb.rpc('public_shop_is_open');
+        if (error) throw error;
+        const isOpen = data === true;
+        badge.classList.toggle('is-open', isOpen);
+        badge.classList.toggle('is-closed', !isOpen);
+        label.textContent = isOpen ? 'Shop Open' : 'Shop Closed';
+      } catch (error) {
+        // Keep the last successfully fetched status visible during temporary outages.
+        console.error('Could not refresh public shop status:', error);
       }
-      update();
-      window.addEventListener('storage', event => { if (event.key === key) update(); });
-    })();
+    }
+
+    updatePublicShopStatus();
+    // Polling keeps the public status current on every device without requiring
+    // public read access to the underlying branch status table.
+    window.setInterval(updatePublicShopStatus, 15000);
+    window.addEventListener('focus', updatePublicShopStatus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') updatePublicShopStatus();
+    });
+
     document.getElementById('year').textContent = new Date().getFullYear();
     document.addEventListener('click', (event) => {
       const menu = document.querySelector('.login');

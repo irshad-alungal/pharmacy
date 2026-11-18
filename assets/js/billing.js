@@ -96,8 +96,7 @@ $('view').innerHTML = `
 <dialog id="hd" class="billing-dialog"><div id="hl"></div><button class="sec" onclick="this.closest('dialog').close()">Close</button></dialog>
 <dialog id="bd" class="billing-dialog"><div id="bl"></div><button class="sec" id="bc" type="button">Close</button></dialog>`;
 
-// Shop open/closed status is shared with the public home page in this browser.
-const SHOP_STATUS_KEY = 'alza_shop_open_status_v1';
+// Shop status is stored centrally in Supabase so every device sees the same value.
 const shopToggle = $('shopStateToggle');
 function renderShopStatus(isOpen) {
   shopToggle.textContent = isOpen ? 'Open' : 'Closed';
@@ -106,17 +105,38 @@ function renderShopStatus(isOpen) {
   shopToggle.setAttribute('aria-pressed', String(isOpen));
   shopToggle.setAttribute('aria-label', isOpen ? 'Shop is open. Click to close.' : 'Shop is closed. Click to open.');
 }
-let shopIsOpen = localStorage.getItem(SHOP_STATUS_KEY) === 'open';
-renderShopStatus(shopIsOpen);
-shopToggle.addEventListener('click', () => {
-  shopIsOpen = !shopIsOpen;
-  localStorage.setItem(SHOP_STATUS_KEY, shopIsOpen ? 'open' : 'closed');
+let shopIsOpen = false;
+let shopStatusBusy = false;
+
+async function loadShopStatus() {
+  const { data, error } = await sb.rpc('my_shop_open_status');
+  if (error) {
+    console.error('Could not load shop status:', error);
+    return;
+  }
+  shopIsOpen = data === true;
   renderShopStatus(shopIsOpen);
-});
-window.addEventListener('storage', event => {
-  if (event.key === SHOP_STATUS_KEY) {
-    shopIsOpen = event.newValue === 'open';
+}
+
+renderShopStatus(false);
+loadShopStatus();
+shopToggle.addEventListener('click', async () => {
+  if (shopStatusBusy) return;
+  shopStatusBusy = true;
+  shopToggle.disabled = true;
+  const requestedStatus = !shopIsOpen;
+  try {
+    const { data, error } = await sb.rpc('set_shop_open_status', { p_is_open: requestedStatus });
+    if (error) throw error;
+    shopIsOpen = data === true;
     renderShopStatus(shopIsOpen);
+  } catch (error) {
+    console.error('Could not update shop status:', error);
+    note('Shop status could not be updated. Please try again.', true);
+    await loadShopStatus();
+  } finally {
+    shopStatusBusy = false;
+    shopToggle.disabled = false;
   }
 });
 
