@@ -111,33 +111,46 @@ const COLS = [
 ].join(',');
 
 let list = [];
+let discountColumnAvailable = true;
 
 // Load medicines belonging to the current branch
 async function load() {
   $('msg').textContent = 'Loading medicines...';
 
-  let qb = sb
-    .from('medicines')
-    .select(COLS)
-    .eq('branch_id', branchId)
-    .order('name')
-    .limit(200);
+  const buildMedicineQuery = includeDiscount => {
+    let qb = sb
+      .from('medicines')
+      .select(includeDiscount ? COLS : COLS.split(',').filter(c => c !== 'discount_percentage').join(','))
+      .eq('branch_id', branchId)
+      .order('name')
+      .limit(200);
 
-  if (!$('inact').checked) {
-    qb = qb.eq('active', true);
+    if (!$('inact').checked) qb = qb.eq('active', true);
+
+    const s = safeQ($('q').value);
+    if (s) {
+      qb = qb.or(
+        ['name', 'ingredients', 'brand', 'generic_name', 'barcode', 'sku']
+          .map(c => `${c}.ilike.%${s}%`)
+          .join(',')
+      );
+    }
+    return qb;
+  };
+
+  let { data, error } = await buildMedicineQuery(true);
+
+  // Keep the catalogue visible if the optional discount-column migration
+  // has not yet been applied to this Supabase database.
+  if (error && /discount_percentage.*does not exist|column .*discount_percentage.*not exist/i.test(error.message || '')) {
+    discountColumnAvailable = false;
+    ({ data, error } = await buildMedicineQuery(false));
+    if (!error) {
+      $('msg').textContent = 'Medicine list loaded. Apply database migration 0018 to enable the optional discount field.';
+    }
+  } else if (!error) {
+    discountColumnAvailable = true;
   }
-
-  const s = safeQ($('q').value);
-
-  if (s) {
-    qb = qb.or(
-      ['name', 'ingredients', 'brand', 'generic_name', 'barcode', 'sku']
-        .map(c => `${c}.ilike.%${s}%`)
-        .join(',')
-    );
-  }
-
-  const { data, error } = await qb;
 
   if (error) {
     $('msg').textContent = friendly(error);
@@ -146,7 +159,7 @@ async function load() {
   }
 
   list = data || [];
-  $('msg').textContent = '';
+  if (discountColumnAvailable) $('msg').textContent = '';
 
   const loc = id =>
     lk.storage_locations.find(l => l.id === id)?.name || '';
@@ -177,6 +190,7 @@ async function load() {
       <td>${esc(m.composition || '—')}</td>
       <td>${esc(m.strength || '—')}</td>
       <td>${esc(loc(m.storage_location_id))} ${esc(m.rack || '')}</td>
+      <td>${m.discount_percentage == null || m.discount_percentage === '' ? '—' : `${Number(m.discount_percentage)}%`}</td>
       <td><span style="color:${m.active ? '#087f75' : '#9b4b43'};font-weight:700">${m.active ? 'Active' : 'Inactive'}</span></td>
       <td><div class="med-actions"><button class="sec" data-view="${m.id}">View</button><button class="sec" data-e="${m.id}">Edit</button>${m.active ? `<button class="sec" data-t="${m.id}">Request deactivation</button>` : isSuperAdmin ? `<button class="sec" data-t="${m.id}">Activate</button>` : ''}${isAdmin ? `<button class="sec" data-p="${m.id}">Cost history</button>` : ''}<button class="sec" data-photos="${m.id}">Photo</button></div></td>
     </tr>
@@ -249,6 +263,7 @@ f.onsubmit = async e => {
     }
     row.discount_percentage = discount;
   }
+  if (!discountColumnAvailable) delete row.discount_percentage;
   // Keep legacy required pricing columns out of the form without overwriting existing values.
   if (id) { const old = list.find(x => x.id === id); row.mrp = old?.mrp ?? 0; row.selling_price = old?.selling_price ?? 0; row.tax_rate = old?.tax_rate ?? 12; row.reorder_level = old?.reorder_level ?? 0; }
   else { row.mrp = 0; row.selling_price = 0; row.tax_rate = 12; row.reorder_level = 0; }
@@ -624,6 +639,9 @@ $('bulkFile').onchange = async event => {
       tax_rate: 12,
       reorder_level: 0
     }));
+    if (!discountColumnAvailable) {
+      for (const item of payload) delete item.discount_percentage;
+    }
 
     let inserted = 0;
     const failed = [];
