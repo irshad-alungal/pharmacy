@@ -18,6 +18,29 @@ if (!allowedRoles.includes(prof.role)) {
 
 const $ = id => document.getElementById(id);
 
+// Branch-level delivery availability is supplied by delivery-person status
+// buttons and read through a branch-scoped SECURITY DEFINER RPC.
+async function refreshDeliveryPresence() {
+  const indicator = $('deliveryIndicator');
+  if (!indicator) return;
+  const { data, error } = await sb.rpc('delivery_presence_summary');
+  if (error || !data) {
+    $('deliveryPresenceLabel').textContent = 'Unavailable';
+    $('deliveryPresenceDetail').textContent = 'Could not load delivery availability.';
+    indicator.classList.remove('delivery-state-available','delivery-state-purchasing');
+    indicator.classList.add('delivery-state-offline');
+    return;
+  }
+  const state = ['available','purchasing','offline'].includes(data.status) ? data.status : 'offline';
+  const labels = { available: 'Delivery Available', purchasing: 'Purchasing', offline: 'Offline' };
+  const counts = `Available: ${Number(data.available_count || 0)} · Purchasing: ${Number(data.purchasing_count || 0)} · Offline: ${Number(data.offline_count || 0)}`;
+  $('deliveryPresenceLabel').textContent = labels[state];
+  $('deliveryPresenceDetail').textContent = counts;
+  indicator.classList.remove('delivery-state-available','delivery-state-purchasing','delivery-state-offline');
+  indicator.classList.add(`delivery-state-${state}`);
+}
+
+
 $('view').innerHTML = `
 <div class="billing-page">
   <div class="billing-topbar">
@@ -28,7 +51,11 @@ $('view').innerHTML = `
       <button id="shopStateToggle" class="shop-state-toggle is-closed" type="button" aria-pressed="false">Closed</button>
     </div>
   </div>
-  <aside class="delivery-indicator" aria-live="polite"><span class="delivery-dot"></span><div><strong>Delivery status</strong><small>Delivery status connection will be enabled in the next step</small></div></aside>
+  <aside id="deliveryIndicator" class="delivery-indicator delivery-state-offline" aria-live="polite">
+    <span class="delivery-dot"></span>
+    <div><strong>Delivery status: <span id="deliveryPresenceLabel">Offline</span></strong>
+    <small id="deliveryPresenceDetail">Checking delivery-person availability…</small></div>
+  </aside>
   <section class="billing-card">
     <div class="section-heading"><div><span class="step-label">01 · CUSTOMER & PRESCRIPTION</span><h3>Customer details</h3></div><span class="optional-tag">Patient details are optional</span></div>
     <div class="customer-picker"><div class="field grow"><label>Customer account / phone</label><div id="cust"></div></div></div>
@@ -94,6 +121,9 @@ window.addEventListener('storage', event => {
 });
 
 // The bill date element is created by the markup above, so populate it only after mounting the form.
+refreshDeliveryPresence();
+setInterval(refreshDeliveryPresence, 15000);
+
 $('billDate').textContent = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeZone: 'Asia/Kolkata' }).format(new Date());
 
 let cart = [], cust = null, avail = 0, pays = [{ method: 'cash', amount: '' }];
