@@ -18,29 +18,6 @@ if (!allowedRoles.includes(prof.role)) {
 
 const $ = id => document.getElementById(id);
 
-// Branch-level delivery availability is supplied by delivery-person status
-// buttons and read through a branch-scoped SECURITY DEFINER RPC.
-async function refreshDeliveryPresence() {
-  const indicator = $('deliveryIndicator');
-  if (!indicator) return;
-  const { data, error } = await sb.rpc('delivery_presence_summary');
-  if (error || !data) {
-    $('deliveryPresenceLabel').textContent = 'Unavailable';
-    $('deliveryPresenceDetail').textContent = 'Could not load delivery availability.';
-    indicator.classList.remove('delivery-state-available','delivery-state-purchasing');
-    indicator.classList.add('delivery-state-offline');
-    return;
-  }
-  const state = ['available','purchasing','offline'].includes(data.status) ? data.status : 'offline';
-  const labels = { available: 'Delivery Available', purchasing: 'Purchasing', offline: 'Offline' };
-  const counts = `Available: ${Number(data.available_count || 0)} · Purchasing: ${Number(data.purchasing_count || 0)} · Offline: ${Number(data.offline_count || 0)}`;
-  $('deliveryPresenceLabel').textContent = labels[state];
-  $('deliveryPresenceDetail').textContent = counts;
-  indicator.classList.remove('delivery-state-available','delivery-state-purchasing','delivery-state-offline');
-  indicator.classList.add(`delivery-state-${state}`);
-}
-
-
 $('view').innerHTML = `
 <div class="billing-page">
   <div class="billing-topbar">
@@ -51,11 +28,7 @@ $('view').innerHTML = `
       <button id="shopStateToggle" class="shop-state-toggle is-closed" type="button" aria-pressed="false">Closed</button>
     </div>
   </div>
-  <aside id="deliveryIndicator" class="delivery-indicator delivery-state-offline" aria-live="polite">
-    <span class="delivery-dot"></span>
-    <div><strong>Delivery status: <span id="deliveryPresenceLabel">Offline</span></strong>
-    <small id="deliveryPresenceDetail">Checking delivery-person availability…</small></div>
-  </aside>
+  <aside class="delivery-indicator" aria-live="polite"><span class="delivery-dot"></span><div><strong>Delivery status</strong><small>Delivery status connection will be enabled in the next step</small></div></aside>
   <section class="billing-card">
     <div class="section-heading"><div><span class="step-label">01 · CUSTOMER & PRESCRIPTION</span><h3>Customer details</h3></div><span class="optional-tag">Patient details are optional</span></div>
     <div class="customer-picker"><div class="field grow"><label>Customer account / phone</label><div id="cust"></div></div></div>
@@ -96,34 +69,42 @@ $('view').innerHTML = `
 <dialog id="hd" class="billing-dialog"><div id="hl"></div><button class="sec" onclick="this.closest('dialog').close()">Close</button></dialog>
 <dialog id="bd" class="billing-dialog"><div id="bl"></div><button class="sec" id="bc" type="button">Close</button></dialog>`;
 
-// Shop open/closed status is shared with the public home page in this browser.
-const SHOP_STATUS_KEY = 'alza_shop_open_status_v1';
+// Shop status is stored in Supabase so the admin billing page and the
+// public website show the same value on every device/browser.
 const shopToggle = $('shopStateToggle');
+let shopIsOpen = false;
 function renderShopStatus(isOpen) {
-  shopToggle.textContent = isOpen ? 'Open' : 'Closed';
-  shopToggle.classList.toggle('is-open', isOpen);
-  shopToggle.classList.toggle('is-closed', !isOpen);
-  shopToggle.setAttribute('aria-pressed', String(isOpen));
-  shopToggle.setAttribute('aria-label', isOpen ? 'Shop is open. Click to close.' : 'Shop is closed. Click to open.');
+  shopIsOpen = Boolean(isOpen);
+  shopToggle.textContent = shopIsOpen ? 'Open' : 'Closed';
+  shopToggle.classList.toggle('is-open', shopIsOpen);
+  shopToggle.classList.toggle('is-closed', !shopIsOpen);
+  shopToggle.setAttribute('aria-pressed', String(shopIsOpen));
+  shopToggle.setAttribute('aria-label', shopIsOpen ? 'Shop is open. Click to close.' : 'Shop is closed. Click to open.');
 }
-let shopIsOpen = localStorage.getItem(SHOP_STATUS_KEY) === 'open';
-renderShopStatus(shopIsOpen);
-shopToggle.addEventListener('click', () => {
-  shopIsOpen = !shopIsOpen;
-  localStorage.setItem(SHOP_STATUS_KEY, shopIsOpen ? 'open' : 'closed');
-  renderShopStatus(shopIsOpen);
-});
-window.addEventListener('storage', event => {
-  if (event.key === SHOP_STATUS_KEY) {
-    shopIsOpen = event.newValue === 'open';
-    renderShopStatus(shopIsOpen);
+async function loadShopStatus() {
+  const { data, error } = await sb.rpc('public_shop_is_open');
+  if (error) {
+    console.error('Could not load shop status:', error);
+    $('msg').textContent = 'Could not load shop status. Check the Supabase migration.';
+    return;
   }
+  renderShopStatus(data === true);
+}
+shopToggle.addEventListener('click', async () => {
+  shopToggle.disabled = true;
+  const next = !shopIsOpen;
+  const { error } = await sb.rpc('set_shop_open_status', { p_is_open: next });
+  shopToggle.disabled = false;
+  if (error) {
+    console.error('Could not save shop status:', error);
+    $('msg').textContent = `Could not update shop status: ${error.message}`;
+    return;
+  }
+  renderShopStatus(next);
 });
+loadShopStatus();
 
 // The bill date element is created by the markup above, so populate it only after mounting the form.
-refreshDeliveryPresence();
-setInterval(refreshDeliveryPresence, 15000);
-
 $('billDate').textContent = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeZone: 'Asia/Kolkata' }).format(new Date());
 
 let cart = [], cust = null, avail = 0, pays = [{ method: 'cash', amount: '' }];

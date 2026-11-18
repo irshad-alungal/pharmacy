@@ -139,20 +139,26 @@
       const saved=localStorage.getItem('alza_public_language');setLanguage(saved==='ml'?'ml':'en');button.addEventListener('click',()=>setLanguage(document.documentElement.lang==='en'?'ml':'en'));
     })();
   </script>
-  <script>
-    (function () {
-      const key = 'alza_shop_open_status_v1';
-      const badge = document.getElementById('publicShopStatus');
-      const label = document.getElementById('publicShopStatusText');
-      function update() {
-        const open = localStorage.getItem(key) === 'open';
-        badge.classList.toggle('is-open', open);
-        badge.classList.toggle('is-closed', !open);
-        label.textContent = open ? 'Shop Open' : 'Shop Closed';
+  <script type="module">
+    import { sb } from './assets/js/supabase-client.js';
+    const badge = document.getElementById('publicShopStatus');
+    const label = document.getElementById('publicShopStatusText');
+    async function updateShopStatus() {
+      const { data, error } = await sb.rpc('public_shop_is_open');
+      if (error) {
+        console.error('Public shop status could not be loaded:', error);
+        label.textContent = 'Status unavailable';
+        badge.classList.remove('is-open');
+        badge.classList.add('is-closed');
+        return;
       }
-      update();
-      window.addEventListener('storage', event => { if (event.key === key) update(); });
-    })();
+      const open = data === true;
+      badge.classList.toggle('is-open', open);
+      badge.classList.toggle('is-closed', !open);
+      label.textContent = open ? 'Shop Open' : 'Shop Closed';
+    }
+    updateShopStatus();
+    setInterval(updateShopStatus, 30000);
     document.getElementById('year').textContent = new Date().getFullYear();
     document.addEventListener('click', (event) => {
       const menu = document.querySelector('.login');

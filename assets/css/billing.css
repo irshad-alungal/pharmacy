@@ -18,12 +18,3 @@
 .shop-state-toggle.is-open{background:#15803d}
 .shop-state-toggle.is-closed{background:#dc2626}
 @media(max-width:760px){.shop-state-control{justify-content:flex-start;margin-top:8px}}
-
-/* Live branch delivery-person presence */
-.delivery-indicator { transition:background-color .2s,border-color .2s; }
-.delivery-indicator.delivery-state-available { border-color:#16803c; background:#e9f8ee; color:#14532d; }
-.delivery-indicator.delivery-state-available .delivery-dot { background:#16a34a; }
-.delivery-indicator.delivery-state-purchasing { border-color:#1769c2; background:#eaf3ff; color:#174579; }
-.delivery-indicator.delivery-state-purchasing .delivery-dot { background:#2563eb; }
-.delivery-indicator.delivery-state-offline { border-color:#c62828; background:#fff0f0; color:#7f1d1d; }
-.delivery-indicator.delivery-state-offline .delivery-dot { background:#dc2626; }

@@ -8,15 +8,3 @@
 .delivery-rider-job-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
 .delivery-rider-job-head h3 { margin-top:0; }
 .delivery-rider-job-head p { margin:.45rem 0; }
-
-/* Delivery-person availability controls */
-.rider-presence-card { margin: 18px 0; }
-.rider-presence-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:14px; }
-.rider-presence-btn { border:2px solid transparent; border-radius:10px; padding:12px 18px; color:#fff; font-weight:750; cursor:pointer; transition:transform .12s, box-shadow .12s, opacity .12s; }
-.rider-presence-btn:hover { transform:translateY(-1px); }
-.rider-presence-btn:disabled { opacity:.6; cursor:wait; }
-.rider-presence-btn.is-available { background:#16803c; }
-.rider-presence-btn.is-purchasing { background:#1769c2; }
-.rider-presence-btn.is-offline { background:#c62828; }
-.rider-presence-btn.is-selected { outline:3px solid currentColor; outline-offset:3px; box-shadow:0 0 0 5px #ffffff18; }
-@media(max-width:620px){ .rider-presence-actions { flex-direction:column; } .rider-presence-btn { width:100%; } }

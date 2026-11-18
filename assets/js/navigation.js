@@ -36,7 +36,7 @@ export async function mountShell(page, title) {
   // new IST day. Require a fresh credential login once per day.
   const dailyUserId = prof.user_id || prof.id;
   if (!hasDailyLogin(dailyUserId)) {
-    try { await sb.rpc('end_work_session', { p_reason: 'new_day' }); } catch (_) {}
+    try { await sb.rpc('end_work_session', { p_reason: 'manual' }); } catch (_) {}
     clearDailyLogin();
     await sb.auth.signOut();
     const loginPage = ['super_admin', 'admin'].includes(prof.role)
@@ -104,9 +104,86 @@ export async function mountShell(page, title) {
     throw new Error('work session unavailable; fresh login required');
   }
 
-  // No inactivity auto-logout. The work session is checked when a protected
-  // page is opened; the database daily work_date forces a fresh login on the
-  // next IST day. Manual sign-out remains available in the navigation.
+  // Work-session heartbeat:
+  // Refresh only when the user has recently interacted with the page.
+  let lastInteraction = Date.now();
+  let lastTouch = 0;
+  let touching = false;
+  let dailyLogoutInProgress = false;
+
+  const forceLogin = async reason => {
+    if (dailyLogoutInProgress) return;
+    dailyLogoutInProgress = true;
+    clearDailyLogin();
+    try { await sb.rpc('end_work_session', { p_reason: 'manual' }); } catch (_) {}
+    await sb.auth.signOut();
+    const loginPage = ['super_admin', 'admin'].includes(prof.role)
+      ? 'admin-login.html' : 'staff-login.html';
+    location.replace(loginPage);
+  };
+
+  const recordActivity = () => {
+    lastInteraction = Date.now();
+  };
+
+  [
+    'pointerdown',
+    'keydown',
+    'touchstart',
+    'click'
+  ].forEach(eventName => {
+    document.addEventListener(eventName, recordActivity, {
+      passive: true
+    });
+  });
+
+  const heartbeat = async () => {
+    if (!hasDailyLogin(dailyUserId)) {
+      await forceLogin('new_day');
+      return;
+    }
+    if (document.visibilityState !== 'visible') return;
+
+    const now = Date.now();
+
+    // Do not keep an unattended session alive.
+    if (now - lastInteraction > 5 * 60 * 1000) return;
+
+    // Avoid frequent RPC calls.
+    if (now - lastTouch < 60 * 1000) return;
+
+    if (touching) return;
+
+    touching = true;
+    lastTouch = now;
+
+    try {
+      const { data, error } = await sb.rpc('touch_work_session');
+
+console.log('WORK SESSION HEARTBEAT:', {
+  data,
+  error,
+  time: new Date().toISOString()
+});
+
+if (error) {
+  console.error('Work-session heartbeat failed:', error);
+} else if (data === false) {
+  console.warn('Work session is not active; requesting a fresh login.');
+  await forceLogin('session_expired');
+}
+    } catch (error) {
+      console.error('Work-session heartbeat error:', error);
+    } finally {
+      touching = false;
+    }
+  };
+
+  // Start the first heartbeat after 5 seconds.
+setTimeout(heartbeat, 5000);
+
+// Repeat every 60 seconds.
+setInterval(heartbeat, 60 * 1000);
 
   return prof;
 }
