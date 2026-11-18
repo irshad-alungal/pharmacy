@@ -59,7 +59,7 @@ v.innerHTML = `
   <div class="med-toolbar"><input id="q" type="search" placeholder="Search medicine name, ingredients, brand, generic name or barcode"><label style="display:flex;align-items:center;gap:7px;white-space:nowrap"><input type="checkbox" id="inact"> Show inactive</label></div>
   <div id="msg" role="status"></div><div id="bulkReport" class="med-import-report" role="status" hidden></div>
   ${isSuperAdmin ? `<section class="med-card"><h3 style="margin-top:0">Medicine Deactivation Requests</h3><div id="deactivationRequests">Loading pending requests...</div></section>` : ''}
-  <section class="med-card"><div class="med-table-wrap"><table class="med-table"><thead><tr><th>Medicine</th><th>Ingredients</th><th>Brand / Generic</th><th>Composition</th><th>Strength</th><th>Rack / Shelf</th><th>Status</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+  <section class="med-card"><div class="med-table-wrap"><table class="med-table"><thead><tr><th>Medicine</th><th>Ingredients</th><th>Brand / Generic</th><th>Composition</th><th>Strength</th><th>Rack / Shelf</th><th>Discount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div></section>
 </div>
 <dialog id="ph" class="med-dialog"><div class="med-dialog-inner"><div id="phb"></div><button class="sec" onclick="ph.close()">Close</button></div></dialog>
 <dialog id="dlg" class="med-dialog"><div class="med-dialog-inner"><div class="med-dialog-head"><div><div style="font-size:11px;letter-spacing:.12em;color:#087f75;font-weight:800">MEDICINE DETAILS</div><h3 id="dt" style="margin:5px 0">Add medicine</h3><div class="med-muted">Only the listed medicine identity and storage details are shown here.</div></div><button type="button" class="sec" id="cancel">Close</button></div>
@@ -71,6 +71,7 @@ v.innerHTML = `
     <div class="med-field med-span-2"><label>Composition</label><textarea name="composition" style="min-height:82px" placeholder="Composition details"></textarea></div>
     <div class="med-field"><label>Strength</label><input name="strength" placeholder="e.g. 500 mg"></div>
     <div class="med-field"><label>Rack / Shelf</label><input name="rack" placeholder="e.g. A-03 / Shelf 2"></div>
+    <div class="med-field"><label>Discount (%) <span class="med-muted">Optional</span></label><input name="discount_percentage" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="e.g. 5"></div>
   </div>
   <div class="med-checks"><label><input type="checkbox" name="need_doctor_sheet"> Need doctor sheet / prescription</label><label><input type="checkbox" name="active" checked> Active</label></div>
   <div id="activeNote" class="med-muted"></div><div id="err" style="color:#b91c1c"></div>
@@ -105,7 +106,8 @@ const COLS = [
   'category_id',
   'manufacturer_id',
   'storage_location_id',
-  'base_unit_id'
+  'base_unit_id',
+  'discount_percentage'
 ].join(',');
 
 let list = [];
@@ -178,7 +180,7 @@ async function load() {
       <td><span style="color:${m.active ? '#087f75' : '#9b4b43'};font-weight:700">${m.active ? 'Active' : 'Inactive'}</span></td>
       <td><div class="med-actions"><button class="sec" data-view="${m.id}">View</button><button class="sec" data-e="${m.id}">Edit</button>${m.active ? `<button class="sec" data-t="${m.id}">Request deactivation</button>` : isSuperAdmin ? `<button class="sec" data-t="${m.id}">Activate</button>` : ''}${isAdmin ? `<button class="sec" data-p="${m.id}">Cost history</button>` : ''}<button class="sec" data-photos="${m.id}">Photo</button></div></td>
     </tr>
-  `).join('') || `<tr><td colspan="8" style="padding:22px;text-align:center;color:#6d817b">No medicines found.</td></tr>`;
+  `).join('') || `<tr><td colspan="9" style="padding:22px;text-align:center;color:#6d817b">No medicines found.</td></tr>`;
 }
 
 // Open add/edit form
@@ -191,7 +193,7 @@ function open(m = {}) {
 
   for (const k of [
     'id', 'name', 'ingredients', 'brand', 'generic_name',
-    'composition', 'strength', 'rack'
+    'composition', 'strength', 'rack', 'discount_percentage'
   ]) {
     f[k].value =
       m[k] ?? (
@@ -235,6 +237,18 @@ f.onsubmit = async e => {
     active: f.active.checked
   };
   row.need_doctor_sheet = f.need_doctor_sheet.checked;
+  // Discount is optional; an empty value is stored as NULL.
+  const discountRaw = f.discount_percentage.value.trim();
+  if (discountRaw === '') {
+    row.discount_percentage = null;
+  } else {
+    const discount = Number(discountRaw);
+    if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
+      $('err').textContent = 'Discount must be between 0 and 100%.';
+      return;
+    }
+    row.discount_percentage = discount;
+  }
   // Keep legacy required pricing columns out of the form without overwriting existing values.
   if (id) { const old = list.find(x => x.id === id); row.mrp = old?.mrp ?? 0; row.selling_price = old?.selling_price ?? 0; row.tax_rate = old?.tax_rate ?? 12; row.reorder_level = old?.reorder_level ?? 0; }
   else { row.mrp = 0; row.selling_price = 0; row.tax_rate = 12; row.reorder_level = 0; }
@@ -467,6 +481,7 @@ const BULK_HEADERS = [
   'Composition',
   'Strength',
   'Rack / Shelf',
+  'Discount (%)',
   'Need doctor sheet',
   'Active'
 ];
@@ -497,15 +512,16 @@ $('downloadTemplate').onclick = () => {
     'Composition': 'Each tablet contains Paracetamol IP 500 mg',
     'Strength': '500 mg',
     'Rack / Shelf': 'A-01 / Shelf 1',
+    'Discount (%)': '',
     'Need doctor sheet': 'No',
     'Active': 'Yes'
   };
   const ws = XLSX.utils.json_to_sheet([sample], { header: BULK_HEADERS });
   ws['!cols'] = [
     { wch: 28 }, { wch: 34 }, { wch: 22 }, { wch: 22 }, { wch: 42 },
-    { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 12 }
+    { wch: 16 }, { wch: 20 }, { wch: 14 }, { wch: 20 }, { wch: 12 }
   ];
-  ws['!autofilter'] = { ref: 'A1:I2' };
+  ws['!autofilter'] = { ref: 'A1:J2' };
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Medicines');
   XLSX.writeFile(wb, 'PALLIKKAL_MEDICALS_Medicine_Bulk_Upload_Template.xlsx');
@@ -552,6 +568,7 @@ $('bulkFile').onchange = async event => {
         composition: String(excelCell(row, ['composition']) ?? '').trim(),
         strength: String(excelCell(row, ['strength']) ?? '').trim(),
         rack: String(excelCell(row, ['rack / shelf', 'rack/shelf', 'rack', 'shelf']) ?? '').trim(),
+        discount_percentage: String(excelCell(row, ['discount (%)', 'discount', 'discount percentage', 'discount_percentage']) ?? '').trim(),
         need_doctor_sheet: parseExcelBoolean(excelCell(row, ['need doctor sheet', 'need_doctor_sheet', 'doctor sheet required']), false),
         active: parseExcelBoolean(excelCell(row, ['active', 'status']), true)
       };
@@ -577,6 +594,16 @@ $('bulkFile').onchange = async event => {
       return;
     }
 
+    const invalidDiscountRows = uniqueRows.filter(r =>
+      r.discount_percentage !== '' &&
+      (!Number.isFinite(Number(r.discount_percentage)) ||
+       Number(r.discount_percentage) < 0 || Number(r.discount_percentage) > 100)
+    );
+    if (invalidDiscountRows.length) {
+      report.textContent = `Invalid discount percentage in Excel row(s): ${invalidDiscountRows.map(r => r.excelRow).join(', ')}. Enter a value from 0 to 100, or leave it blank.`;
+      return;
+    }
+
     const payload = uniqueRows.map(r => ({
       branch_id: branchId,
       name: r.name,
@@ -587,6 +614,7 @@ $('bulkFile').onchange = async event => {
       strength: r.strength || null,
       rack: r.rack || null,
       shelf_location: r.rack || null,
+      discount_percentage: r.discount_percentage === '' ? null : Number(r.discount_percentage),
       need_doctor_sheet: r.need_doctor_sheet,
       active: r.active,
       // These legacy columns are required by the existing schema. Pricing and GST
@@ -655,7 +683,7 @@ async function showMedicine(id) {
     <div class="med-detail-grid"><div>${photoUrl ? `<img class="med-detail-photo" src="${photoUrl}" alt="${esc(m.name)}">` : `<div class="med-detail-photo med-thumb-placeholder">${esc((m.name || '?').slice(0,1).toUpperCase())}</div>`}<p><button type="button" class="sec" data-view-photos="${m.id}">Manage photos</button></p></div>
     <div><div class="med-kv">
       <div><small>Medicine name</small><b>${esc(m.name)}</b></div><div><small>Brand</small><b>${esc(m.brand || '—')}</b></div>
-      <div><small>Generic name</small><b>${esc(m.generic_name || '—')}</b></div><div><small>Strength</small><b>${esc(m.strength || '—')}</b></div>
+      <div><small>Generic name</small><b>${esc(m.generic_name || '—')}</b></div><div><small>Strength</small><b>${esc(m.strength || '—')}</b></div><div><small>Discount</small><b>${m.discount_percentage == null ? '—' : `${Number(m.discount_percentage)}%`}</b></div>
       <div><small>Composition</small><b>${esc(m.composition || '—')}</b></div><div><small>Rack / Shelf</small><b>${esc(m.rack || '—')}</b></div>
       <div class="med-ingredient-profile"><small>Ingredients</small><div class="med-ingredient-profile-row"><b>${esc(m.ingredients || '—')}</b><button type="button" class="sec" data-search-ingredients="${m.id}" ${m.ingredients ? '' : 'disabled'}>Search Google ↗</button></div></div><div><small>Doctor sheet required</small><b>${m.need_doctor_sheet ? 'Yes' : 'No'}</b></div>
       <div><small>Status</small><b>${m.active ? 'Active' : 'Inactive'}</b></div><div><small>Current total stock</small><b>${stock}</b></div>
