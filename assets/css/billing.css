@@ -54,20 +54,3 @@
   .medicine-result { align-items:flex-start; }
   .medicine-result-side { align-items:flex-end; white-space:nowrap; }
 }
-
-/* Explicit batch selection and stock-capped billing quantities */
-.batch-picker{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:.85rem;margin:.55rem 0 .75rem;}
-.batch-picker[hidden]{display:none!important;}
-.batch-picker-heading{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.65rem;}
-.batch-picker-controls{display:grid;grid-template-columns:minmax(240px,2fr) minmax(120px,1fr) auto;align-items:end;gap:.65rem;}
-.batch-picker-controls label{display:grid;gap:.3rem;font-size:.78rem;font-weight:600;color:var(--ink,#263b35);}
-.batch-picker-controls select,.batch-picker-controls input{width:100%;min-width:0;}
-.batch-picker-controls small{font-size:.7rem;color:#64756e;font-weight:400;}
-@media(max-width:700px){.batch-picker-controls{grid-template-columns:1fr;}.batch-picker-controls button{width:100%;}.batch-picker-heading{align-items:flex-start;}}
-
-
-/* Medicine search feedback */
-.search-status{padding:.7rem .85rem;color:var(--muted,#64748b);font-size:.85rem;}
-.search-status.search-error{color:#b91c1c;}
-.medicine-result{cursor:pointer;}
-.medicine-result:focus-visible{outline:2px solid var(--accent,#0f766e);outline-offset:2px;}
