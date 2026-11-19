@@ -5,6 +5,9 @@ import { friendly } from './ui.js';
 import { mountInitialStock } from './initial-stock.js';
 const prof = await mountShell('inventory', 'Inventory');
 const $ = id => document.getElementById(id), admin = ['super_admin', 'admin'].includes(prof.role);
+// Roles the database lets adjust stock, quarantine or change batch status.
+const canAdjust = ['super_admin', 'admin', 'pharmacist', 'inventory_staff', 'inventory'].includes(prof.role);
+const STATUS_LABEL = { blocked: 'Blocked', recalled: 'Recalled', damaged: 'Damaged' };
 const TABS = [['stock', 'Batch stock'], ['alerts', 'Alerts'], ['count', 'Physical count'], ...(admin ? [['opening', 'Initial Stock'], ['val', 'Valuation']] : []), ['moves', 'Movements']];
 document.getElementById('view').innerHTML = `<div style="display:flex;gap:.4rem;flex-wrap:wrap" id="tabs">${TABS.map(([k, l]) => `<button class="sec" data-k="${k}">${l}</button>`).join('')}</div>
 <div class="card" id="panel"></div><div id="msg"></div>
@@ -14,19 +17,30 @@ document.getElementById('view').innerHTML = `<div style="display:flex;gap:.4rem;
 <div style="display:flex;gap:.5rem"><button>Save</button><button type="button" class="sec" id="ac">Cancel</button></div></form></dialog>`;
 let batches = [], near = 90, tab = 'stock', cur = null;
 const days = d => Math.floor((new Date(d) - new Date(new Date().toISOString().slice(0, 10))) / 864e5);
-const state = b => b.status === 'expired' ? 'Expired' : b.status === 'quarantined' ? 'Quarantined' : days(b.expiry) <= near ? `Near expiry (${days(b.expiry)}d)` : 'OK';
+const state = b => b.status === 'expired' ? 'Expired' : b.status === 'quarantined' ? 'Quarantined' : STATUS_LABEL[b.stock_status] || (days(b.expiry) <= near ? `Near expiry (${days(b.expiry)}d)` : 'OK');
 const note = (m, bad) => { $('msg').style.color = bad ? '#b91c1c' : ''; $('msg').textContent = m; };
-async function loadBatches(s) { const { data, error } = await sb.rpc('inventory_batches', { p_search: s || null }); if (error) note(friendly(error), true); batches = data || []; }
+async function loadBatches(s) {
+  const { data, error } = await sb.rpc('inventory_batches', { p_search: s || null });
+  if (error) note(friendly(error), true);
+  batches = data || [];
+  // Blocked / recalled / damaged status (migration 0020) — these batches are never billed.
+  const ids = batches.map(b => b.batch_id);
+  if (ids.length) {
+    const { data: st } = await sb.from('medicine_batches').select('id,stock_status').in('id', ids);
+    const map = new Map((st || []).map(x => [x.id, x.stock_status]));
+    batches.forEach(b => { b.stock_status = map.get(b.batch_id) || 'active'; });
+  }
+}
 const show = async k => { tab = k; note(''); await views[k](); };
 const views = {
   async opening() { await mountInitialStock($('panel'), prof); },
   async stock() {
-    $('panel').innerHTML = `<div style="display:flex;gap:.5rem;flex-wrap:wrap"><input id="s" placeholder="Search medicine, batch or barcode" style="flex:1;min-width:200px"><select id="fl"><option value="">All</option><option value="ok">Sellable</option><option value="near">Near expiry</option><option value="exp">Expired</option><option value="q">Quarantined</option></select></div>
+    $('panel').innerHTML = `<div style="display:flex;gap:.5rem;flex-wrap:wrap"><input id="s" placeholder="Search medicine, batch or barcode" style="flex:1;min-width:200px"><select id="fl"><option value="">All</option><option value="ok">Sellable</option><option value="near">Near expiry</option><option value="exp">Expired</option><option value="blk">Blocked / recalled</option><option value="q">Quarantined</option></select></div>
     <div style="overflow-x:auto"><table><thead><tr><th>Medicine</th><th>Batch</th><th>Expiry</th><th>Qty</th><th>Status</th><th>Location</th>${admin ? '<th>Cost value</th>' : ''}<th></th></tr></thead><tbody id="r"></tbody></table></div>`;
     const draw = () => {
-      const f = $('fl').value, rows = batches.filter(b => !f || (f === 'ok' && state(b) === 'OK') || (f === 'near' && state(b).startsWith('Near')) || (f === 'exp' && b.status === 'expired') || (f === 'q' && b.status === 'quarantined'));
-      $('r').innerHTML = rows.map(b => `<tr style="${b.status !== 'ok' ? 'color:#b91c1c' : ''}"><td>${esc(b.name)} ${esc(b.strength || '')}</td><td>${esc(b.batch_no)}</td><td>${esc(b.expiry)}</td><td>${b.qty}</td><td>${state(b)}</td><td>${esc(b.location || '')}</td>${admin ? `<td>${inr(b.cost_value)}</td>` : ''}
-      <td><button class="sec" data-a="${b.batch_id}">Adjust</button> <button class="sec" data-q="${b.batch_id}">${b.quarantined ? 'Release' : 'Quarantine'}</button></td></tr>`).join('') || '<tr><td colspan="8">No batches.</td></tr>';
+      const f = $('fl').value, rows = batches.filter(b => !f || (f === 'ok' && state(b) === 'OK') || (f === 'near' && state(b).startsWith('Near')) || (f === 'exp' && b.status === 'expired') || (f === 'q' && b.status === 'quarantined') || (f === 'blk' && b.stock_status && b.stock_status !== 'active'));
+      $('r').innerHTML = rows.map(b => `<tr style="${b.status !== 'ok' || (b.stock_status && b.stock_status !== 'active') ? 'color:#b91c1c' : ''}"><td>${esc(b.name)} ${esc(b.strength || '')}</td><td>${esc(b.batch_no)}</td><td>${esc(b.expiry)}</td><td>${b.qty}</td><td>${state(b)}</td><td>${esc(b.location || '')}</td>${admin ? `<td>${inr(b.cost_value)}</td>` : ''}
+      <td>${canAdjust ? `<button class="sec" data-a="${b.batch_id}">Adjust</button> <button class="sec" data-q="${b.batch_id}">${b.quarantined ? 'Release' : 'Quarantine'}</button> <button class="sec" data-st="${b.batch_id}">${b.stock_status && b.stock_status !== 'active' ? 'Reactivate' : 'Block / recall'}</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="8">No batches.</td></tr>';
     };
     draw(); $('fl').onchange = draw; let t; $('s').oninput = () => { clearTimeout(t); t = setTimeout(async () => { await loadBatches($('s').value.trim()); draw(); }, 250); };
     $('r').onclick = async e => {
@@ -34,6 +48,21 @@ const views = {
       if (b.dataset.a) { cur = batches.find(x => x.batch_id === b.dataset.a); $('at').textContent = `Adjust ${cur.name} · batch ${cur.batch_no} (now ${cur.qty})`; $('af').reset(); $('ae').textContent = ''; $('adj').showModal(); }
       if (b.dataset.q) { const x = batches.find(y => y.batch_id === b.dataset.q), why = prompt(`${x.quarantined ? 'Release' : 'Quarantine'} batch ${x.batch_no}: reason?`); if (!why) return;
         const { error } = await sb.rpc('set_quarantine', { p_batch: x.batch_id, p_flag: !x.quarantined, p_reason: why }); if (error) return note(friendly(error), true); await loadBatches($('s').value.trim()); draw(); note('Updated.'); }
+      if (b.dataset.st) {
+        const x = batches.find(y => y.batch_id === b.dataset.st);
+        let next = 'active';
+        if (!x.stock_status || x.stock_status === 'active') {
+          next = (prompt(`Batch ${x.batch_no}: type blocked, recalled or damaged`, 'recalled') || '').trim().toLowerCase();
+          if (!next) return;
+          if (!STATUS_LABEL[next]) return note('Status must be blocked, recalled or damaged.', true);
+        }
+        const why = prompt(`${next === 'active' ? 'Reactivate' : STATUS_LABEL[next]} batch ${x.batch_no}: reason?`);
+        if (!why) return;
+        const { error } = await sb.rpc('set_batch_stock_status', { p_batch: x.batch_id, p_status: next, p_reason: why });
+        if (error) return note(friendly(error), true);
+        await loadBatches($('s').value.trim()); draw();
+        note(next === 'active' ? 'Batch reactivated; it can be billed again.' : `Batch marked ${next}. Billing will no longer allocate it.`);
+      }
     };
   },
   async alerts() {

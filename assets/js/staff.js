@@ -26,7 +26,7 @@ view.innerHTML = `
     <div class="staff-panel-title"><div><h3>Add team member</h3><p>Create a staff, delivery-person or (where permitted) admin login for this branch.</p></div><span class="staff-lock">Branch restricted</span></div>
     <form id="staffForm" class="staff-form">
       <div class="staff-grid">
-        <label>Staff ID <input id="staffId" required maxlength="40" pattern="[A-Za-z0-9_-]{2,40}" placeholder="Example: PHARM01"></label>
+        <label>Staff ID <input id="staffId" required maxlength="32" pattern="[A-Za-z0-9._-]{3,32}" title="3–32 letters, numbers, dot, dash or underscore" placeholder="Example: PHARM01"></label>
         <label>Full name <input id="fullName" required maxlength="120" placeholder="Staff full name"></label>
         <label>Phone number <input id="phone" type="tel" maxlength="30" placeholder="+91 98765 43210"></label>
         <label>Role <select id="staffRole" required>${roleGroups.map(group=>`<optgroup label="${group.label}">${group.roles.map(r=>`<option value="${r.value}">${r.label}</option>`).join('')}</optgroup>`).join('')}</select></label>

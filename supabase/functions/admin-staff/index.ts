@@ -159,8 +159,8 @@ Deno.serve(async (req) => {
       const password = String(body?.password ?? '');
       const roleCode = String(body?.role ?? '').trim();
 
-      if (!/^[A-Za-z0-9_-]{2,40}$/.test(staffId)) {
-        return fail(400, 'Staff ID must contain 2–40 letters, numbers, underscores or hyphens.');
+      if (!/^[A-Za-z0-9._-]{3,32}$/.test(staffId)) {
+        return fail(400, 'Staff ID must be 3–32 letters, numbers, dots, underscores or hyphens.');
       }
 
       if (!fullName || fullName.length > 120) {

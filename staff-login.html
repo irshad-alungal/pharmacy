@@ -117,6 +117,7 @@ import {
   SUPABASE_ANON_KEY
 } from './assets/js/supabase-client.js';
 import { completeDailyLogin } from './assets/js/daily-session.js';
+import { homePage } from './assets/js/permissions.js';
 
 const form = document.getElementById('f');
 const staffId = document.getElementById('staffId');
@@ -210,8 +211,10 @@ form.addEventListener('submit', async (event) => {
     message.textContent = 'Checking today’s opening balance...';
     await completeDailyLogin(result.session.user.id);
 
-    // STEP 7: Open Billing
-    window.location.assign('billing.html');
+    // STEP 7: Open the first page this role can use (Billing for counter staff,
+    // Medicines for inventory staff, Delivery for delivery accounts).
+    const { data: roleCode } = await sb.rpc('my_role');
+    window.location.assign(homePage(roleCode));
 
   } catch (error) {
     console.error('Staff login failed:', error);

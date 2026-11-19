@@ -8,7 +8,7 @@ import { calcLine, validateLineInput, summarize, detectAnomalies, explainAllocat
 import { mountAssistant } from './billing-assistant.js';
 
 const prof = await mountShell('billing', 'Billing');
-const allowedRoles = ['super_admin', 'admin', 'pharmacist', 'billing_staff'];
+const allowedRoles = ['super_admin', 'admin', 'pharmacist', 'billing_staff', 'billing'];
 
 if (!allowedRoles.includes(prof.role)) {
   document.getElementById('view').textContent = 'Not authorised for billing.';
@@ -815,6 +815,17 @@ $('clear').onclick = async () => {
   note('Bill cleared. Reserved stock released.');
 };
 
+// ---- patient / prescription details (optional; saved on the invoice)
+const PATIENT_FIELDS = { doctorName: 'doctor_name', patientName: 'patient_name', patientPhone: 'patient_phone', patientAddress: 'patient_address', diagnosis: 'diagnosis' };
+function patientDetails() {
+  const out = {};
+  for (const [id, key] of Object.entries(PATIENT_FIELDS)) { const v = $(id)?.value.trim(); if (v) out[key] = v; }
+  return Object.keys(out).length ? out : null;
+}
+function setPatientDetails(p) {
+  for (const [id, key] of Object.entries(PATIENT_FIELDS)) if ($(id)) $(id).value = p?.[key] || '';
+}
+
 // ---- finalize
 function blockingProblems() {
   const problems = [];
@@ -858,13 +869,14 @@ $('pay').onclick = async () => {
   $('pay').disabled = true;
   note(due > 0 ? `Saving bill with ${inr(due)} customer balance…` : 'Saving…');
 
-  const { data, error } = await sb.rpc('finalize_sale_v2', {
+  const { data, error } = await sb.rpc('finalize_sale_v3', {
     p_customer: cust?.id ?? null,
     p_discount: +$('disc').value || 0,
     p_items: items,
     p_payments: rows,
     p_cart: cartToken,
-    p_expected_total: grand
+    p_expected_total: grand,
+    p_patient: patientDetails()
   });
 
   $('pay').disabled = false;
@@ -937,7 +949,7 @@ $('hold').onclick = async () => {
       edits: [...g.edits.entries()],
       // first batch kept for compatibility with older held-bill readers
       batch_id: g.alloc?.rows?.[0]?.batch_id ?? null
-    })),
+    })).concat(patientDetails() ? [{ type: 'patient', ...patientDetails() }] : []),
     payments: heldPayments
   });
 
@@ -952,7 +964,7 @@ $('held').onclick = async () => {
     .eq('branch_id', prof.branch_id)
     .order('created_at', { ascending: false });
 
-  $('hl').innerHTML = `<h3>Held bills</h3>` + ((data || []).map(h => `<div style="display:flex;gap:.5rem;align-items:center;margin:.3rem 0"><span style="flex:1">${esc(h.label || 'Unnamed')} · ${h.cart.length} item(s) · ${new Date(h.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</span><button data-res="${h.id}">Resume</button><button class="sec" data-del="${h.id}">Delete</button></div>`).join('') || 'None.');
+  $('hl').innerHTML = `<h3>Held bills</h3>` + ((data || []).map(h => `<div style="display:flex;gap:.5rem;align-items:center;margin:.3rem 0"><span style="flex:1">${esc(h.label || 'Unnamed')} · ${h.cart.filter(l => l?.type !== 'patient').length} item(s) · ${new Date(h.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</span><button data-res="${h.id}">Resume</button><button class="sec" data-del="${h.id}">Delete</button></div>`).join('') || 'None.');
 
   $('hl').onclick = async e => {
     const { res, del } = e.target.dataset;
@@ -977,6 +989,7 @@ $('held').onclick = async () => {
     }
     const wanted = new Map();
     for (const l of h.cart) {
+      if (l?.type === 'patient') continue;
       const medId = l.medicine_id || batchToMed.get(l.batch_id);
       if (!medId) continue;
       const w = wanted.get(medId) || { qty: 0, discount_pct: l.discount_pct ?? null, edits: l.edits || [] };
@@ -996,6 +1009,7 @@ $('held').onclick = async () => {
     }
 
     $('disc').value = h.discount ?? 0;
+    setPatientDetails(h.cart.find(l => l && l.type === 'patient'));
 
     pays = Array.isArray(h.payments) && h.payments.length
       ? h.payments.map(p => ({

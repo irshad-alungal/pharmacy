@@ -1,4 +1,10 @@
-# PALLIKKAL PHARMACY (core foundation)
+# PALLIKKAL MEDICALS pharmacy management
+
+**Current version: 53.** See `RELEASE_NOTES_V53.md` for what changed, how to deploy, and the database checks.
+
+---
+
+# Original core-foundation notes
 ## Setup
 1. Supabase > SQL Editor: run `database/schema.sql`, then `database/bootstrap-admin.sql` (links your existing Auth user to super_admin).
 2. Put your project URL and publishable key in `assets/js/supabase-client.js`.

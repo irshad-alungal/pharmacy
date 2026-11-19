@@ -8,17 +8,19 @@ const $ = id => document.getElementById(id);
 const branchId = prof.branch_id;
 const role = prof.role;
 const admin = ['super_admin','admin'].includes(role);
-const canUpload = ['super_admin','admin','inventory'].includes(role);
+const canUpload = ['super_admin','admin','pharmacist','inventory_staff','inventory'].includes(role);
 if (!branchId) { $('view').textContent = 'Your profile has no assigned branch.'; throw new Error('Missing branch'); }
 
 const [distRes, purchaseRes] = await Promise.all([
   sb.from('distributors').select('id,name').eq('branch_id', branchId).eq('active', true).order('name'),
-  sb.from('purchase_invoices').select('id,supplier_invoice_no,distributor_id,invoice_date').eq('branch_id', branchId).order('created_at', { ascending: false }).limit(200)
+  // purchase_list works for every purchase role (direct table reads are admin-only).
+  sb.rpc('purchase_list', { p_limit: 200 })
 ]);
 if (distRes.error) console.error('Distributor list:', distRes.error);
 if (purchaseRes.error) console.error('Purchase list:', purchaseRes.error);
 const distributors = distRes.data || [];
-const purchases = purchaseRes.data || [];
+const distIdByName = new Map(distributors.map(d => [d.name, d.id]));
+const purchases = (purchaseRes.data || []).map(p => ({ ...p, distributor_id: p.distributor_id || distIdByName.get(p.distributor) || '' }));
 
 $('view').innerHTML = `
   <section class="card" style="margin-bottom:1rem">

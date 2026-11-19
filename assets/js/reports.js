@@ -5,12 +5,14 @@ import { friendly } from './ui.js';
 import { REPORTS } from './report-defs.js';
 import { fmt, fmtDate, totalsOf, downloadPdf, downloadXlsx } from './export.js';
 
-await mountShell('reports', 'Reports');
+const prof = await mountShell('reports', 'Reports');
 const $ = id => document.getElementById(id);
-const todayResult = await sb.rpc('ist_today');
+const [todayResult, branchResult] = await Promise.all([
+  sb.rpc('ist_today'),
+  sb.from('branches').select('name').eq('id', prof.branch_id).maybeSingle()
+]);
 const today = todayResult.data || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-const settings = await sb.from('pharmacy_settings').select('name').eq('id', 1).single();
-const shop = settings.data?.name || 'PALLIKKAL PHARMACY';
+const shop = branchResult.data?.name || 'PALLIKKAL MEDICALS';
 
 const addDays = (iso, amount) => {
   const d = new Date(`${iso}T00:00:00Z`);

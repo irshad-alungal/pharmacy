@@ -20,7 +20,7 @@ const phoneDigits = v => String(v || '').replace(/\D/g, '');
 view.innerHTML = `
 <div class="wa-page">
   <div class="wa-row wa-between"><div><h2 style="margin:.1rem 0">Promotional bulk messaging</h2><p class="wa-muted">Prepare an offer message and photo for customers who have agreed to receive WhatsApp promotions.</p></div><button class="wa-btn secondary" id="wa-refresh">Refresh customers</button></div>
-  <div class="wa-warning"><strong>Sending is not connected yet.</strong> This frontend lets you select recipients, prepare the message and photo, and review the schedule. Actual automated delivery will be enabled after WhatsApp Business Cloud API and the secure sending queue are configured.</div>
+  <div class="wa-notice"><strong>How sending works:</strong> WhatsApp opens one chat at a time with your message filled in — review it and press Send in WhatsApp. The app then waits for the interval before the next customer, which keeps your number safe from spam limits. Use <em>{{name}}</em> in the message to personalise it. If a photo is attached, use <em>Copy photo</em> and paste it into the chat.</div>
   <div class="wa-grid">
     <section class="wa-card">
       <div class="wa-row wa-between"><h3>1. Select recipients</h3><span class="wa-count" id="wa-selected-count">0 selected</span></div>
@@ -40,7 +40,7 @@ view.innerHTML = `
   </div>
   <div class="wa-grid">
     <section class="wa-card"><h3>4. Preview</h3><div class="wa-preview"><img id="wa-preview-image" class="wa-hidden" alt="Offer preview"><div id="wa-preview-text" class="wa-preview-text wa-muted">Your message preview will appear here.</div></div><p class="wa-muted">Promotional messages may require an approved WhatsApp marketing template. Final delivery is subject to WhatsApp policies and account limits.</p></section>
-    <section class="wa-card"><h3>5. Campaign summary</h3><div class="wa-stats"><div class="wa-stat"><strong id="wa-stat-selected">0</strong><span class="wa-muted">Recipients</span></div><div class="wa-stat"><strong id="wa-stat-interval">2 min</strong><span class="wa-muted">Interval</span></div><div class="wa-stat"><strong id="wa-stat-duration">—</strong><span class="wa-muted">Approx. duration</span></div></div><p class="wa-muted" id="wa-duration-note">Select recipients to estimate campaign duration.</p><div class="wa-row" style="margin-top:1rem"><button class="wa-btn" id="wa-send" disabled>Prepare campaign</button><button class="wa-btn secondary" id="wa-reset">Reset</button></div><p id="wa-status" class="wa-muted" aria-live="polite"></p></section>
+    <section class="wa-card"><h3>5. Campaign summary</h3><div class="wa-stats"><div class="wa-stat"><strong id="wa-stat-selected">0</strong><span class="wa-muted">Recipients</span></div><div class="wa-stat"><strong id="wa-stat-interval">2 min</strong><span class="wa-muted">Interval</span></div><div class="wa-stat"><strong id="wa-stat-duration">—</strong><span class="wa-muted">Approx. duration</span></div></div><p class="wa-muted" id="wa-duration-note">Select recipients to estimate campaign duration.</p><div class="wa-row" style="margin-top:1rem"><button class="wa-btn" id="wa-send" disabled>Start sending</button><button class="wa-btn secondary" id="wa-reset">Reset</button></div><p id="wa-status" class="wa-muted" aria-live="polite"></p></section>
   </div>
 </div>`;
 
@@ -96,10 +96,64 @@ $('wa-photo').addEventListener('change', () => {
 });
 $('wa-remove-photo').onclick = () => { if (photoUrl) URL.revokeObjectURL(photoUrl); photoUrl = ''; photoFile = null; $('wa-photo').value = ''; $('wa-preview-image').src = ''; $('wa-preview-image').classList.add('wa-hidden'); $('wa-photo-name').textContent = 'No photo selected'; $('wa-remove-photo').classList.add('wa-hidden'); };
 $('wa-reset').onclick = () => { selected.clear(); $('wa-message').value = ''; $('wa-template').value = 'offer'; $('wa-interval').value = '120'; $('wa-photo').value = ''; $('wa-remove-photo').click(); $('wa-status').textContent = 'Campaign form reset.'; renderRecipients(); updatePreview(); };
+// ---- Guided sending: one WhatsApp chat at a time, with the interval enforced between chats.
+let run = null;
+const waNumber = phone => { const d = phoneDigits(phone); return d.length === 10 ? '91' + d : d; };
+const personalise = (text, c) => text.replace(/\{\{\s*name\s*\}\}/gi, (c.name || '').split(' ')[0] || 'there').replace(/\{\{\s*phone\s*\}\}/gi, c.phone || '');
+function renderRun() {
+  if (!run) return;
+  const c = run.queue[run.index];
+  const done = run.index >= run.queue.length;
+  const wait = Math.max(0, Math.ceil((run.nextAt - Date.now()) / 1000));
+  $('wa-status').innerHTML = done
+    ? `<div class="wa-run"><strong>Campaign finished.</strong> Opened ${run.opened} of ${run.queue.length} chat(s)${run.skipped ? `, skipped ${run.skipped}` : ''}.<div class="wa-row" style="margin-top:.6rem"><button class="wa-btn secondary" type="button" id="wa-run-close">Close</button></div></div>`
+    : `<div class="wa-run"><div class="wa-row wa-between"><strong>Sending ${run.index + 1} of ${run.queue.length}</strong><span class="wa-muted">Opened ${run.opened}${run.skipped ? ` · skipped ${run.skipped}` : ''}</span></div>
+        <div class="wa-progress"><span style="width:${Math.round(run.index / run.queue.length * 100)}%"></span></div>
+        <p style="margin:.6rem 0"><strong>${esc(c.name || 'Customer')}</strong> · ${esc(c.phone || '')}</p>
+        <div class="wa-row">
+          <button class="wa-btn" type="button" id="wa-run-open" ${wait ? 'disabled' : ''}>${wait ? `Next chat in ${fmtDuration(wait)}` : 'Open WhatsApp chat'}</button>
+          ${photoFile ? '<button class="wa-btn secondary" type="button" id="wa-run-photo">Copy photo</button>' : ''}
+          <button class="wa-btn secondary" type="button" id="wa-run-skip">Skip</button>
+          <button class="wa-btn secondary" type="button" id="wa-run-stop">Stop</button>
+        </div></div>`;
+}
+async function copyPhoto() {
+  if (!photoFile) return;
+  try {
+    const bmp = await createImageBitmap(photoFile);
+    const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
+    canvas.getContext('2d').drawImage(bmp, 0, 0);
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    $('wa-run-photo').textContent = 'Photo copied — paste it in the chat';
+  } catch {
+    const a = Object.assign(document.createElement('a'), { href: photoUrl, download: photoFile.name });
+    a.click();
+    $('wa-run-photo').textContent = 'Photo downloaded — attach it in the chat';
+  }
+}
+$('wa-status').addEventListener('click', e => {
+  if (!run) return;
+  const id = e.target.id;
+  if (id === 'wa-run-open') {
+    const c = run.queue[run.index];
+    window.open(`https://wa.me/${waNumber(c.phone)}?text=${encodeURIComponent(personalise(run.message, c))}`, '_blank', 'noopener');
+    run.opened++; run.index++; run.nextAt = Date.now() + run.interval * 1000;
+  } else if (id === 'wa-run-skip') { run.skipped++; run.index++; }
+  else if (id === 'wa-run-photo') { copyPhoto(); return; }
+  else if (id === 'wa-run-stop') { run.index = run.queue.length; }
+  else if (id === 'wa-run-close') { clearInterval(run.timer); run = null; $('wa-status').innerHTML = ''; return; }
+  renderRun();
+});
 $('wa-send').onclick = () => {
-  const count = selected.size, seconds = intervalSeconds();
-  if (!count || !$('wa-message').value.trim()) return;
-  $('wa-status').innerHTML = `<span class="wa-warning" style="display:block">Campaign is prepared for ${count} eligible customer(s), with a ${fmtDuration(seconds)} interval${photoFile ? ' and an attached photo' : ''}. Automated sending is not enabled yet. Connect WhatsApp Business Cloud API and the server-side queue before messages can be sent.</span>`;
+  const message = $('wa-message').value.trim();
+  if (!selected.size || !message) return;
+  if (run) clearInterval(run.timer);
+  const queue = customers.filter(c => selected.has(c.id) && eligible(c));
+  run = { queue, message, index: 0, opened: 0, skipped: 0, interval: intervalSeconds(), nextAt: 0, timer: null };
+  run.timer = setInterval(() => { if (run && run.nextAt > Date.now() - 1000) renderRun(); }, 1000);
+  renderRun();
+  $('wa-status').scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 await loadCustomers();
 updatePreview();

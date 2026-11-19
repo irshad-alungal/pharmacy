@@ -27,10 +27,13 @@ export async function mountInitialStock(panel, prof) {
     panel.innerHTML = '<p class="notice">You do not have access to Initial Stock.</p>';
     return;
   }
-  if (!window.XLSX) {
-    panel.innerHTML = '<p class="notice">Excel reader did not load. Refresh the page and check your internet connection.</p>';
-    return;
-  }
+  // Excel is only needed for the template download and import; manual entry,
+  // drafts and submission work even if the Excel library could not load.
+  const needExcel = () => {
+    if (window.XLSX) return true;
+    alert('The Excel reader did not load. Check your internet connection and refresh the page. You can still enter rows manually.');
+    return false;
+  };
 
   let medicines = [];
   let rows = [];
@@ -68,6 +71,7 @@ export async function mountInitialStock(panel, prof) {
     }));
   };
   const template = () => {
+    if (!needExcel()) return;
     const wb = window.XLSX.utils.book_new();
     const sample = [1, 'Paracetamol 500 mg', 'PCM001', 10, 20, '31-12-2027', 50, 35, 5];
     const ws = window.XLSX.utils.aoa_to_sheet([HEADERS, sample]);
@@ -98,13 +102,14 @@ export async function mountInitialStock(panel, prof) {
     // Price is populated from the imported Urate (per-unit MRP).
     const { data, error } = await sb.from('medicines').insert({
       branch_id: prof.branch_id, name: name.trim(), mrp: 0,
-      selling_price: 0, purchase_price: null, tax_rate: 12, active: true
+      selling_price: 0, tax_rate: 12, active: true
     }).select('id,name,strength,mrp,selling_price,active').single();
     if (error) throw new Error(`Could not create medicine "${name}": ${friendly(error)}`);
     medicines.push(data);
     return data;
   };
   const parseWorkbook = async file => {
+    if (!window.XLSX) throw new Error('The Excel reader did not load. Check your internet connection and refresh the page.');
     const buffer = await file.arrayBuffer();
     const wb = window.XLSX.read(buffer, {type:'array', cellDates:true});
     const sheet = wb.Sheets[wb.SheetNames[0]];

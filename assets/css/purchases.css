@@ -38,3 +38,16 @@ dialog.purchase-dialog>*{min-width:0;max-width:100%;box-sizing:border-box}
  .purchase-section-head .purchase-actions .purchase-btn{flex:1 1 auto}
  dialog.purchase-dialog{width:calc(100vw - 16px);max-width:calc(100vw - 16px);max-height:96dvh;margin:auto}
 }
+
+/* v53: tabs, drafts, create-medicine link, confirm dialog */
+.purchase-tabs{display:flex;gap:.35rem;flex-wrap:wrap}
+.purchase-tab{border:1px solid var(--line,#d8e2df);background:transparent;border-radius:999px;padding:.45rem .9rem;font-weight:700;cursor:pointer;color:inherit}
+.purchase-tab.active{background:#0f766e;border-color:#0f766e;color:#fff}
+.purchase-badge{display:inline-block;min-width:1.3em;padding:0 .35em;border-radius:99px;background:#e2e8f0;color:#334155;font-size:.72rem;text-align:center}
+.purchase-tab.active .purchase-badge{background:#ffffff33;color:#fff}
+.purchase-link{display:block;margin-top:.25rem;background:none!important;border:0!important;padding:0!important;color:#0f766e!important;font-size:.74rem;font-weight:700;cursor:pointer;text-align:left}
+.purchase-item-row.unknown .med-name{border-color:#dc2626!important;background:#fff5f5}
+.purchase-flash{margin:0 0 .8rem}
+.purchase-confirm{max-width:min(94vw,720px)}
+.purchase-view-grid + p{margin:.6rem 0}
+#viewContent h4{margin:1.1rem 0 .5rem}

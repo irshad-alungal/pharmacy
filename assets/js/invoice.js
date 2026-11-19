@@ -3,15 +3,24 @@ const R = n => new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximu
 const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const when = d => new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
 const PM = { cash: 'Cash', upi: 'UPI', card: 'Card', credit: 'Credit (due)' };
+// Patient / prescription lines saved with the bill (finalize_sale_v3).
+const patientLines = i => [
+  i.patient_name ? `Patient: ${i.patient_name}${i.patient_phone ? ' (' + i.patient_phone + ')' : ''}` : (i.patient_phone ? `Patient phone: ${i.patient_phone}` : ''),
+  i.patient_address ? `Address: ${i.patient_address}` : '',
+  i.doctor_name ? `Doctor: ${i.doctor_name}` : '',
+  i.diagnosis ? `Diagnosis: ${i.diagnosis}` : ''
+].filter(Boolean);
+// "GST included" only when every line's price already contains GST.
+const gstLabel = d => (d.items || []).some(x => x.price_includes_tax === false) ? 'GST' : 'GST included';
 export function invoiceHTML(d, fmt = 'thermal') {
   const th = fmt === 'thermal', s = d.shop || {}, i = d.invoice, c = d.customer;
   const head = `<div style="text-align:center"><b style="font-size:${th ? 14 : 20}px">${e(s.name || 'PALLIKKAL PHARMACY')}</b><br>${e(s.address || '')}${s.phone ? '<br>Ph: ' + e(s.phone) : ''}${s.gstin ? '<br>GSTIN: ' + e(s.gstin) : ''}${s.drug_licence ? '<br>Drug Licence: ' + e(s.drug_licence) : ''}</div><hr>
-  <div>Invoice: <b>${e(i.invoice_no)}</b><br>Date: ${e(when(i.created_at))}<br>Customer: ${c ? e(c.name) + ' (' + e(c.phone) + ')' : 'Walk-in'}</div><hr>`;
+  <div>Invoice: <b>${e(i.invoice_no)}</b><br>Date: ${e(when(i.created_at))}<br>Customer: ${c ? e(c.name) + ' (' + e(c.phone) + ')' : 'Walk-in'}${patientLines(i).map(l => '<br>' + e(l)).join('')}</div><hr>`;
   const items = th
-    ? d.items.map(x => `<div><b>${e(x.name)} ${e(x.strength || '')}</b><br><span style="font-size:10px">Batch ${e(x.batch_no)} · Exp ${e(String(x.expiry).slice(0, 7))}</span><div style="display:flex;justify-content:space-between"><span>${x.qty} x ${R(x.unit_price)}</span><span>${R(x.line_total)}</span></div></div>`).join('')
-    : `<table style="width:100%;border-collapse:collapse"><tr style="border-bottom:1px solid #000;text-align:left"><th>Item</th><th>Batch</th><th>Exp</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">GST%</th><th style="text-align:right">Amount</th></tr>${d.items.map(x => `<tr><td>${e(x.name)} ${e(x.strength || '')}</td><td>${e(x.batch_no)}</td><td>${e(String(x.expiry).slice(0, 7))}</td><td style="text-align:right">${x.qty}</td><td style="text-align:right">${R(x.unit_price)}</td><td style="text-align:right">${x.tax_rate}</td><td style="text-align:right">${R(x.line_total)}</td></tr>`).join('')}</table>`;
+    ? d.items.map(x => `<div><b>${e(x.name)} ${e(x.strength || '')}</b><br><span style="font-size:10px">Batch ${e(x.batch_no)} · Exp ${e(String(x.expiry).slice(0, 7))}</span><div style="display:flex;justify-content:space-between"><span>${x.qty} x ${R(x.unit_price)}${+x.discount_pct > 0 ? ` -${+x.discount_pct}%` : ''}${x.price_includes_tax === false ? ` +GST ${x.tax_rate}%` : ''}</span><span>${R(x.line_total)}</span></div></div>`).join('')
+    : `<table style="width:100%;border-collapse:collapse"><tr style="border-bottom:1px solid #000;text-align:left"><th>Item</th><th>Batch</th><th>Exp</th><th style="text-align:right">Qty</th><th style="text-align:right">MRP</th><th style="text-align:right">Disc%</th><th style="text-align:right">GST%</th><th style="text-align:right">Amount</th></tr>${d.items.map(x => `<tr><td>${e(x.name)} ${e(x.strength || '')}</td><td>${e(x.batch_no)}</td><td>${e(String(x.expiry).slice(0, 7))}</td><td style="text-align:right">${x.qty}</td><td style="text-align:right">${R(x.unit_price)}</td><td style="text-align:right">${+x.discount_pct || 0}</td><td style="text-align:right">${x.tax_rate}${x.price_includes_tax === false ? '+' : ''}</td><td style="text-align:right">${R(x.line_total)}</td></tr>`).join('')}</table>`;
   const row = (a, b, bold) => `<div style="display:flex;justify-content:space-between;${bold ? 'font-weight:bold;font-size:' + (th ? 13 : 16) + 'px' : ''}"><span>${a}</span><span>${b}</span></div>`;
-  const tot = `<hr>${row('Subtotal', R(i.subtotal))}${+i.discount > 0 ? row('Discount', '-' + R(i.discount)) : ''}${row('GST included', R(i.tax))}${row('TOTAL', '₹' + R(i.total), true)}<hr>
+  const tot = `<hr>${+i.line_discount > 0 ? row('You saved (line discounts)', R(i.line_discount)) : ''}${row('Subtotal', R(i.subtotal))}${+i.discount > 0 ? row('Discount', '-' + R(i.discount)) : ''}${row(gstLabel(d), R(i.tax))}${row('TOTAL', '₹' + R(i.total), true)}<hr>
   ${d.payments.map(p => row(PM[p.method] || e(p.method), R(p.amount))).join('')}
   <div style="margin-top:6px;font-size:${th ? 10 : 12}px">${d.tax_summary.map(t => `GST ${t.rate}%: taxable ${R(t.taxable)}, tax ${R(t.tax)}`).join('<br>')}</div>
   <div style="text-align:center;margin-top:8px">${e(s.footer_note || '')}</div>`;
@@ -36,7 +45,7 @@ export function buildPdf(JsPDF, d, fmt) {
     wrap(s.name || 'PALLIKKAL PHARMACY', W - 2 * M, { a: 'center', b: 1, s: th ? 12 : 16 });
     if (s.address) wrap(s.address, W - 2 * M, { a: 'center' }); if (s.phone) wrap('Ph: ' + s.phone, W, { a: 'center' });
     if (s.gstin) wrap('GSTIN: ' + s.gstin, W, { a: 'center' }); if (s.drug_licence) wrap('Drug Licence: ' + s.drug_licence, W, { a: 'center' });
-    rule(); T('Invoice: ' + i.invoice_no, M, { b: 1 }); nl(); T('Date: ' + when(i.created_at), M); nl(); T('Customer: ' + (c ? `${c.name} (${c.phone})` : 'Walk-in'), M); nl(); rule();
+    rule(); T('Invoice: ' + i.invoice_no, M, { b: 1 }); nl(); T('Date: ' + when(i.created_at), M); nl(); T('Customer: ' + (c ? `${c.name} (${c.phone})` : 'Walk-in'), M); nl(); for (const l of patientLines(i)) wrap(l, W - 2 * M); rule();
     if (th) for (const x of d.items) {
       wrap(`${x.name} ${x.strength || ''}`, W - 2 * M, { b: 1 }); T(`Batch ${x.batch_no}  Exp ${String(x.expiry).slice(0, 7)}`, M, { s: 7 }); nl(3);
       pair(`${x.qty} x ${R(x.unit_price)}`, R(x.line_total));
@@ -50,7 +59,7 @@ export function buildPdf(JsPDF, d, fmt) {
         nm.forEach(l => { T(l, M); nl(); }); y = Math.max(y, y0 + 5);
       }
     }
-    wrap('Amounts in INR', W - 2 * M, { a: 'right', s: th ? 7 : 9 }); rule(); pair('Subtotal', money(i.subtotal)); if (+i.discount > 0) pair('Discount', '-' + money(i.discount)); pair('GST included', money(i.tax));
+    wrap('Amounts in INR', W - 2 * M, { a: 'right', s: th ? 7 : 9 }); rule(); pair('Subtotal', money(i.subtotal)); if (+i.discount > 0) pair('Discount', '-' + money(i.discount)); if (+i.line_discount > 0) pair('Line discounts', money(i.line_discount)); pair(gstLabel(d), money(i.tax));
     pair('TOTAL', money(i.total), { b: 1, s: th ? 10 : 13 }); rule();
     for (const p of d.payments) pair(PM[p.method] || p.method, money(p.amount));
     nl(1); for (const t of d.tax_summary) { T(`GST ${t.rate}%: taxable ${R(t.taxable)}, tax ${R(t.tax)}`, M, { s: th ? 7 : 9 }); nl(); }

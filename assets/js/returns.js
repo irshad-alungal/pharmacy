@@ -9,7 +9,7 @@ console.log('RETURNS USER ROLE:', prof?.role);
 const $ = id => document.getElementById(id);
 
 const isAdmin = ['super_admin', 'admin'].includes(prof.role);
-const canCustomerReturn = ['super_admin', 'admin', 'pharmacist', 'inventory_staff', 'billing_staff'].includes(prof.role);
+const canCustomerReturn = ['super_admin', 'admin', 'pharmacist', 'billing_staff'].includes(prof.role);
 const canPurchaseReturn = ['super_admin', 'admin'].includes(prof.role);
 
 $('view').innerHTML = `
