@@ -723,8 +723,13 @@ $('tabs').onclick = e => {
   if (k) {
     tab = k;
     note('');
+    document.querySelectorAll('#tabs [data-k]').forEach(b => b.classList.toggle('sec', b.dataset.k !== tab));
     show(k);
   }
 };
 
-show('ov');
+// Dashboard links: finance.html?tab=led|rec|pay|hist opens that tab.
+const startTab = new URLSearchParams(location.search).get('tab');
+if (startTab && TABS.some(([k]) => k === startTab)) tab = startTab;
+document.querySelectorAll('#tabs [data-k]').forEach(b => b.classList.toggle('sec', b.dataset.k !== tab));
+show(tab);

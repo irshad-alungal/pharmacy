@@ -596,5 +596,8 @@ $('q').oninput = () => {
   t = setTimeout(load, 250);
 };
 
-// Initial customer list
+// Initial customer list (?q=<name or phone> from the dashboard search pre-fills the filter)
+const urlQ = new URLSearchParams(location.search).get('q');
+if (urlQ) $('q').value = urlQ;
 await load();
+if (new URLSearchParams(location.search).get('new') === '1') $('new')?.click();

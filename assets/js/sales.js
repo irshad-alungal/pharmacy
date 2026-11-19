@@ -157,4 +157,7 @@ $('sales-rows').onclick = async e => {
   showInvoice(data);
 };
 
+// ?q=<invoice no.> from the dashboard pre-fills the invoice search.
+const urlQ = new URLSearchParams(location.search).get('q');
+if (urlQ) $('sq').value = urlQ;
 await loadInvoices();

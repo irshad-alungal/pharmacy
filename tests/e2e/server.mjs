@@ -16,6 +16,7 @@ const SITE = process.env.SITE || path.join(HERE, 'site');
 const PORT = +(process.env.PORT || 8790);
 const db = await makeFixture({ postgrest: true });
 await db.exec(fs.readFileSync(path.join(HERE, '../../database/migrations/0021_complete_backend_and_live_fixes.sql'), 'utf8'));
+await db.exec(fs.readFileSync(path.join(HERE, '../../database/migrations/0022_delivery_management_v2.sql'), 'utf8'));
 export const log = [];
 
 // ---- seed realistic data through the real functions --------------------------
@@ -45,7 +46,51 @@ await q(db, `select confirm_purchase_v2($1::jsonb,$2::jsonb,null,null)`, [JSON.s
   { medicine_id: meds[3], batch_no: 'C-1', expiry: '2028-06-30', qty: 5, pack: 10, price: 100, tax_rate: 12, mrp: 180 }
 ])]);
 const exc = await q(db, `select expense_category_add('Electricity') id`).catch(e => console.warn('expense cat', e.message));
+// A week of sales history so the dashboard chart and trends have data.
 await asOwner(db);
+await db.exec(`select set_config('request.jwt.claim.sub', '${IDS.superAdmin}', false)`);
+const hist = [14820, 12960, 16110, 19340, 17020, 20750];
+for (let i = 0; i < hist.length; i++) {
+  const n = 18 + i * 3;
+  for (let k = 0; k < n; k++) {
+    await q(db, `insert into sales_invoices(branch_id, invoice_no, total, subtotal, status, created_by, created_at)
+      values ($1, 'H' || $2::text || '-' || $3::text, $4, $4, 'final', $5, now() - make_interval(days => $6::int) - make_interval(mins => $3::int * 7))`,
+      [IDS.branch, i, k, Math.round(hist[i] / n * 100) / 100, IDS.superAdmin, hist.length - i]).catch(e => { if (k === 0) console.warn('history', e.message); });
+  }
+}
+await db.exec(`select set_config('request.jwt.claim.sub', '', false)`);
+
+// Optional demo data for screenshots: DEMO=1 node tests/e2e/server.mjs
+if (process.env.DEMO) {
+  await asOwner(db);
+  await q(db, `update profiles set full_name='Rafeeq', phone='9847012345' where id=$1`, [IDS.delivery]);
+  await q(db, `update customers set address='M.G. Road, Thodupuzha' where name='Ravi Kumar'`);
+  await q(db, `update customers set address='Pallikkal Garden, Thodupuzha' where name='Anu Thomas'`);
+  await q(db, `update customers set address='Manakkad P.O., Thodupuzha' where name='Joseph'`);
+  const riders = [['0c000000-0000-0000-0000-0000000000d2', 'Sajid', 'DEL002', 'available'], ['0c000000-0000-0000-0000-0000000000d3', 'Manu', 'DEL003', 'available'], ['0c000000-0000-0000-0000-0000000000d4', 'Arun', 'DEL004', 'offline']];
+  for (const [id, name, sid] of riders) {
+    await db.exec(`insert into auth.users(id) values ('${id}') on conflict do nothing`);
+    await q(db, `insert into profiles(id,branch_id,staff_id,full_name,role_id,must_change_password,phone) select $1,$2,$3,$4,id,false,$5 from roles where code='delivery_person' on conflict do nothing`, [id, IDS.branch, sid, name, '98470' + sid.slice(-3) + '111']);
+  }
+  const pres = [[IDS.delivery, 'available'], ...riders.map(r => [r[0], r[3]])];
+  for (const [id, st] of pres) await q(db, `insert into delivery_person_presence(profile_id,branch_id,status) values ($1,$2,$3) on conflict (profile_id) do update set status=excluded.status`, [id, IDS.branch, st]);
+  await q(db, `insert into delivery_settings(branch_id,fee_per_delivery) values ($1,40) on conflict (branch_id) do update set fee_per_delivery=40`, [IDS.branch]);
+  const custs = await q(db, `select id from customers where branch_id=$1 order by name`, [IDS.branch]);
+  const invs = await q(db, `select id, created_at from sales_invoices where branch_id=$1 and status='final' order by created_at desc limit 40`, [IDS.branch]);
+  const people = [IDS.delivery, riders[0][0], riders[1][0], null];
+  const plan = ['out', 'done', 'out', 'pending', 'done', 'done', 'failed', 'out', 'done', 'pending', 'done', 'done', 'out', 'done', 'pending', 'done', 'done', 'failed', 'done', 'out', 'done', 'done', 'pending', 'done'];
+  for (let k = 0; k < plan.length && k < invs.length; k++) {
+    const inv = invs[k], st = plan[k], who = st === 'pending' && k % 2 ? null : people[k % 3];
+    await q(db, `update sales_invoices set customer_id=$2 where id=$1`, [inv.id, custs[k % custs.length].id]);
+    await q(db, `insert into delivery_jobs(branch_id,invoice_id,is_requested,requested_at,assigned_to,assigned_at,status) values ($1,$2,true,$3::timestamptz,$4,$3::timestamptz + interval '5 min','pending') on conflict (branch_id, invoice_id) do nothing`, [IDS.branch, inv.id, inv.created_at, who]);
+    if (who && st !== 'pending') {
+      await q(db, `update delivery_jobs set status='out' where invoice_id=$1`, [inv.id]);
+      if (st !== 'out') await q(db, `update delivery_jobs set status=$2, failure_reason=case when $2='failed' then 'Customer not reachable on phone' end where invoice_id=$1`, [inv.id, st]);
+      await q(db, `update delivery_jobs set out_at=assigned_at + interval '12 min', delivered_at=case when status='done' then assigned_at + interval '38 min' end, failed_at=case when status='failed' then assigned_at + interval '45 min' end where invoice_id=$1`, [inv.id]);
+    }
+  }
+  console.log('demo data seeded');
+}
 console.log('seeded');
 
 // ---- SQL translation -----------------------------------------------------------

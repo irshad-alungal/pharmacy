@@ -730,8 +730,11 @@ $('q').oninput = () => {
   t = setTimeout(load, 250);
 };
 
-// Initial load
+// Initial load (dashboard links: ?q=<name> pre-fills the search, ?new=1 opens Add medicine)
+const urlParams = new URLSearchParams(location.search);
+if (urlParams.get('q')) $('q').value = urlParams.get('q');
 await load();
+if (urlParams.get('new') === '1') $('new').click();
 
 // Attach branch-scoped medicine photo controls.
 mountMedicinePhotos({

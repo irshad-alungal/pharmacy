@@ -430,3 +430,10 @@ $('expense-clear').addEventListener('click', () => {
 loadCategories();
 loadExpenses();
 loadExpenseReports();
+
+// Dashboard quick action: expenses.html?new=1 jumps to the new-expense form.
+if (new URLSearchParams(location.search).get('new') === '1') {
+  const d = document.getElementById('expense-description');
+  d?.scrollIntoView({ block: 'center' });
+  d?.focus();
+}

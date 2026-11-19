@@ -3,6 +3,7 @@ import { requireProfile, esc, sb } from './supabase-client.js';
 import { can } from './permissions.js';
 import { signOut } from './auth.js';
 import { hasDailyLogin, clearDailyLogin } from './daily-session.js';
+import { brandShellMarkup, wireBrandShell } from './brand-shell.js';
 
 const PAGES = [
   ['dashboard', 'Dashboard'],
@@ -25,7 +26,8 @@ const PAGES = [
   ['audit-logs', 'Audit logs']
 ];
 
-export async function mountShell(page, title) {
+// opts.layout === 'brand' renders the Pallikkal Pharmacy branded shell (used by the dashboard).
+export async function mountShell(page, title, opts = {}) {
   const prof = await requireProfile();
 
   if (!prof) {
@@ -54,7 +56,11 @@ export async function mountShell(page, title) {
 
   document.title = `PALLIKKAL PHARMACY — ${title}`;
 
-  document.body.innerHTML = `
+  if (opts.layout === 'brand') {
+    document.body.classList.add('pp-brand-body');
+    document.body.innerHTML = brandShellMarkup(page, prof, p => can(prof.role, p));
+    wireBrandShell();
+  } else document.body.innerHTML = `
     <div class="shell">
       <nav class="side">
         <h1>PALLIKKAL PHARMACY</h1>

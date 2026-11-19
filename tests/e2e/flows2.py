@@ -134,9 +134,7 @@ with sync_playwright() as p:
     if want('delivery'):
         c,pg,errs,_=ctx_for(b,'billing_staff')
         pg.goto(BASE+'/delivery.html'); pg.wait_for_timeout(2500)
-        sel=pg.query_selector_all('#view select')[0]
-        opts=sel.eval_on_selector_all('option','els=>els.map(e=>e.value)')
-        sel.select_option(opts[1]); pg.wait_for_timeout(1200)
+        pg.click('#filterBtn'); pg.check('#fAll'); pg.click('#fApply'); pg.wait_for_timeout(800)
         ok('delivery: management list shows final bills', invno in pg.inner_text('#deliveryRows'), pg.inner_text('#deliveryRows')[:300]+json.dumps(srvlog()))
         ok('delivery: no page errors', not errs, errs); c.close()
 

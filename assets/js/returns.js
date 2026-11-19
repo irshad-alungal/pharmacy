@@ -516,3 +516,8 @@ if (canCustomerReturn) {
   // Inventory Staff use this page for supplier returns only.
   await $('purchase-tab').click();
 }
+
+// Dashboard quick action: returns.html?tab=purchase opens supplier returns directly.
+if (canPurchaseReturn && canCustomerReturn && new URLSearchParams(location.search).get('tab') === 'purchase') {
+  await $('purchase-tab').click();
+}

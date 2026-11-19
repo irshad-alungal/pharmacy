@@ -718,4 +718,8 @@ if (!canWrite) {
   $('newPurchase').disabled = true;
   $('newPurchase').title = 'Your role can view purchases only';
 }
+// Deep links from the dashboard: ?q=<invoice or supplier> pre-fills the search, ?new=1 opens a new purchase.
+const purchaseParams = new URLSearchParams(location.search);
+if (purchaseParams.get('q')) $('searchPurchase').value = purchaseParams.get('q');
 await Promise.all([loadPurchases(), loadDrafts()]);
+if (purchaseParams.get('new') === '1' && canWrite) $('newPurchase').click();
