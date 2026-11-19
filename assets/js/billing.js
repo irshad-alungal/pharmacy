@@ -45,7 +45,7 @@ $('view').innerHTML = `
 <div class="billing-page">
   <div class="billing-topbar">
     <div><div class="eyebrow">POINT OF SALE</div><h2>New bill</h2><p class="muted">Create a pharmacy invoice and record payment.</p></div>
-    <div class="bill-meta"><div><span>Bill number</span><strong>Generated on save</strong></div><div><span>Date</span><strong id="billDate"></strong></div></div>
+    <div class="bill-meta"><div><span>Bill number</span><strong>YYYY-MM-DD-### (generated on save)</strong></div><div><span>Date</span><strong id="billDate"></strong></div></div>
     <div class="shop-state-control">
       <span class="shop-state-label">Shop status</span>
       <button id="shopStateToggle" class="shop-state-toggle is-closed" type="button" aria-pressed="false">Closed</button>
@@ -348,21 +348,65 @@ $('q').oninput = () => {
       return;
     }
 
-    const { data } = await sb.from('medicines')
-      .select('id,name,strength,barcode,selling_price,shelf_location,tax_rate')
+    const { data, error } = await sb.from('medicines')
+      .select('id,name,strength,barcode,selling_price,shelf_location,tax_rate,need_doctor_sheet')
       .eq('branch_id', prof.branch_id)
       .eq('active', true)
       .or(`name.ilike.%${s}%,barcode.eq.${s}`)
       .limit(8);
 
-    if (data?.length === 1 && data[0].barcode === s) {
-      add(data[0]);
+    if (error) {
+      $('res').textContent = friendly(error);
+      return;
+    }
+
+    const medicines = data || [];
+    // Show live branch stock beside every search result. Exclude expired,
+    // quarantined and zero-quantity batches, matching the FEFO allocator.
+    const medicineIds = medicines.map(m => m.id);
+    const stockByMedicine = new Map();
+    if (medicineIds.length) {
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      const { data: batches, error: stockError } = await sb.from('medicine_batches')
+        .select('medicine_id,qty')
+        .eq('branch_id', prof.branch_id)
+        .in('medicine_id', medicineIds)
+        .eq('quarantined', false)
+        .gt('qty', 0)
+        .gt('expiry', today);
+      if (stockError) {
+        console.warn('Could not load medicine search stock:', stockError);
+      } else {
+        (batches || []).forEach(batch => {
+          stockByMedicine.set(
+            batch.medicine_id,
+            (stockByMedicine.get(batch.medicine_id) || 0) + Number(batch.qty || 0)
+          );
+        });
+      }
+    }
+
+    medicines.forEach(m => { m.available_stock = stockByMedicine.get(m.id) || 0; });
+
+    if (medicines.length === 1 && medicines[0].barcode === s) {
+      add(medicines[0]);
       $('q').value = '';
       $('res').innerHTML = '';
       return;
     }
 
-    $('res').innerHTML = (data || []).map(m => `<button class="sec" style="display:block;width:100%;text-align:left;margin:2px 0" data-m='${esc(JSON.stringify(m))}'>${esc(m.name)} ${esc(m.strength || '')} — ${inr(m.selling_price)} · shelf ${esc(m.shelf_location || '-')}</button>`).join('');
+    $('res').innerHTML = medicines.map(m => {
+      const prescription = m.need_doctor_sheet === true;
+      const warning = prescription
+        ? '<span class="medicine-result-warning">Prescription required</span>'
+        : '';
+      const stock = `<span class="medicine-result-stock">Stock: ${Number(m.available_stock).toLocaleString('en-IN')}</span>`;
+      return `<button class="sec medicine-result${prescription ? ' requires-prescription' : ''}" type="button" data-m='${esc(JSON.stringify(m))}'>
+        <span class="medicine-result-main"><strong>${esc(m.name)} ${esc(m.strength || '')}</strong>
+        <span class="medicine-result-meta">${inr(m.selling_price)} · Shelf ${esc(m.shelf_location || '—')}</span></span>
+        <span class="medicine-result-side">${warning}${stock}</span>
+      </button>`;
+    }).join('');
   }, 250);
 };
 

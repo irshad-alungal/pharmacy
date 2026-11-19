@@ -27,3 +27,30 @@
 .delivery-indicator.delivery-state-purchasing .delivery-dot { background:#2563eb; }
 .delivery-indicator.delivery-state-offline { border-color:#c62828; background:#fff0f0; color:#7f1d1d; }
 .delivery-indicator.delivery-state-offline .delivery-dot { background:#dc2626; }
+
+
+/* Billing medicine search: stock visibility and prescription warning */
+.medicine-results { display:grid; gap:.35rem; margin-top:.45rem; }
+.medicine-result {
+  display:flex!important; align-items:center; justify-content:space-between;
+  gap:1rem; width:100%; text-align:left; margin:0!important;
+  padding:.7rem .85rem!important; border-radius:9px;
+}
+.medicine-result-main,.medicine-result-side { display:flex; flex-direction:column; gap:.18rem; }
+.medicine-result-main { min-width:0; }
+.medicine-result-meta,.medicine-result-stock { font-size:.76rem; color:var(--muted,#64748b); }
+.medicine-result-side { align-items:flex-end; flex-shrink:0; }
+.medicine-result.requires-prescription {
+  background:#fff1f1!important; border:1px solid #f3b4b4!important;
+  color:#7f1d1d!important;
+}
+.medicine-result.requires-prescription .medicine-result-meta,
+.medicine-result.requires-prescription .medicine-result-stock { color:#9f3535; }
+.medicine-result-warning {
+  display:inline-block; padding:.12rem .42rem; border-radius:999px;
+  background:#fee2e2; color:#991b1b; font-size:.68rem; font-weight:800;
+}
+@media(max-width:560px) {
+  .medicine-result { align-items:flex-start; }
+  .medicine-result-side { align-items:flex-end; white-space:nowrap; }
+}
