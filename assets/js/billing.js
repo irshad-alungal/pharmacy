@@ -72,7 +72,7 @@ $('view').innerHTML = `
     <div class="medicine-search"><span class="search-symbol">⌕</span><input id="q" placeholder="Search medicine name or scan barcode" autocomplete="off" autofocus></div>
     <div id="res" class="medicine-results"></div>
     <div class="table-scroll"><table class="bill-table"><thead><tr><th>Sl no</th><th>Item</th><th>Rack / Shelf</th><th>Batch</th><th>Exp</th><th>Rate</th><th>Qty</th><th>Disc %</th><th>GST %</th><th class="align-right">Amount</th><th></th></tr></thead><tbody id="cart"></tbody></table></div>
-    <div class="table-footnote">Automatic batch allocation, line discounts and GST calculation will be connected in the next implementation steps.</div>
+    <div class="table-footnote">Batch allocations are ordered by expiry (FEFO). Batch preferences are recorded for this bill; stock is revalidated and deducted transactionally when finalized.</div>
   </section>
   <div class="billing-bottom-grid">
     <section class="billing-card payment-card">
