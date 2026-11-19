@@ -146,7 +146,7 @@ export async function mountInitialStock(panel, prof) {
   const escapeAttr = v => esc(v);
   const rowMarkup = (r, i, locked=false) => `<tr data-index="${i}">
     <td><input class="os-serial" data-field="serial" value="${escapeAttr(r.serial)}" ${locked?'disabled':''}></td>
-    <td><input class="os-item" data-field="item" value="${escapeAttr(r.item)}" ${locked?'disabled':''} required></td>
+    <td><div class="os-autocomplete"><input class="os-item" data-field="item" value="${escapeAttr(r.item)}" ${locked?'disabled':''} required autocomplete="off"><div class="os-suggestions" hidden></div></div></td>
     <td><input data-field="batch" value="${escapeAttr(r.batch)}" ${locked?'disabled':''} required></td>
     <td><input class="os-pack" data-field="pack" type="number" min="0.001" step="any" value="${escapeAttr(r.pack)}" ${locked?'disabled':''} required></td>
     <td><input data-field="qty" type="number" min="0.001" step="any" value="${escapeAttr(r.qty)}" ${locked?'disabled':''} required></td>
@@ -158,7 +158,14 @@ export async function mountInitialStock(panel, prof) {
   </tr>`;
   const render = () => {
     const isPosted = submitted();
-    panel.innerHTML = `<section class="os-wrap">
+    panel.innerHTML = `<style>
+      .os-autocomplete{position:relative;min-width:220px}
+      .os-autocomplete .os-item{width:100%}
+      .os-suggestions{position:absolute;top:100%;left:0;right:0;z-index:1000;background:#fff;color:#172b27;border:1px solid #b7d3ca;border-radius:8px;box-shadow:0 8px 18px #0002;max-height:220px;overflow:auto}
+      .os-suggestion{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #edf2f0;background:#fff;color:inherit;padding:9px 11px;cursor:pointer}
+      .os-suggestion:hover,.os-suggestion:focus{background:#e8f5f1}
+      .os-suggestion small{display:block;color:#647b75;font-size:12px}
+    </style><section class="os-wrap">
       <header>
         <h3>Initial Stock — Bulk Excel Entry</h3>
         <p class="os-help">Upload your nine-column workbook, edit the rows, save a draft, then confirm to post stock. Draft saving does not change inventory.</p>
@@ -218,14 +225,32 @@ export async function mountInitialStock(panel, prof) {
   render();
 
   panel.addEventListener('input', e => {
+    if (e.target.matches('.os-item')) {
+      const input=e.target, wrap=input.closest('.os-autocomplete'), box=wrap?.querySelector('.os-suggestions');
+      const q=input.value.trim().toLocaleLowerCase();
+      if(box){
+        const matches=q ? medicines.filter(m=>String(m.name||'').toLocaleLowerCase().includes(q)).slice(0,8) : [];
+        box.innerHTML=matches.map(m=>`<button type="button" class="os-suggestion" data-medicine-name="${escapeAttr(m.name)}">${escapeAttr(m.name)}${m.strength?`<small>${escapeAttr(m.strength)}</small>`:''}</button>`).join('');
+        box.hidden=!matches.length;
+      }
+    }
     if (e.target.matches('[data-field="srate"],[data-field="pack"]')) {
       const tr=e.target.closest('tr');
       const s=num(tr.querySelector('[data-field="srate"]').value), p=num(tr.querySelector('[data-field="pack"]').value);
       if(s>=0&&p>0) tr.querySelector('[data-field="urate"]').value=round4(s/p);
     }
   });
+  panel.addEventListener('focusout', e => {
+    if(e.target.matches('.os-item')) setTimeout(()=>{const box=e.target.closest('.os-autocomplete')?.querySelector('.os-suggestions');if(box)box.hidden=true;},150);
+  });
   panel.addEventListener('click', async e => {
     const target=e.target;
+    const suggestion=target.closest('.os-suggestion');
+    if(suggestion){
+      const wrap=suggestion.closest('.os-autocomplete'), input=wrap?.querySelector('.os-item');
+      if(input){input.value=suggestion.dataset.medicineName||suggestion.textContent.trim();wrap.querySelector('.os-suggestions').hidden=true;input.focus();}
+      return;
+    }
     if(target.id==='os-template'){ template(); return; }
     if(target.id==='os-add'){ rows=collect(); rows.push({serial:rows.length+1,pack:1}); render(); return; }
     if(target.classList.contains('os-remove')){ const data=collect(); data.splice(Number(target.closest('tr').dataset.index),1); rows=data; render(); return; }
