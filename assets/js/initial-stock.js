@@ -161,7 +161,7 @@ export async function mountInitialStock(panel, prof) {
     panel.innerHTML = `<style>
       .os-autocomplete{position:relative;min-width:220px}
       .os-autocomplete .os-item{width:100%}
-      .os-suggestions{position:absolute;top:100%;left:0;right:0;z-index:1000;background:#fff;color:#172b27;border:1px solid #b7d3ca;border-radius:8px;box-shadow:0 8px 18px #0002;max-height:220px;overflow:auto}
+      .os-suggestions{position:absolute;top:100%;left:0;right:0;z-index:1000;background:#fff;color:#172b27;border:1px solid #b7d3ca;border-radius:8px;box-shadow:0 8px 18px #0002;max-height:360px;overflow:auto} .os-table-wrap.os-suggest-open{padding-bottom:370px;}
       .os-suggestion{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #edf2f0;background:#fff;color:inherit;padding:9px 11px;cursor:pointer}
       .os-suggestion:hover,.os-suggestion:focus{background:#e8f5f1}
       .os-suggestion small{display:block;color:#647b75;font-size:12px}
@@ -232,6 +232,7 @@ export async function mountInitialStock(panel, prof) {
         const matches=q ? medicines.filter(m=>String(m.name||'').toLocaleLowerCase().includes(q)).slice(0,8) : [];
         box.innerHTML=matches.map(m=>`<button type="button" class="os-suggestion" data-medicine-name="${escapeAttr(m.name)}">${escapeAttr(m.name)}${m.strength?`<small>${escapeAttr(m.strength)}</small>`:''}</button>`).join('');
         box.hidden=!matches.length;
+        wrap.closest('.os-table-wrap')?.classList.toggle('os-suggest-open',!!matches.length);
       }
     }
     if (e.target.matches('[data-field="srate"],[data-field="pack"]')) {
@@ -241,14 +242,14 @@ export async function mountInitialStock(panel, prof) {
     }
   });
   panel.addEventListener('focusout', e => {
-    if(e.target.matches('.os-item')) setTimeout(()=>{const box=e.target.closest('.os-autocomplete')?.querySelector('.os-suggestions');if(box)box.hidden=true;},150);
+    if(e.target.matches('.os-item')) setTimeout(()=>{const wrap=e.target.closest('.os-autocomplete'),box=wrap?.querySelector('.os-suggestions');if(box)box.hidden=true;wrap?.closest('.os-table-wrap')?.classList.remove('os-suggest-open');},150);
   });
   panel.addEventListener('click', async e => {
     const target=e.target;
     const suggestion=target.closest('.os-suggestion');
     if(suggestion){
       const wrap=suggestion.closest('.os-autocomplete'), input=wrap?.querySelector('.os-item');
-      if(input){input.value=suggestion.dataset.medicineName||suggestion.textContent.trim();wrap.querySelector('.os-suggestions').hidden=true;input.focus();}
+      if(input){input.value=suggestion.dataset.medicineName||suggestion.textContent.trim();wrap.querySelector('.os-suggestions').hidden=true;wrap.closest('.os-table-wrap')?.classList.remove('os-suggest-open');input.focus();}
       return;
     }
     if(target.id==='os-template'){ template(); return; }
