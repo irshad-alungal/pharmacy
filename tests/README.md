@@ -4,3 +4,5 @@
     node tests/sql-phase3.test.mjs    # inventory (22 checks)
 Stubs Supabase's `auth` schema, runs all migrations (twice, for idempotency), then checks logic, RLS and column privileges per role.
 Last run: Phase 2 = 20 passed, Phase 3 = 22 passed, 0 failed. These do not test the browser screens.
+    node tests/billing-engine.test.mjs    # billing calculation / FEFO engine (pure JS, 25 checks)
+    node tests/sql-billing-fefo.test.mjs  # migration 0020: FEFO, reservations, permissions, finalize_sale_v2 (43 checks)

@@ -54,3 +54,46 @@
   .medicine-result { align-items:flex-start; }
   .medicine-result-side { align-items:flex-end; white-space:nowrap; }
 }
+
+/* ===== FEFO batch-wise billing table (v0020) ===== */
+.fefo-table{min-width:1180px}
+.fefo-table .group-row td{background:#f6faf8;border-top:2px solid var(--line);vertical-align:top}
+.fefo-table .group-row.requires-prescription td{background:#fff6f6}
+.fefo-table .batch-row td{font-size:.76rem;background:var(--card)}
+.fefo-table .batch-row.has-error td{background:#fff5f5}
+.fefo-table .batch-cell{padding-left:1.1rem!important}
+.fefo-table input.pct-input,.fefo-table input.money-input{width:78px;padding:.35rem .4rem!important;text-align:right;font-variant-numeric:tabular-nums}
+.fefo-table select{padding:.3rem .35rem;min-width:70px}
+.fefo-table td.align-right{font-variant-numeric:tabular-nums;white-space:nowrap}
+.fefo-table input.invalid,#disc.invalid{border-color:#dc2626!important;background:#fff1f1}
+.fefo-status-line{margin-top:.3rem;display:flex;flex-wrap:wrap;gap:.35rem}
+.fefo-status{font-size:.7rem;border-radius:99px;padding:.12rem .5rem;background:#eef4f2;color:#40534c}
+.fefo-status.ok{background:#e7f6ee;color:#166534}
+.fefo-status.bad{background:#fee2e2;color:#991b1b;font-weight:700}
+.fefo-status.pending{background:#eef2ff;color:#3730a3}
+.fefo-status.muted-status{background:#f3f4f6;color:#6b7280}
+.row-error{color:#b91c1c;font-size:.7rem;margin-top:.15rem;min-height:0}
+.row-error:empty{display:none}
+.badge{display:inline-block;font-size:.62rem;font-weight:800;border-radius:99px;padding:.08rem .4rem;margin-left:.25rem;vertical-align:middle}
+.badge.warn{background:#fef3c7;color:#92400e}
+.badge.info{background:#e0f2fe;color:#075985}
+.rx-tag{color:#991b1b}
+.row-actions{white-space:nowrap;text-align:right}
+.link-btn{background:none!important;border:0!important;color:#0f766e!important;font-size:.72rem;font-weight:700;padding:.2rem .35rem!important;cursor:pointer;text-decoration:underline}
+.medicine-result-stock.out{color:#b91c1c!important;font-weight:700}
+.override-table{min-width:0;margin:.6rem 0}
+.override-reason{display:block;font-size:.76rem;font-weight:700;margin:.6rem 0}
+.override-reason input{width:100%;margin-top:.3rem}
+
+/* ===== AI assistant ===== */
+.assistant-card .assistant-row{display:flex;gap:.5rem;flex-wrap:wrap}
+.assistant-card #aiInput{flex:1;min-width:220px}
+.assistant-output{margin-top:.7rem;font-size:.82rem;line-height:1.5}
+.assistant-reply{background:#f6faf8;border:1px solid var(--line);border-radius:10px;padding:.65rem .8rem}
+.assistant-actions{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.55rem}
+.assistant-actions .small{padding:.4rem .65rem;font-size:.75rem;min-width:0}
+.assistant-anomalies{margin:.5rem 0 0;padding-left:1.1rem}
+.assistant-anomalies .lvl-error{color:#b91c1c;font-weight:700}
+.assistant-anomalies .lvl-warn{color:#92400e}
+.assistant-anomalies .lvl-info{color:#475569}
+@media(max-width:560px){.assistant-card .assistant-row button{flex:1}}
