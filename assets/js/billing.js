@@ -382,6 +382,76 @@ async function chooseMedicineBatch(med) {
   }
 }
 
+
+// ---- medicine search (restored) and explicit batch selection
+let medicineSearchTimer = null;
+let medicineSearchRun = 0;
+
+$('q').oninput = () => {
+  clearTimeout(medicineSearchTimer);
+  const run = ++medicineSearchRun;
+  medicineSearchTimer = setTimeout(async () => {
+    const term = safeQ($('q').value);
+    if (term.length < 2) {
+      $('res').innerHTML = '';
+      return;
+    }
+
+    $('res').innerHTML = '<div class="search-status">Searching medicines…</div>';
+    try {
+      const { data, error } = await sb.from('medicines')
+        .select('id,name,strength,barcode,selling_price,shelf_location,tax_rate')
+        .eq('branch_id', prof.branch_id)
+        .eq('active', true)
+        .or(`name.ilike.%${term}%,barcode.eq.${term}`)
+        .order('name', { ascending: true })
+        .limit(8);
+      if (run !== medicineSearchRun) return;
+      if (error) throw error;
+
+      if (!data?.length) {
+        $('res').innerHTML = '<div class="search-status">No matching active medicines found.</div>';
+        return;
+      }
+
+      $('res').innerHTML = data.map(m => `
+        <button type="button" class="medicine-result sec" data-m='${esc(JSON.stringify(m))}'>
+          <span class="medicine-result-main">
+            <strong>${esc(m.name)} ${esc(m.strength || '')}</strong>
+            <span class="medicine-result-meta">Barcode: ${esc(m.barcode || '—')} · Shelf: ${esc(m.shelf_location || '—')}</span>
+          </span>
+          <span class="medicine-result-side"><strong>${inr(m.selling_price)}</strong><span>Select batch</span></span>
+        </button>`).join('');
+
+      // An exact barcode match still opens the batch picker; it never bypasses batch choice.
+      const exact = data.length === 1 && String(data[0].barcode || '').toLowerCase() === term.toLowerCase();
+      if (exact) {
+        $('res').querySelector('button')?.click();
+      }
+    } catch (error) {
+      if (run !== medicineSearchRun) return;
+      console.error('Medicine search failed:', error);
+      $('res').innerHTML = `<div class="search-status search-error">${esc(friendly(error))}</div>`;
+      note(`Medicine search failed: ${friendly(error)}`, true);
+    }
+  }, 250);
+};
+
+$('res').onclick = e => {
+  const button = e.target.closest('button[data-m]');
+  if (!button) return;
+  try {
+    clearTimeout(medicineSearchTimer);
+    medicineSearchRun++;
+    const med = JSON.parse(button.dataset.m);
+    $('res').innerHTML = '';
+    chooseMedicineBatch(med);
+  } catch (error) {
+    console.error('Could not select medicine:', error);
+    note('Could not select this medicine. Please search again.', true);
+  }
+};
+
 // ---- payments (split)
 function renderPays() {
   const ms = ['cash', 'upi', 'card'];
