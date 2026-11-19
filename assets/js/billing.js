@@ -148,6 +148,8 @@ $('billDate').textContent = new Intl.DateTimeFormat('en-IN', { dateStyle: 'mediu
 
 let cart = [], cust = null, avail = 0, pays = [{ method: 'cash', amount: '' }];
 let allocationRun = 0;
+const batchCache = new Map();
+const batchPreference = new Map();
 
 const note = (m, bad) => {
   $('msg').style.color = bad ? '#b91c1c' : '';
@@ -242,7 +244,7 @@ function renderCart() {
     const first = rows[0] === c;
     return `<tr>
       <td>${i + 1}</td><td><strong>${esc(c.name)}</strong><small class="table-subtext">${esc(c.strength || '')}${rows.length > 1 ? ` · FEFO split ${rows.indexOf(c) + 1}/${rows.length}` : ''}</small></td>
-      <td>${esc(c.shelf_location || '—')}</td><td>${esc(c.batch_no)}</td><td>${esc(c.expiry)}</td>
+      <td>${esc(c.shelf_location || '—')}</td><td>${first ? `<select aria-label="Preferred batch for ${esc(c.name)}" data-group-batch="${esc(c.group_key)}" class="batch-preference">${(batchCache.get(c.medicine_id) || []).map(b => `<option value="${esc(b.id)}" ${batchPreference.get(c.group_key) === b.id ? 'selected' : ''}>${esc(b.batch_no)} · ${esc(b.expiry)} · ${Number(b.qty)} available</option>`).join('')}</select>` : `${esc(c.batch_no)}`}</td><td>${esc(c.expiry)}</td>
       <td>${inr(c.price)}</td><td>${first ? `<input aria-label="Total quantity for ${esc(c.name)}" type="number" min="1" step="1" value="${c.requested_qty}" data-group-qty="${esc(c.group_key)}" class="qty-input">` : `<strong>${Number(c.qty).toLocaleString('en-IN')}</strong>`}</td>
       <td><span class="not-ready-value">—</span></td><td>${Number(c.tax_rate || 0)}%</td>
       <td class="align-right"><strong>${inr(c.price * c.qty)}</strong></td><td>${first ? `<button class="remove-item" aria-label="Remove ${esc(c.name)}" data-group-remove="${esc(c.group_key)}">×</button>` : ''}</td>
@@ -257,17 +259,26 @@ function renderCart() {
 
 $('cart').onchange = async e => {
   const key = e.target.dataset.groupQty;
-  if (!key) return;
-  const qty = Math.max(1, Math.floor(Number(e.target.value) || 1));
-  const current = groupRows(key)[0];
-  if (!current) return;
-  await allocateMedicine(current.medicine, qty, key);
+  if (key) {
+    const qty = Math.max(1, Math.floor(Number(e.target.value) || 1));
+    const current = groupRows(key)[0];
+    if (!current) return;
+    await allocateMedicine(current.medicine, qty, key);
+    return;
+  }
+  const batchKey = e.target.dataset.groupBatch;
+  if (batchKey) {
+    batchPreference.set(batchKey, e.target.value);
+    const current = groupRows(batchKey)[0];
+    if (current) await allocateMedicine(current.medicine, current.requested_qty, batchKey);
+  }
 };
 
 $('cart').onclick = e => {
   const key = e.target.dataset.groupRemove;
   if (key) {
     cart = cart.filter(row => row.group_key !== key);
+    batchPreference.delete(key);
     renderCart();
     note('Medicine removed from bill.');
   }
@@ -285,6 +296,7 @@ async function fetchEligibleBatches(medicineId) {
     .order('expiry', { ascending: true })
     .order('batch_no', { ascending: true });
   if (error) throw error;
+  batchCache.set(String(medicineId), data || []);
   return data || [];
 }
 
@@ -293,6 +305,10 @@ async function allocateMedicine(med, requestedQty, key = groupKey(med)) {
   note(`Allocating ${requestedQty} ${med.name} by earliest expiry…`);
   try {
     const batches = await fetchEligibleBatches(med.id);
+    const preferredId = batchPreference.get(key);
+    if (preferredId) {
+      batches.sort((a, b) => (a.id === preferredId ? -1 : b.id === preferredId ? 1 : 0));
+    }
     if (run !== allocationRun) return;
     const available = batches.reduce((sum, b) => sum + Number(b.qty || 0), 0);
     let remaining = requestedQty;
@@ -475,6 +491,7 @@ $('disc').oninput = updateTot;
 
 function reset() {
   cart = [];
+  batchPreference.clear();
   pays = [{ method: 'cash', amount: '' }];
   $('disc').value = 0;
   ['doctorName','patientName','patientPhone','patientAddress','diagnosis'].forEach(id => { if ($(id)) $(id).value = ''; });
