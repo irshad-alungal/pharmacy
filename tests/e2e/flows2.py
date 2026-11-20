@@ -101,25 +101,25 @@ with sync_playwright() as p:
 
     if want('inventory'):
         c,pg,errs,ans=ctx_for(b,'inventory_staff')
-        pg.goto(BASE+'/inventory.html'); pg.wait_for_selector('#r'); pg.wait_for_timeout(1500)
-        pg.click('[data-a]'); pg.wait_for_selector('#adj[open]'); pg.fill('#aq','2'); pg.fill('#ar','Found in rack'); pg.click('#af button:not(.sec)'); pg.wait_for_timeout(1500)
+        pg.goto(BASE+'/inventory.html'); pg.wait_for_selector('#r tr[data-batch]'); pg.wait_for_timeout(1500)
+        pg.click('#r [data-menu]'); pg.click('.md-row-menu [data-do="adjust"]'); pg.wait_for_selector('#adj[open]'); pg.fill('#aq','2'); pg.fill('#ar','Found in rack'); pg.click('#af button[type=submit]'); pg.wait_for_timeout(1500)
         ok('inventory: stock adjusted by inventory staff (role fix)', 'Stock updated' in pg.inner_text('#msg'), pg.inner_text('#ae')+pg.inner_text('#msg')+json.dumps(srvlog()))
         c.close()
         c,pg,errs,ans=ctx_for(b,'inventory_staff', answers_seq=['recalled','Manufacturer recall notice'])
-        pg.goto(BASE+'/inventory.html'); pg.wait_for_selector('[data-st]'); pg.wait_for_timeout(800)
-        pg.click('[data-st]'); pg.wait_for_timeout(1500)
+        pg.goto(BASE+'/inventory.html'); pg.wait_for_selector('#r [data-menu]'); pg.wait_for_timeout(800)
+        pg.click('#r [data-menu]'); pg.click('.md-row-menu [data-st]'); pg.wait_for_timeout(1500)
         ok('inventory: batch recalled (set_batch_stock_status)', 'recalled' in pg.inner_text('#msg'), pg.inner_text('#msg')+json.dumps(srvlog()))
-        pg.click('[data-k="count"]'); pg.wait_for_timeout(1200)
+        pg.click('#invTabs [data-k="count"]'); pg.wait_for_selector('#cn')
         pg.fill('#cn','Monthly count'); pg.fill('.ct','25'); pg.click('#cs'); pg.wait_for_timeout(1500)
         ok('inventory: physical count by inventory staff (role fix)', 'Done' in pg.inner_text('#msg'), pg.inner_text('#msg')+json.dumps(srvlog()))
-        pg.click('[data-k="moves"]'); pg.wait_for_timeout(1500)
-        ok('inventory: movements list loads', 'physical_count' in pg.inner_text('#panel'), pg.inner_text('#panel')[:300]+json.dumps(srvlog()))
+        pg.click('#invTabs [data-k="moves"]'); pg.wait_for_timeout(1500)
+        ok('inventory: movements list loads', 'physical count' in pg.inner_text('#tab-moves'), pg.inner_text('#tab-moves')[:300]+json.dumps(srvlog()))
         ok('inventory: no page errors', not errs, errs); c.close()
 
     if want('initial'):
         c,pg,errs,_=ctx_for(b,'super_admin')
-        pg.goto(BASE+'/inventory.html'); pg.wait_for_selector('[data-k="opening"]'); pg.click('[data-k="opening"]'); pg.wait_for_timeout(2000)
-        ok('initial stock: tab renders without Excel library (0011 functions installed)', pg.query_selector('#os-save') is not None, pg.inner_text('#panel')[:300]+json.dumps(srvlog()))
+        pg.goto(BASE+'/inventory.html'); pg.wait_for_selector('#r tr[data-batch]'); pg.click('#invTabs [data-k="opening"]'); pg.wait_for_timeout(2000)
+        ok('initial stock: tab renders without Excel library (0011 functions installed)', pg.query_selector('#os-save') is not None, pg.inner_text('#tab-opening')[:300]+json.dumps(srvlog()))
         ok('initial stock: no page errors', not errs, errs); c.close()
 
     if want('documents'):

@@ -27,6 +27,8 @@
 .pos-btn:active { transform: translateY(1px); }
 .pos-btn .pp-ic { width: 21px; height: 21px; }
 .pos-btn-sm { height: 38px; padding: 0 14px; font-size: .92rem; }
+.pos .pos-btn { padding: 0 18px; }
+.pos .pos-btn-sm { padding: 0 14px; }
 .pos-btn-green { border-color: #2fb83a !important; background: #f0fbf1 !important; color: #0f8f17 !important; }
 .pos-btn-green:hover { background: #e2f7e4 !important; border-color: #12a01b !important; }
 .pos-btn-red { border-color: #f3a6a6 !important; background: #fff !important; color: #e5484d !important; }

@@ -429,3 +429,7 @@ body.pp-brand-body a { color: inherit; }
   .dz-legend { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .dz-wave, .dz-skel { animation: none; } .pp-sidebar { transition: none; } }
+
+/* Branded pages are always light, even when the computer uses dark mode (the old pages' styles.css switches
+   --card / --fg to dark colours, which made form fields dark green). */
+body.pp-brand-body { --bg: #f4f6f9; --fg: #0f1d33; --card: #fff; --line: #dfe5ec; color-scheme: light; }

@@ -68,7 +68,7 @@ with sync_playwright() as p:
         row='#itemRows tr:first-child '
         pg.fill(row+'.med-name','Cetirizine 10 mg'); pg.dispatch_event(row+'.med-name','change'); pg.wait_for_timeout(1200)
         pg.fill(row+'.pack','10'); pg.fill(row+'.batch','C-9'); pg.fill(row+'.expiry','2028-09-30'); pg.fill(row+'.qty','4'); pg.fill(row+'.free','1')
-        pg.fill(row+'.mrp','180'); pg.fill(row+'.rate','95'); pg.fill(row+'.gst','12')
+        pg.fill(row+'.mrp','180'); pg.fill(row+'.rate','95'); pg.select_option(row+'.gst','12')
         units=pg.inner_text(row+'.stock-units')
         ok('purchase: stock units = 10 × (4 + 1) = 50', units=='50', units)
         # second row: new medicine via create

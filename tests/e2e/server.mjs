@@ -17,11 +17,15 @@ const PORT = +(process.env.PORT || 8790);
 const db = await makeFixture({ postgrest: true });
 await db.exec(fs.readFileSync(path.join(HERE, '../../database/migrations/0021_complete_backend_and_live_fixes.sql'), 'utf8'));
 await db.exec(fs.readFileSync(path.join(HERE, '../../database/migrations/0022_delivery_management_v2.sql'), 'utf8'));
+await db.exec(fs.readFileSync(path.join(HERE, '../../database/migrations/0023_inventory_stock_transfer.sql'), 'utf8'));
+await db.exec(fs.readFileSync(path.join(HERE, '../../database/migrations/0024_purchases_management.sql'), 'utf8'));
 export const log = [];
 
 // ---- seed realistic data through the real functions --------------------------
 await asOwner(db);
 await q(db, `insert into billing_settings(branch_id) values ($1) on conflict do nothing`, [IDS.branch]);
+// a second branch of the same pharmacy, so stock transfers can be exercised
+await q(db, `insert into branches(id,pharmacy_id,code,name,invoice_prefix,city) values ('0b000000-0000-0000-0000-000000000002',$1,'TOWN','Town Branch','TWN','Attingal') on conflict do nothing`, [IDS.pharmacy]);
 await q(db, `update branches set address='Main Road', city='Pallikkal', state='Kerala', pincode='695604', phone='9847000000', gstin='32ABCDE1234F1Z5' where id=$1`, [IDS.branch]);
 const dist = (await q(db, `insert into distributors(branch_id,name,phone,gstin) values ($1,'Kerala Pharma Distributors','9847011111','32AAACK1234L1Z2') returning id`, [IDS.branch]))[0].id;
 await q(db, `insert into distributors(branch_id,name,phone) values ($1,'Malabar Medicals','9847022222')`, [IDS.branch]);
@@ -89,6 +93,48 @@ if (process.env.DEMO) {
       await q(db, `update delivery_jobs set out_at=assigned_at + interval '12 min', delivered_at=case when status='done' then assigned_at + interval '38 min' end, failed_at=case when status='failed' then assigned_at + interval '45 min' end where invoice_id=$1`, [inv.id]);
     }
   }
+  // Medicines catalogue demo
+  const cats = {}; for (const c of ['Analgesic', 'Antibiotic', 'Gastro', 'Antihistamine', 'Antidiabetic', 'Cardiovascular', 'Respiratory', 'Pain Relief']) cats[c] = (await q(db, `insert into categories(name) values ($1) returning id`, [c]))[0].id;
+  const mans = {}; for (const m of ['Sun Pharma', 'Alkem', "Dr. Reddy's", 'Abbott', 'Zydus', 'Lupin', 'Glenmark', 'Torrent']) mans[m] = (await q(db, `insert into manufacturers(name) values ($1) returning id`, [m]))[0].id;
+  mans.Cipla = (await q(db, `select id from manufacturers where name='Cipla'`))[0].id;
+  const upd = [['Dolo', 'Micro Labs', 'Analgesic', 'Tablet', '8901112345678'], ['Pan', 'Alkem', 'Gastro', 'Tablet', '8901112345001'], ['Azithral', 'Alembic', 'Antibiotic', 'Tablet', '8901112345002'], ['Cetirizine', "Dr. Reddy's", 'Antihistamine', 'Tablet', '8901112345003']];
+  for (const [n, man, cat, form, bc] of upd) await q(db, `update medicines set manufacturer_id=(select id from manufacturers where name=$2 limit 1), category_id=$3, dosage_form=$4, barcode=$5 where name=$1 and branch_id=$6`, [n, man, cats[cat], form, bc, IDS.branch]);
+  const extra = [['Paracetamol', '500 mg', 'Cipla', 'Analgesic', 'Tablet', 50, 450, 100], ['Amoxicillin', '500 mg', 'Sun Pharma', 'Antibiotic', 'Capsule', 120, 240, 50], ['Pantoprazole', '40 mg', 'Alkem', 'Gastro', 'Tablet', 85, 20, 50], ['Metformin', '500 mg', 'Abbott', 'Antidiabetic', 'Tablet', 75, 22, 40], ['Azithromycin', '500 mg', 'Zydus', 'Antibiotic', 'Tablet', 180, 0, 20], ['Atorvastatin', '10 mg', 'Lupin', 'Cardiovascular', 'Tablet', 95, 320, 50], ['Omeprazole', '20 mg', 'Glenmark', 'Gastro', 'Capsule', 70, 56, 30], ['Diclofenac', '50 mg', 'Torrent', 'Pain Relief', 'Tablet', 45, 18, 30], ['Montelukast', '10 mg', 'Cipla', 'Respiratory', 'Tablet', 160, 75, 30]];
+  let bc = 8901112345100;
+  for (const [n, st, man, cat, form, mrp, qty, lvl] of extra) {
+    const id = (await q(db, `insert into medicines(branch_id,name,strength,mrp,selling_price,tax_rate,manufacturer_id,category_id,dosage_form,barcode,reorder_level,discount_percentage,rack,shelf_location) values ($1,$2,$3,0,0,12,$4,$5,$6,$7,$8,10,'B-02','B-02') returning id`, [IDS.branch, n, st, mans[man], cats[cat], form, String(bc++), lvl]))[0].id;
+    if (qty > 0) await q(db, `insert into medicine_batches(branch_id,medicine_id,batch_no,expiry,qty,mrp,unit_cost,tax_rate,price_includes_tax) values ($1,$2,$3,'2027-06-30',$4,$5,$6,12,true)`, [IDS.branch, id, n.slice(0, 2).toUpperCase() + '5001', qty, mrp, mrp * .7]);
+  }
+  // Purchases demo: distributors, two months of bills, payments, open and partly received orders
+  const dnames = [['Sun Pharma Distributors', '9847100001'], ['Cipla Healthcare', '9847100002'], ['Alkem Labs', '9847100003'], ['Abbott India Ltd.', '9847100004'], ['Mankind Pharma', '9847100005'], ["Dr. Reddy's Labs", '9847100006'], ['Zydus Healthcare', '9847100007'], ['Glenmark Pharma', '9847100008'], ['Lupin Ltd.', '9847100009'], ['Torrent Pharma', '9847100010']];
+  const dids = [];
+  for (const [n, ph] of dnames) dids.push((await q(db, `insert into distributors(branch_id,name,phone,gstin) values ($1,$2,$3,'32AAAC' || substr(md5($2),1,5) || '1Z2') returning id`, [IDS.branch, n, ph]))[0].id);
+  const allMeds = (await q(db, `select id, name from medicines where branch_id=$1 order by name`, [IDS.branch])).map(r => r.id);
+  const istToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const dayBefore = n => { const d = new Date(istToday + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+  await asUser(db, IDS.superAdmin);
+  let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  let bn = 1;
+  const weights = [6, 5, 4, 3, 3, 2, 2, 1, 1, 1];
+  const pickDist = () => { let t = rnd() * weights.reduce((a, b) => a + b, 0); for (let i = 0; i < weights.length; i++) { t -= weights[i]; if (t <= 0) return i; } return 0; };
+  for (let k = 0; k < 46; k++) {
+    const di = pickDist(), day = Math.floor(k * 58 / 46 + rnd() * 1.5);
+    const lines = [], nl = 2 + Math.floor(rnd() * 4), used = new Set();
+    for (let j = 0; j < nl; j++) {
+      const mi = Math.floor(rnd() * allMeds.length); if (used.has(mi)) continue; used.add(mi);
+      const pack = [10, 10, 15, 6, 1][Math.floor(rnd() * 5)], qty = 5 + Math.floor(rnd() * 40), price = Math.round((40 + rnd() * 600) * 100) / 100;
+      lines.push({ medicine_id: allMeds[mi], batch_no: 'B' + String(bn++).padStart(4, '0'), expiry: dayBefore(-(300 + Math.floor(rnd() * 500))), qty, free_qty: rnd() < .3 ? 1 : 0, pack, price, tax_rate: 12, discount: 0, mrp: Math.round(price * 1.45 * 100) / 100 });
+    }
+    const date = dayBefore(day);
+    const inv = (await q(db, `select confirm_purchase_v2($1::jsonb,$2::jsonb,null,null) id`, [JSON.stringify({ distributor_id: dids[di], invoice_no: 'PUR-' + String(1500 - k).padStart(5, '0'), invoice_date: date, due_date: dayBefore(day - 21), payment_terms: 'credit', discount: 0, freight: 0, round_off: 0 }), JSON.stringify(lines)]).catch(e => { console.warn('demo purchase', e.message); return [{}]; }))[0].id;
+    if (inv && rnd() < .65) await q(db, `select record_supplier_payment($1,(select total from purchase_invoices where id=$2) * $3,'upi','UTR' || $4,null,$2)`, [dids[di], inv, rnd() < .8 ? 1 : .5, String(900000 + k)]).catch(e => console.warn('demo pay', e.message));
+  }
+  const o1 = (await q(db, `select purchase_order_save(null,$1::jsonb,$2::jsonb) id`, [JSON.stringify({ distributor_id: dids[6], order_date: dayBefore(3), expected_date: dayBefore(-2), notes: 'Monthly antibiotic stock' }), JSON.stringify(allMeds.slice(0, 4).map((m, i) => ({ medicine_id: m, qty: 10 + i * 5, pack: 10, rate: 120 + i * 30 })))]))[0].id;
+  const o2 = (await q(db, `select purchase_order_save(null,$1::jsonb,$2::jsonb) id`, [JSON.stringify({ distributor_id: dids[3], order_date: dayBefore(6), expected_date: dayBefore(1) }), JSON.stringify(allMeds.slice(4, 7).map((m, i) => ({ medicine_id: m, qty: 20, pack: 10, rate: 200 + i * 50 })))]))[0].id;
+  await q(db, `select confirm_purchase_v3($1::jsonb,$2::jsonb,null,null,$3)`, [JSON.stringify({ distributor_id: dids[3], invoice_no: 'PUR-01453', invoice_date: dayBefore(2), discount: 0, freight: 0, round_off: 0 }), JSON.stringify([{ medicine_id: allMeds[4], batch_no: 'PO-B1', expiry: dayBefore(-500), qty: 20, pack: 10, price: 200, tax_rate: 12, discount: 0, mrp: 300 }]), o2]).catch(e => console.warn('demo receive', e.message));
+  await q(db, `select purchase_order_save(null,$1::jsonb,$2::jsonb) id`, [JSON.stringify({ distributor_id: dids[1], order_date: dayBefore(1) }), JSON.stringify(allMeds.slice(7, 9).map(m => ({ medicine_id: m, qty: 15, pack: 15, rate: 95 })))]);
+  await q(db, `select purchase_draft_save(null,$1::jsonb)`, [JSON.stringify({ distributor_id: dids[2], invoice_no: 'ALK-2291', invoice_date: istToday, items: [{ medicine_id: allMeds[0], medicine_label: 'Amoxicillin 500 mg', qty: 5, pack: 10 }] })]);
+  await asOwner(db);
   console.log('demo data seeded');
 }
 console.log('seeded');
@@ -244,6 +290,7 @@ http.createServer(async (req, res) => {
         await asUser(db, b.user);
         if (kind === 'query') return await runQuery(b.q);
         if (kind === 'rpc') return await runRpc(b.name, b.args);
+        if (kind === 'ownersql') { await asOwner(db); return { data: await q(db, b.sql, b.params || []), error: null }; }   // test-only cross-branch checks
         if (kind === 'storage') return await runStorage(b);
         if (kind === 'function') {
           if (b.name === 'admin-staff') {

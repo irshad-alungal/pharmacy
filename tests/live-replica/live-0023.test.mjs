@@ -1,0 +1,38 @@
+// Migration 0023 on the live-schema replica: stock transfer keeps stock, FIFO layers and movements consistent.
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { makeFixture, IDS, asUser, asOwner, q } from './fixture.mjs';
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const mig = n => fs.readFileSync(path.join(HERE, '../../database/migrations', n), 'utf8');
+let pass = 0, fail = 0;
+const ok = (n, c, x = '') => { c ? pass++ : fail++; console.log(`${c ? 'PASS' : 'FAIL'} ${n}${c ? '' : '  → ' + x}`); };
+const db = await makeFixture({ postgrest: true });
+await db.exec(mig('0021_complete_backend_and_live_fixes.sql'));
+await db.exec(mig('0023_inventory_stock_transfer.sql'));
+try { await db.exec(mig('0023_inventory_stock_transfer.sql')); ok('0023 runs a second time', true); } catch (e) { ok('0023 runs a second time', false, e.message); }
+await asOwner(db);
+const B2 = '0b000000-0000-0000-0000-000000000002';
+await q(db, `insert into branches(id,pharmacy_id,code,name,invoice_prefix) values ($1,$2,'TOWN','Town Branch','TWN')`, [B2, IDS.pharmacy]);
+const unit = (await q(db, `insert into units(name,code) values ('Tab','TB') returning id`))[0].id;
+const med = (await q(db, `insert into medicines(branch_id,name,strength,mrp,selling_price,tax_rate,base_unit_id) values ($1,'Dolo','650 mg',30,30,12,$2) returning id`, [IDS.branch, unit]))[0].id;
+const bat = (await q(db, `insert into medicine_batches(branch_id,medicine_id,batch_no,expiry,qty,unit_cost,mrp,tax_rate,price_includes_tax) values ($1,$2,'D-1','2028-01-31',100,2.5,3,12,true) returning id`, [IDS.branch, med]))[0].id;
+await q(db, `insert into inventory_cost_layers(branch_id,medicine_id,batch_id,layer_type,received_qty,remaining_qty,unit_cost) values ($1,$2,$3,'opening_stock',100,100,2.5)`, [IDS.branch, med, bat]);
+const as = async (u, sql, p) => { await asUser(db, u); try { return { rows: await q(db, sql, p) }; } catch (e) { return { error: e.message }; } finally { await asOwner(db); } };
+let r = await as(IDS.inventory, `select * from stock_transfer_branches()`); ok('inventory staff sees the other branch', !r.error && r.rows.length === 1 && r.rows[0].name === 'Town Branch', r.error || JSON.stringify(r.rows));
+r = await as(IDS.billing, `select * from stock_transfer_branches()`); ok('billing staff sees no branches', !r.error && r.rows.length === 0, r.error);
+r = await as(IDS.billing, `select stock_transfer($1,5,$2,'x')`, [bat, B2]); ok('billing staff cannot transfer', !!r.error);
+r = await as(IDS.inventory, `select stock_transfer($1,500,$2,'move')`, [bat, B2]); ok('cannot transfer more than in stock', !!r.error && /available/.test(r.error), r.error);
+r = await as(IDS.inventory, `select stock_transfer($1,30,$2,'')`, [bat, B2]); ok('reason required', !!r.error);
+r = await as(IDS.inventory, `select stock_transfer($1,30,$2,'Weekend demand')`, [bat, B2]); ok('inventory staff transfers 30', !r.error, r.error);
+const src = (await q(db, `select qty from medicine_batches where id=$1`, [bat]))[0].qty;
+const tgt = (await q(db, `select b.qty, b.mrp, m.name, m.branch_id from medicine_batches b join medicines m on m.id=b.medicine_id where b.branch_id=$1 and b.batch_no='D-1'`, [B2]))[0];
+ok('source batch 100 → 70', Number(src) === 70, src);
+ok('target branch got medicine + batch with 30 at the same MRP', tgt && Number(tgt.qty) === 30 && Number(tgt.mrp) === 3 && tgt.name === 'Dolo', JSON.stringify(tgt));
+const layers = await q(db, `select branch_id, sum(remaining_qty) rq from inventory_cost_layers group by branch_id`);
+ok('FIFO layers follow the stock (70 here, 30 there)', layers.find(l => l.branch_id === IDS.branch)?.rq == 70 && layers.find(l => l.branch_id === B2)?.rq == 30, JSON.stringify(layers));
+const mv = await q(db, `select branch_id, qty from stock_movements where movement_type='transfer' order by qty`);
+ok('two transfer movements (−30 / +30)', mv.length === 2 && Number(mv[0].qty) === -30 && Number(mv[1].qty) === 30);
+r = await as(IDS.inventory, `select stock_transfer($1,10,$2,'Again')`, [bat, B2]); ok('second transfer reuses the target batch', !r.error && Number((await q(db, `select qty from medicine_batches where branch_id=$1 and batch_no='D-1'`, [B2]))[0].qty) === 40, r.error);
+r = await as(IDS.inventory, `select count(*)::int n from stock_transfers`); ok('transfers listed for the branch', !r.error && r.rows[0].n === 2, r.error);
+console.log(`\n${pass} passed, ${fail} failed`);
