@@ -1,0 +1,100 @@
+// Migration 0029 on the live-schema replica: reports overview (current vs previous period), sales by
+// category, stock counts and the Recent reports history.
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { makeFixture, IDS as I, asUser, asOwner, q } from './fixture.mjs';
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const mig = n => fs.readFileSync(path.join(HERE, '../../database/migrations', n), 'utf8');
+let pass = 0, fail = 0;
+const ok = (n, c, x = '') => { c ? pass++ : fail++; console.log(`${c ? 'PASS' : 'FAIL'} ${n}${c ? '' : '  → ' + String(x).slice(0, 400)}`); };
+const one = async (sql, p) => (await q(db, sql, p))[0];
+const db = await makeFixture();
+await db.exec(mig('0021_complete_backend_and_live_fixes.sql'));
+await db.exec(mig('0027_returns_management.sql'));
+await db.exec(mig('0028_finance_management.sql'));
+await db.exec(mig('0029_reports_analytics.sql'));
+try { await db.exec(mig('0029_reports_analytics.sql')); ok('0029 runs a second time', true); } catch (e) { ok('0029 runs a second time', false, e.message); }
+await asOwner(db);
+const today = (await one(`select (now() at time zone 'Asia/Kolkata')::date::text d`)).d;
+const dist = (await one(`insert into distributors(branch_id,name) values ($1,'Dist A') returning id`, [I.branch])).id;
+const catRx = (await one(`insert into categories(name) values ('Analgesic') returning id`)).id;
+const med = (await one(`insert into medicines(branch_id,name,mrp,selling_price,tax_rate,category_id,reorder_level) values ($1,'Dolo',30,30,12,$2,100) returning id`, [I.branch, catRx])).id;
+await one(`insert into medicines(branch_id,name,mrp,selling_price,tax_rate) values ($1,'Empty Med',10,10,12) returning id`, [I.branch]);
+const cust = (await one(`insert into customers(branch_id,name,phone,credit_limit) values ($1,'Ravi','9847000301',5000) returning id`, [I.branch])).id;
+const cat = (await one(`insert into expense_categories(branch_id,name,active) values ($1,'Rent',true) returning id`, [I.branch])).id;
+const as = async (u, sql, p) => { await asUser(db, u); try { return { rows: await q(db, sql, p) }; } catch (e) { return { error: e.message }; } finally { await asOwner(db); } };
+// morning opening (popup), purchase (cost ₹15 / unit), cash sale, credit sale, receipt, supplier payment, expense, refund
+let r = await as(I.billing, `select record_daily_cash_opening($1::date, 2000) id`, [today]);
+ok('morning popup: billing staff records today\'s opening ₹2,000', !r.error, r.error);
+await asUser(db, I.superAdmin);
+const pv = (await one(`select confirm_purchase_v2($1::jsonb,$2::jsonb,null,null) id`, [JSON.stringify({ distributor_id: dist, invoice_no: 'PB-1', invoice_date: today, discount: 0, freight: 0, round_off: 0 }),
+  JSON.stringify([{ medicine_id: med, batch_no: 'X1', expiry: '2028-06-30', qty: 10, pack: 10, price: 150, tax_rate: 12, discount: 0, mrp: 300 }])])).id;
+const sell = async (cart, qty, pays, customer = null) => {
+  await asUser(db, I.billing);
+  const a = (await one(`select billing_allocate($1,$2,$3) a`, [cart, med, qty])).a;
+  let t = 0; for (const x of a.rows) t += +(await one(`select total_amount from billing_calc_line($1,$2,$3,$4,$5)`, [x.mrp, x.qty, x.default_discount_pct, x.tax_rate, x.price_includes_tax])).total_amount;
+  t = Math.round(t * 100) / 100;
+  const p = pays(t);
+  return [(await one(`select finalize_sale_v3($1,$2::jsonb,$4::jsonb,0,$3,null,null) id`, [customer, JSON.stringify(a.rows.map(x => ({ batch_id: x.batch_id, qty: x.qty }))), cart, JSON.stringify(p)])).id, t];
+};
+const [s1, t1] = await sell('11111111-0000-0000-0000-0000000000c1', 10, t => [{ method: 'cash', amount: t }]);
+const [s2, t2] = await sell('11111111-0000-0000-0000-0000000000c2', 5, () => [], cust);
+await asUser(db, I.superAdmin);
+await q(db, `select record_customer_receipt($1, 50, 'cash', 'part payment')`, [cust]);
+await q(db, `select record_supplier_payment($1, 400, 'cash', 'chq', null, $2)`, [dist, pv]);
+const ex = (await one(`select expense_save_draft(null,$1::date,$2,'Shop Rent',300,'cash',null,null) id`, [today, cat])).id;
+await q(db, `select expense_post($1)`, [ex]);
+await asUser(db, I.billing);
+const it = (await one(`select sales_item_id from returnable_items($1)`, [s1])).sales_item_id;
+await q(db, `select process_sales_return($1,$2::jsonb,'cash','wrong strength')`, [s1, JSON.stringify([{ sales_item_id: it, qty: 2, disposition: 'restock' }])]);
+await asOwner(db);
+const refund = +(await one(`select total from sales_returns`)).total;
+
+
+r = await as(I.superAdmin, `select reports_overview($1::date,$1::date) o`, [today]);
+const o = r.rows?.[0]?.o || {}, c = o.current || {}, p = o.previous || {};
+const fo = (await as(I.superAdmin, `select finance_overview($1::date,$1::date) o`, [today])).rows?.[0]?.o || {};
+ok('overview: sales, orders, customers, walk-ins for today', +c.sales === Math.round((t1 + t2) * 100) / 100 && +c.orders === 2 && +c.customers === 1 && +c.walkins === 1, r.error || JSON.stringify(c));
+ok('overview: purchases, expenses match finance overview', +c.purchases === +fo.purchases && +c.expenses === 300 && +c.purchase_bills === 1, JSON.stringify(c));
+ok('overview: cost of goods (FIFO, net of returns) matches finance', Math.abs(+c.cogs - +fo.cogs) < 0.01, JSON.stringify([c.cogs, fo.cogs]));
+const pnl = (await as(I.superAdmin, `select * from report_pnl($1,$1)`, [today])).rows || [];
+const np = +pnl.find(x => x.label.startsWith('Net profit')).amount;
+ok(`overview: net profit = P&L report net profit (₹${np})`, Math.abs(+c.net_profit - np) < 0.01, JSON.stringify([c.net_profit, np]));
+ok('overview: margin = net profit / net sales', Math.abs(+c.margin - Math.round(np * 10000 / +c.net_sales_ex_tax) / 100) < 0.02, JSON.stringify(c));
+ok('overview: returns count and value', +c.returns === 1 && +c.returns_value === refund, JSON.stringify(c));
+ok('overview: previous period is yesterday and empty', p.from === p.to && +p.sales === 0 && +p.orders === 0 && p.margin === null, JSON.stringify(p));
+ok('overview: stock — 2 medicines, Dolo low (87 left ≤ 100), Empty Med out of stock', +o.stock.medicines === 2 && +o.stock.low_stock === 1 && +o.stock.out_of_stock === 1 && +o.stock.stock_value === 87 * 15, JSON.stringify(o.stock));
+r = await as(I.superAdmin, `select reports_overview($1::date - 6, $1::date) o`, [today]);
+ok('overview: 7-day range → previous 7 days', r.rows?.[0]?.o?.previous?.from && new Date(r.rows[0].o.previous.to) - new Date(r.rows[0].o.previous.from) === 6 * 864e5, r.error || JSON.stringify(r.rows?.[0]?.o?.previous));
+r = await as(I.superAdmin, `select reports_overview($1::date, $1::date - 1) o`, [today]);
+ok('overview: reversed range refused', /valid date range/.test(r.error || ''), r.error);
+r = await as(I.superAdmin, `select * from reports_sales_by_category($1::date,$1::date)`, [today]);
+ok('sales by category: Analgesic holds all sales (adds up to the total)', r.rows?.length === 1 && r.rows[0].category === 'Analgesic' && Math.abs(+r.rows[0].sales - +c.sales) < 0.01 && +r.rows[0].bills === 2 && +r.rows[0].qty === 15, r.error || JSON.stringify(r.rows));
+await q(db, `update medicines set category_id = null where id = $1`, [med]);
+r = await as(I.superAdmin, `select * from reports_sales_by_category($1::date,$1::date)`, [today]);
+ok('sales by category: medicines without a category → Uncategorised', r.rows?.[0]?.category === 'Uncategorised', JSON.stringify(r.rows));
+// history
+r = await as(I.superAdmin, `select report_run_log('sales','Sales report (invoice-wise)','sales',$1::date,$1::date,'{"range":"today"}',2) id`, [today]);
+const run1 = r.rows?.[0]?.id;
+ok('history: run logged', !!run1, r.error);
+r = await as(I.admin, `select report_run_log('stock','Stock valuation','inventory',null,null,'{}',5) id`);
+const run2 = r.rows?.[0]?.id;
+r = await as(I.admin, `select * from report_runs_list(10, null)`);
+ok('history: list newest first with generated-by and mine flag', r.rows?.length === 2 && r.rows[0].id === run2 && r.rows[0].mine === true && r.rows[1].mine === false && r.rows[1].generated_by && r.rows[1].row_count === 2, r.error || JSON.stringify(r.rows));
+r = await as(I.admin, `select * from report_runs_list(10, 'sales')`);
+ok('history: filter by type', r.rows?.length === 1 && r.rows[0].report_id === 'sales', JSON.stringify(r.rows));
+r = await as(I.admin, `select report_run_log('x','',null,null,null,null,0)`);
+ok('history: empty name refused', /required/.test(r.error || ''), r.error);
+r = await as(I.admin, `select report_run_delete($1)`, [run1]);
+ok("history: admin cannot remove someone else's report", /Only the person/.test(r.error || ''), r.error);
+r = await as(I.superAdmin, `select report_run_delete($1)`, [run2]);
+ok('history: owner removes any report', !r.error && (await q(db, `select 1 from report_runs`)).length === 1, r.error);
+r = await as(I.billing, `select reports_overview($1::date,$1::date)`, [today]);
+ok('billing staff cannot read reports overview', /Not authorised/.test(r.error || ''), r.error);
+r = await as(I.pharmacist, `select * from report_runs_list(5,null)`);
+ok('pharmacist cannot read report history', /Not authorised/.test(r.error || ''), r.error);
+r = await q(db, `select has_table_privilege('authenticated','report_runs','select') s`);
+ok('report_runs not directly readable (RPC only)', r[0].s === false, JSON.stringify(r));
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

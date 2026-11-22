@@ -4,15 +4,20 @@ import { mountShell } from './navigation.js';
 import { sb, esc } from './supabase-client.js';
 import { icon, displayName, setNotifications } from './brand-shell.js';
 import { searchBox, mountGlobalSearch } from './global-search.js';
+import { loadSettings } from './app-settings.js';
+import { runAutoBackup } from './backup.js';
 
 const prof = await mountShell('dashboard', 'Dashboard', { layout: 'brand' });
 if (!prof) throw new Error('no session');
 const role = String(prof.role || '').toLowerCase();
+const appSettings = await loadSettings(sb);
+let backupNote = null;
 const view = document.getElementById('view');
 if (!['super_admin', 'admin'].includes(role)) {
   view.innerHTML = '<div class="dz-card">You do not have access to this page.</div>';
   throw new Error('Dashboard access denied');
 }
+backupNote = await runAutoBackup(sb, appSettings);
 
 // ---------------------------------------------------------------------------
 // Helpers (all dates are India Standard Time calendar days)
@@ -318,7 +323,7 @@ async function load() {
   document.getElementById('recent').innerHTML = recentRows.length ? recentRows.map(r => {
     const badge = r.status === 'cancelled' ? '<span class="dz-badge bad">Cancelled</span>' : r.status === 'refunded' ? '<span class="dz-badge bad">Refunded</span>'
       : onCredit.has(r.id) ? '<span class="dz-badge credit">Credit</span>' : '<span class="dz-badge ok">Completed</span>';
-    return `<tr data-href="sales.html?q=${encodeURIComponent(r.invoice_no)}"><td>${esc(r.invoice_no)}</td><td class="dz-wrap">${esc(cname.get(r.customer_id) || r.patient_name || 'Walk-in')}</td><td class="dz-col-date">${esc(when(r.created_at))}</td><td class="dz-num">${rupees2(r.total)}</td><td class="dz-center">${badge}</td></tr>`;
+    return `<tr data-href="${r.id ? `invoice-view.html?id=${encodeURIComponent(r.id)}` : `sales.html?q=${encodeURIComponent(r.invoice_no)}`}"><td>${esc(r.invoice_no)}</td><td class="dz-wrap">${esc(cname.get(r.customer_id) || r.patient_name || 'Walk-in')}</td><td class="dz-col-date">${esc(when(r.created_at))}</td><td class="dz-num">${rupees2(r.total)}</td><td class="dz-center">${badge}</td></tr>`;
   }).join('') : '<tr><td colspan="5" class="dz-empty">No bills yet. Click “New Sale” to create the first one.</td></tr>';
 
   // ---- Recent purchases
@@ -362,15 +367,18 @@ async function load() {
     <div class="dz-bars">${shown.length ? shown.map(([n, v], i) => `<div class="dz-bar"><span>${esc(n)}</span><b>${rupees0(v)}</b><i><em style="width:${Math.max(3, v / maxCat * 100).toFixed(1)}%;background:${BAR_COLORS[i % BAR_COLORS.length]}"></em></i></div>`).join('') : '<p class="dz-empty">No expenses posted this month.</p>'}</div>`
     : '<p class="dz-empty">Expense data is unavailable.</p>';
 
-  // ---- Notifications
+  // ---- Notifications (which alerts appear follows Settings → Notifications, 0033)
   const notes = [];
-  if (lowList.length) notes.push({ tone: 'warn', title: `${count(lowList.length)} medicine(s) at low stock`, detail: lowList.slice(0, 3).map(l => l.name).join(', '), href: 'inventory.html' });
-  if (lists.expired.length) notes.push({ tone: 'danger', title: `${count(lists.expired.length)} expired batch(es) still in stock`, detail: 'Write off or return to distributor', href: 'inventory.html' });
-  if (lists['30'].length) notes.push({ tone: 'warn', title: `${count(lists['30'].length)} batch(es) expire within 30 days`, detail: 'Sell first or plan returns', href: 'inventory.html' });
+  const AS = appSettings, nd = Number(AS.notifications.expiry_days) || 30, dN = addDays(today, nd);
+  const soon = (batches || []).filter(b => b.expiry > today && b.expiry <= dN && Number(b.qty) > 0).length;
+  if (AS.general.low_stock_alerts !== false && lowList.length) notes.push({ tone: 'warn', title: `${count(lowList.length)} medicine(s) at low stock`, detail: lowList.slice(0, 3).map(l => l.name).join(', '), href: 'inventory.html' });
+  if (AS.general.expiry_alerts !== false && lists.expired.length) notes.push({ tone: 'danger', title: `${count(lists.expired.length)} expired batch(es) still in stock`, detail: 'Write off or return to distributor', href: 'inventory.html' });
+  if (AS.general.expiry_alerts !== false && soon) notes.push({ tone: 'warn', title: `${count(soon)} batch(es) expire within ${nd} days`, detail: 'Sell first or plan returns', href: 'inventory.html' });
   const waiting = delRows.filter(r => r.delivery.status === 'pending' && !r.delivery.assigned_to).length;
-  if (waiting) notes.push({ tone: 'info', title: `${count(waiting)} delivery request(s) not assigned`, detail: 'Assign a delivery person', href: 'delivery.html' });
-  if (deact?.length) notes.push({ tone: 'info', title: `${count(deact.length)} medicine deactivation request(s)`, detail: 'Waiting for your review', href: 'medicines.html' });
-  if (drafts?.length) notes.push({ tone: 'info', title: `${count(drafts.length)} expense draft(s) not posted`, detail: 'Post them so they reach the ledger', href: 'expenses.html' });
+  if (AS.notifications.deliveries !== false && waiting) notes.push({ tone: 'info', title: `${count(waiting)} delivery request(s) not assigned`, detail: 'Assign a delivery person', href: 'delivery.html' });
+  if (AS.notifications.deactivations !== false && deact?.length) notes.push({ tone: 'info', title: `${count(deact.length)} medicine deactivation request(s)`, detail: 'Waiting for your review', href: 'medicines.html' });
+  if (AS.notifications.expense_drafts !== false && drafts?.length) notes.push({ tone: 'info', title: `${count(drafts.length)} expense draft(s) not posted`, detail: 'Post them so they reach the ledger', href: 'expenses.html' });
+  if (backupNote) notes.push(backupNote);
   setNotifications(notes);
 
   status.textContent = `Updated ${new Date().toLocaleTimeString('en-IN', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })} · figures are for your branch only`;

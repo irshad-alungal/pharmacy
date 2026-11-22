@@ -3,6 +3,7 @@
 // billing engine and the database; this file only lays them out.
 import { sb, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-client.js';
 import { mountShell } from './navigation.js';
+import { afterBill, sendInvoice, waSettings } from './whatsapp-invoice.js';
 import { esc, inr } from './utils.js';
 import { friendly, safeQ } from './ui.js';
 import { showInvoice } from './invoice.js';
@@ -11,8 +12,10 @@ import { mountAssistant } from './billing-assistant.js';
 import { icon, setNotifications } from './brand-shell.js';
 import { searchBox, mountGlobalSearch } from './global-search.js';
 import { can } from './permissions.js';
+import { loadSettings } from './app-settings.js';
 
 const prof = await mountShell('billing', 'Billing', { layout: 'brand' });
+waSettings(sb);   // WhatsApp invoice settings, loaded early so the bill is not delayed
 const allowedRoles = ['super_admin', 'admin', 'pharmacist', 'billing_staff', 'billing'];
 
 if (!allowedRoles.includes(prof.role)) {
@@ -320,6 +323,13 @@ async function loadConfig() {
   else cfg = { ...cfg, ...data, gst_rates: (data.gst_rates || GST_FALLBACK_RATES).map(Number) };
 }
 await loadConfig();
+// Payment methods switched on in Settings → Payment Methods (0033); all are on by default.
+const appSet = await loadSettings(sb);
+const PAY_ON = new Set(appSet.payments.enabled?.length ? appSet.payments.enabled : ['cash', 'card', 'upi', 'wallet', 'credit', 'split']);
+const DEF_PM = ['cash', 'card', 'upi', 'wallet'].includes(appSet.payments.default_method) && PAY_ON.has(appSet.payments.default_method) ? appSet.payments.default_method : 'cash';
+const DEF_PAY = DEF_PM === 'wallet' ? 'upi' : DEF_PM;
+document.querySelectorAll('.pos-method').forEach(b => { b.hidden = !PAY_ON.has(b.dataset.method); });
+const SPLIT_MS = ['cash', 'upi', 'card'].filter(m => PAY_ON.has(m)).length ? ['cash', 'upi', 'card'].filter(m => PAY_ON.has(m)) : ['cash', 'upi', 'card'];
 const perm = cfg.permissions;
 $('disc').disabled = !perm.discount;
 if (!perm.discount) {
@@ -332,8 +342,8 @@ $('permNote').insertAdjacentText('beforeend', permText());
 // ============================================================================
 // State
 // ============================================================================
-let cust = null, avail = 0, outstanding = 0, pays = [{ method: 'cash', amount: '' }];
-let payMode = 'cash';          // cash | card | upi | wallet | credit | split
+let cust = null, avail = 0, outstanding = 0, pays = [{ method: DEF_PAY, amount: '' }];
+let payMode = DEF_PM;          // cash | card | upi | wallet | credit | split
 let cashReceived = '';
 let rxFile = null;
 let cartToken = crypto.randomUUID();
@@ -380,7 +390,7 @@ async function setCust(c) {
 
   // Credit is represented by the server-generated unpaid remainder, not a cashier-entered row.
   pays.forEach(p => { if (p.method === 'credit') p.method = 'cash'; });
-  if (!c && payMode === 'credit') payMode = 'cash';
+  if (!c && payMode === 'credit') payMode = DEF_PM;
 
   renderCust();
   renderPays();
@@ -1171,7 +1181,7 @@ function renderPays() {
     b.setAttribute('aria-checked', String(on));
     if (b.dataset.method === 'credit') b.classList.toggle('needs-cust', !cust);
   });
-  const ms = ['cash', 'upi', 'card'];
+  const ms = SPLIT_MS;
   $('addp').hidden = payMode !== 'split';
   if (payMode === 'split') {
     $('pays').innerHTML = pays.map((p, i) => `<div class="pos-split-row"><select data-m="${i}" aria-label="Payment method ${i + 1}">${ms.map(m => `<option value="${m}" ${m === p.method ? 'selected' : ''}>${m.toUpperCase()}</option>`).join('')}</select>
@@ -1268,7 +1278,7 @@ $('addp').onclick = () => {
   if (pays.length === 1 && pays[0].amount === '') pays[0].amount = total();
   const rest = Math.max(0, Math.round((total() - paidSum()) * 100) / 100);
   const used = new Set(pays.map(p => p.method));
-  pays.push({ method: ['upi', 'card', 'cash'].find(m => !used.has(m)) || 'upi', amount: rest || '' });
+  pays.push({ method: SPLIT_MS.find(m => !used.has(m)) || SPLIT_MS[0], amount: rest || '' });
   renderPays();
 };
 
@@ -1328,9 +1338,9 @@ async function reset({ keepToken = false } = {}) {
   groups = [];
   expanded.clear();
   if (!keepToken) await releaseAll();
-  payMode = 'cash';
+  payMode = DEF_PM;
   cashReceived = '';
-  pays = [{ method: 'cash', amount: '' }];
+  pays = [{ method: DEF_PAY, amount: '' }];
   $('disc').value = 0;
   ['doctorName', 'patientName', 'patientPhone', 'patientAddress', 'diagnosis'].forEach(id => { if ($(id)) $(id).value = ''; });
   rxFile = null;
@@ -1376,7 +1386,7 @@ function blockingProblems() {
 
 
 // Opens the printable invoice (preview, thermal, A4, PDF) for a saved bill.
-async function openInvoice(invoiceId) {
+async function openInvoice(invoiceId, waStatus = '') {
   const det = await sb.rpc('invoice_detail', { p_invoice: invoiceId });
   if (det.error) { note('The invoice could not be loaded: ' + friendly(det.error), true); return false; }
 
@@ -1406,7 +1416,7 @@ async function openInvoice(invoiceId) {
     footer_note: branch?.invoice_footer || ''
   };
   if (!branch) note('Pharmacy profile could not be loaded; using the default pharmacy name.', true);
-  showInvoice(det.data);
+  showInvoice(det.data, undefined, { whatsapp: (d, say) => sendInvoice(sb, invoiceId, d, say), status: waStatus.trim() });
   return true;
 }
 
@@ -1462,12 +1472,13 @@ $('pay').onclick = async () => {
 
   // Stock was deducted and reservations released inside the same transaction.
   cartToken = crypto.randomUUID();
+  const waNote = await afterBill(sb, data);   // invoice on WhatsApp (0030): prepared and opened while the click is still fresh
   const rxNote = await uploadPrescription(data);
   const changeNote = payMode === 'cash' && Number(cashReceived) > grand ? ` Return change ${inr(Math.round((Number(cashReceived) - cashPaid) * 100) / 100)}.` : '';
   lastInvoiceId = data;
   await reset({ keepToken: true });
-  note(`${due > 0 ? `Bill saved. Customer balance added: ${inr(due)}.` : 'Bill saved.'}${changeNote}${rxNote ? ` ${rxNote}` : ''}`, /not saved/.test(rxNote));
-  await openInvoice(data);
+  note(`${due > 0 ? `Bill saved. Customer balance added: ${inr(due)}.` : 'Bill saved.'}${changeNote}${rxNote ? ` ${rxNote}` : ''}${waNote}`, /not saved/.test(rxNote));
+  await openInvoice(data, waNote);
 };
 
 // ---- hold / resume (held bills do not reserve stock; they re-allocate FEFO on resume)
@@ -1799,3 +1810,9 @@ renderRxFile();
 renderPays();
 renderCart();
 refreshHeldCount();
+// ?customer=<id> (from the Customers page) starts the bill for that customer.
+const startCustomer = new URLSearchParams(location.search).get('customer');
+if (startCustomer) {
+  const { data: sc } = await sb.from('customers').select('id,name,phone,consent,credit_limit,active').eq('branch_id', prof.branch_id).eq('id', startCustomer).maybeSingle();
+  if (sc?.active) { await setCust(sc); note(`Billing ${sc.name}.`); }
+}

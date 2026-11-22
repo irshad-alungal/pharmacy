@@ -10,7 +10,8 @@ export const searchBox = id => `<div class="pp-search" data-search>
   <label for="${id}">${icon('search')}<input id="${id}" type="search" placeholder="Search medicines, invoices, customers..." autocomplete="off" aria-label="Search medicines, invoices and customers"><span class="pp-kbd">Ctrl + K</span></label>
   <div class="pp-search-results" hidden></div></div>`;
 
-export function mountGlobalSearch({ sb, prof }) {
+// extra(q) may return page-specific results [{ g, t, s, h, run }] shown first (e.g. Settings sections).
+export function mountGlobalSearch({ sb, prof, extra, placeholder }) {
   const safe = p => Promise.resolve(p).then(({ data, error }) => (error ? null : data)).catch(() => null);
   const clean = s => String(s || '').replace(/[%,()*\\]/g, ' ').trim();
   function wireSearch(box) {
@@ -33,8 +34,9 @@ export function mountGlobalSearch({ sb, prof }) {
         ]);
         if (my !== seq) return;
         items = [
+          ...((extra && extra(q)) || []),
           ...(m || []).map(x => ({ g: 'Medicines', t: `${x.name}${x.strength ? ' ' + x.strength : ''}`, s: x.barcode || '', h: `medicines.html?q=${encodeURIComponent(x.name)}` })),
-          ...(i || []).map(x => ({ g: 'Invoices', t: x.invoice_no, s: `${rupees2(x.total)} · ${when(x.created_at)}`, h: `sales.html?q=${encodeURIComponent(x.invoice_no)}` })),
+          ...(i || []).map(x => ({ g: 'Invoices', t: x.invoice_no, s: `${rupees2(x.total)} · ${when(x.created_at)}`, h: `invoice-view.html?id=${encodeURIComponent(x.id)}` })),
           ...(c || []).map(x => ({ g: 'Customers', t: x.name, s: x.phone || '', h: `customers.html?q=${encodeURIComponent(x.phone || x.name)}` }))
         ];
         let last = '';
@@ -48,12 +50,22 @@ export function mountGlobalSearch({ sb, prof }) {
       if (out.hidden || !items.length) return;
       if (e.key === 'ArrowDown') { e.preventDefault(); active = (active + 1) % items.length; paint(); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); active = (active - 1 + items.length) % items.length; paint(); }
-      else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); location.href = items[active].h; }
+      else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); if (items[active].run) { items[active].run(); close(); input.blur(); } else location.href = items[active].h; }
       else if (e.key === 'Escape') close();
     });
     document.addEventListener('click', e => { if (!box.contains(e.target)) close(); });
   }
-  document.querySelectorAll('[data-search]:not([data-wired])').forEach(b => { b.dataset.wired = '1'; wireSearch(b); });
+  document.querySelectorAll('[data-search]:not([data-wired])').forEach(b => {
+    b.dataset.wired = '1';
+    if (placeholder) { const i = b.querySelector('input'); i.placeholder = placeholder; i.setAttribute('aria-label', placeholder); }
+    wireSearch(b);
+    // page results that run an action instead of navigating
+    b.querySelector('.pp-search-results').addEventListener('click', e => {
+      const a = e.target.closest('.pp-sr-item'); if (!a || !extra) return;
+      const it = (extra(clean(b.querySelector('input').value)) || [])[+a.dataset.k];
+      if (it?.run && a.getAttribute('href') === it.h) { e.preventDefault(); it.run(); b.querySelector('.pp-search-results').hidden = true; }
+    });
+  });
   document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();

@@ -43,7 +43,7 @@ export async function mountShell(page, title, opts = {}) {
     await sb.auth.signOut();
     const loginPage = ['super_admin', 'admin'].includes(prof.role)
       ? 'admin-login.html' : 'staff-login.html';
-    location.replace(loginPage);
+    location.replace(`${loginPage}?next=${encodeURIComponent((location.pathname.split('/').pop() || '') + location.search)}`);
     throw new Error('daily login required');
   }
 
@@ -106,7 +106,7 @@ export async function mountShell(page, title, opts = {}) {
     await sb.auth.signOut();
     const loginPage = ['super_admin', 'admin'].includes(prof.role)
       ? 'admin-login.html' : 'staff-login.html';
-    location.replace(loginPage);
+    location.replace(`${loginPage}?next=${encodeURIComponent((location.pathname.split('/').pop() || '') + location.search)}`);
     throw new Error('work session unavailable; fresh login required');
   }
 

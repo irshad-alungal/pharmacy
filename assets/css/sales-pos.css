@@ -1,0 +1,239 @@
+/* ==========================================================================
+   Sales Management — Pallikkal Pharmacy design. Builds on the shared brand
+   styles (dashboard, delivery, medicines, purchases, distributors). Prefix: sl-
+   ========================================================================== */
+.sl-grid {
+  display: grid; gap: 18px; align-items: start;
+  grid-template-columns: minmax(0, 1fr) 480px;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas: "list trend" "list top" "sum pay";
+}
+.sl-trend .dz-tip { max-width: 220px; }
+.sl-list { grid-area: list; align-self: stretch; display: flex; flex-direction: column; }
+.sl-list .md-pager { margin-top: auto; padding-top: 14px; }
+.sl-trend { grid-area: trend; }
+.sl-top { grid-area: top; align-self: stretch; }
+.sl-sum { grid-area: sum; align-self: stretch; }
+.sl-pay { grid-area: pay; align-self: stretch; }
+.sl .pos-card { min-width: 0; }
+.sl-list .dl-card-head h2 small, .sl-pay h2 small, .sl-sum h2 small { font: 600 1rem var(--pp-head); color: var(--pp-ink); }
+.sl-sum h2 small, .sl-pay h2 small { font: 500 .82rem var(--pp-body); color: var(--pp-muted); }
+.sl-head-actions a.pos-btn { text-decoration: none; }
+.sl-export { right: 0; left: auto; min-width: 250px; }
+
+/* table */
+.sl-table td { font-size: .86rem; white-space: nowrap; }
+.sl-table .c-no { width: 34px; color: var(--pp-text); }
+.sl-table .c-inv b { font-weight: 700; color: var(--pp-ink); }
+.sl-table .c-cust b { font-weight: 500; color: var(--pp-ink); }
+.sl-table .c-cust { max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+.sl-table .c-amt b { font-weight: 600; color: var(--pp-ink); }
+.sl-table .c-amt small.sl-ret { display: block; font-size: .7rem; color: #b45309; }
+.sl-table .c-act { width: 86px; text-align: center; }
+.sl-table tbody tr[data-id] { cursor: pointer; }
+.sl-table tbody tr[data-id]:hover td { background: #f8fbf9; }
+.sl-table tr.ds-off td { color: var(--pp-muted); }
+.sl-table tr.ds-off .c-amt b { text-decoration: line-through; color: var(--pp-muted); }
+.sl-table .sl-doc, .sl-table small.sl-m-cust, .sl-table small.sl-m-items { display: none; }
+.sl-pay-chip { display: inline-block; min-width: 50px; padding: 4px 10px; border-radius: 7px; font-size: .78rem; font-weight: 600; text-align: center; }
+.sl-pay-chip.p-cash { background: #e3f6e5; color: #13801b; }
+.sl-pay-chip.p-upi { background: #efe9ff; color: #6a3fd8; }
+.sl-pay-chip.p-card { background: #e3efff; color: #1d5fbf; }
+.sl-pay-chip.p-credit { background: #fff1d6; color: #b45309; }
+.sl-pay-chip.p-split { background: #eef1f5; color: #344054; cursor: help; }
+.sl-st { gap: 5px !important; font-weight: 500; }
+.sl-st .pp-ic { width: 14px; height: 14px; }
+.sl-st.in { background: #e3f6e5; }
+.sl-all { display: inline-flex; align-items: center; gap: 4px; }
+.sl-all .pp-ic { width: 16px; height: 16px; }
+.sl-all[hidden] { display: none !important; }
+.sl-filter { width: 300px; right: 0; left: auto; }
+.sl-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sl-dates[hidden] { display: none; }
+
+/* top selling */
+.sl-top-table tbody tr[data-med] { cursor: pointer; }
+.sl-top-table tbody tr[data-med]:hover td { background: #f8fbf9; }
+.sl-top-table td { white-space: nowrap; }
+.sl-top-table td:nth-child(2) { white-space: normal; color: var(--pp-ink); }
+.sl-top-table .c-no { width: 34px; }
+.sl-top-table .pur-rank { margin-right: 0; }
+.sl-top-table .pur-rank.r4, .sl-top-table .pur-rank.r5 { background: #dfe6f3; color: #344054; }
+.sl-top-table th:nth-child(1) { width: 34px; }
+
+/* summary */
+.sl-tiles { margin-top: 6px; }
+.sl-tiles button { display: grid !important; justify-items: center; gap: 6px; padding: 22px 6px !important; border-radius: 12px !important; text-align: center; cursor: pointer; border: 0 !important; transition: transform .15s; }
+.sl-tiles button:hover { transform: translateY(-2px); }
+.sl-tiles b { font: 800 1.45rem var(--pp-head) !important; white-space: nowrap; }
+.sl-tiles span { font-size: .88rem; color: var(--pp-ink); }
+.sl-tiles .g { background: #e6f6e8 !important; } .sl-tiles .g b { color: #0f7a16; }
+.sl-tiles .b { background: #e6f0fd !important; } .sl-tiles .b b { color: #02224d; }
+.sl-tiles .a { background: #fff3dc !important; } .sl-tiles .a b { color: #7a3f04; }
+.sl-tiles .p { background: #efe8ff !important; } .sl-tiles .p b { color: #6a3fd8; }
+.sl-sum .ds-adv { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: #f3f5f8; font-size: .8rem; color: var(--pp-text); }
+.sl-sum .ds-adv .pp-ic, .sl-sum .pur-sum-more .pp-ic { width: 15px; height: 15px; }
+.sl-sum .pur-sum-more b { color: var(--pp-ink); }
+
+/* payment methods */
+.sl-paybox { grid-template-columns: 170px minmax(0, 1fr) !important; gap: 26px !important; padding: 4px 0; }
+.sl-donut { width: 170px !important; height: 170px !important; }
+.sl-donut .dl-donut-c strong { font-size: 1.15rem !important; }
+.sl-donut .dl-donut-c span { font-size: .8rem !important; }
+.sl-legend { display: grid; gap: 4px; }
+.sl-legend button { display: grid !important; grid-template-columns: 14px minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 9px 6px !important; border-radius: 8px !important; border: 0 !important; border-bottom: 1px solid var(--pp-line) !important; text-align: left; background: none !important; cursor: pointer; }
+.sl-legend button:last-child { border-bottom: 0 !important; }
+.sl-legend button:hover { background: #f6f8fb !important; }
+.sl-legend i { width: 13px; height: 13px; border-radius: 50%; }
+.sl-legend b { font-weight: 500; color: var(--pp-ink); }
+.sl-legend em { font-style: normal; color: var(--pp-text); font-size: .86rem; }
+.sl-legend span { font-weight: 700; color: var(--pp-ink); min-width: 86px; text-align: right; }
+
+/* bill dialog */
+.sl-dlg { width: min(96vw, 860px) !important; }
+.sl-bill-head { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; }
+.sl-bill-ic { width: 48px !important; height: 48px !important; }
+.sl-bill-head h3 { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0; font: 700 1.2rem var(--pp-head); color: var(--pp-ink); }
+.sl-bill-head p { margin: 2px 0 0; }
+.sl-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.sl-kv > div { padding: 10px 12px; border-radius: 10px; background: #f6f8fb; }
+.sl-kv small { display: block; color: var(--pp-muted); font-size: .74rem; margin-bottom: 2px; }
+.sl-kv b { font-weight: 600; color: var(--pp-ink); font-size: .88rem; }
+.sl-kv a { color: #1d5fbf; }
+.sl-items td { font-size: .84rem; }
+.sl-totals { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 22px; margin: 12px 4px; font-size: .88rem; color: var(--pp-text); }
+.sl-totals b { color: var(--pp-ink); margin-left: 4px; }
+.sl-totals .big { font-size: 1.05rem; } .sl-totals .big b { font: 800 1.15rem var(--pp-head); color: #0f7a16; }
+.sl-sub { display: flex; align-items: center; gap: 6px; margin: 14px 0 6px; font: 700 .95rem var(--pp-head); color: var(--pp-ink); }
+.sl-sub .pp-ic { width: 18px; height: 18px; }
+.sl-bill-acts { flex-wrap: wrap; gap: 8px; }
+.sl-bill-acts a.pos-btn { text-decoration: none; }
+.sl-top-tools { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.sl-top-all { max-height: 60vh; overflow: auto; }
+
+/* ---------------- responsive ---------------- */
+@media (max-width: 1640px) {
+  .sl-grid { grid-template-columns: minmax(0, 1fr) 420px; }
+  .sl-table td { font-size: .82rem; }
+  .sl-table td, .sl-table th { padding-left: 7px !important; padding-right: 7px !important; }
+  .sl-tiles b { font-size: 1.2rem !important; }
+  .sl-paybox { grid-template-columns: 150px minmax(0, 1fr) !important; gap: 18px !important; }
+  .sl-donut { width: 150px !important; height: 150px !important; }
+  .sl-donut .dl-donut-c strong { font-size: 1rem !important; }
+  .sl-legend span { min-width: 74px; font-size: .86rem; }
+}
+@media (max-width: 1640px) {
+  .sl-table .c-no { display: none; }
+  .sl-table .md-chip { padding: 4px 9px; font-size: .76rem; }
+  .sl-pay-chip { min-width: 44px; padding: 4px 8px; }
+  .sl-table .c-act { width: 78px; }
+  .sl-table .pur-acts { gap: 4px; }
+  .sl-table .pur-acts .dl-act { width: 32px; height: 32px; }
+}
+@media (max-width: 1500px) {
+  .sl-table .c-cust { max-width: 130px; }
+}
+@media (max-width: 1280px) {
+  .sl-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "list list" "trend top" "sum pay"; }
+}
+@media (max-width: 1060px) {
+  .sl-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "list" "trend" "top" "sum" "pay"; }
+}
+@media (max-width: 900px) {
+  .sl-table thead { display: none; }
+  .sl-table, .sl-table tbody { display: block; }
+  .sl-table tbody tr[data-id] { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto auto 36px; grid-template-areas: "inv when amt st act"; gap: 10px; align-items: center; padding: 11px 4px; border-bottom: 1px solid var(--pp-line); }
+  .sl-table tbody td { display: block; padding: 0 !important; border: 0 !important; background: none !important; }
+  .sl-table .c-no, .sl-table .c-cust, .sl-table .c-items, .sl-table .c-pay { display: none !important; }
+  .sl-table .c-inv { grid-area: inv; display: grid !important; grid-template-columns: 40px minmax(0, 1fr); column-gap: 10px; align-items: center; min-width: 0; }
+  .sl-table .sl-doc { display: grid; place-items: center; grid-row: span 2; width: 40px; height: 40px; border-radius: 10px; background: #e6f6e8; color: #12a01b; }
+  .sl-doc .pp-ic { width: 20px; height: 20px; }
+  .sl-table small.sl-m-cust { display: flex; align-items: center; gap: 4px; font-size: .8rem; color: var(--pp-text); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .sl-m-cust .pp-ic { width: 13px; height: 13px; flex: none; }
+  .sl-table .c-inv b { overflow: hidden; text-overflow: ellipsis; }
+  .sl-table .c-when { grid-area: when; font-size: .78rem !important; color: var(--pp-text); min-width: 0; }
+  .sl-table small.sl-m-items { display: block; font-size: .78rem; color: var(--pp-text); }
+  .sl-table .c-amt { grid-area: amt; text-align: right; padding-left: 10px !important; border-left: 1px solid var(--pp-line) !important; }
+  .sl-table .c-amt b { font-size: .92rem; }
+  .sl-table .c-st { grid-area: st; }
+  .sl-table .c-act { grid-area: act; width: auto; }
+  .sl-table .pur-acts .dl-act[data-view] { display: none; }
+  .sl-table .pur-acts .dl-act { width: 36px; height: 34px; }
+  .sl-table tbody tr.dl-empty-row, .sl-table tbody tr:not([data-id]) { display: block; }
+}
+@media (max-width: 900px) and (min-width: 561px) { .sl-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "list list" "trend top" "sum pay"; } .sl-tiles { grid-template-columns: 1fr 1fr !important; } .sl-paybox { grid-template-columns: minmax(0, 1fr) !important; justify-items: center; } .sl-legend { width: 100%; } }
+@media (max-width: 560px) {
+  .sl .md-head-actions { grid-template-columns: 1.35fr 1.3fr 0.9fr 1.05fr !important; gap: 6px !important; }
+  .sl .md-head-actions > .pos-btn-solid { grid-column: auto !important; }
+  .sl .md-head-actions .pos-btn { height: 44px !important; font-size: .78rem !important; padding: 0 6px !important; gap: 5px !important; }
+  .sl .md-head-actions .pos-btn .pp-ic { width: 16px; height: 16px; }
+  .sl .md-kpi { padding: 14px 12px !important; gap: 10px; }
+  .sl .md-kpi .dz-kpi-icon { width: 44px; height: 44px; border-radius: 12px; }
+  .sl .md-kpi .dz-kpi-icon .pp-ic { width: 22px; height: 22px; }
+  .sl .md-kpi .dz-kpi-label { font-size: .8rem; }
+  .sl .md-kpi strong { font-size: 1.2rem; }
+  .sl .md-kpi small { font-size: .7rem; }
+  .sl-list .ds-list-head { gap: 6px; }
+  .sl-list .ds-list-head h2 { font-size: .98rem; min-width: 0; }
+  .sl-list .dl-card-head h2 small { font-size: .84rem; }
+  .sl-status { width: 120px; height: 38px; flex: none; padding: 0 4px 0 10px; }
+  .sl-status select { min-width: 0; width: 100%; font-size: .8rem; }
+  .sl .ds-tools .dl-filter-btn { width: 44px; padding: 0 !important; justify-content: center; }
+  .sl .ds-tools .dl-filter-btn span { display: none; }
+  .sl-filter { width: min(86vw, 300px); }
+  .sl-table tbody tr[data-id] { grid-template-columns: minmax(0, 1fr) auto 34px; grid-template-areas: "inv amt act" "inv st act" "when when act"; row-gap: 4px; column-gap: 8px; }
+  .sl-table .c-when { display: flex !important; gap: 8px; padding-left: 50px !important; }
+  .sl-table .c-when .sl-m-items::before { content: '· '; }
+  .sl-table .c-amt { border-left: 0 !important; padding-left: 0 !important; }
+  .sl-table .c-st { justify-self: end; }
+  .sl-table .md-chip { font-size: .72rem; padding: 3px 8px; }
+  .sl-table .pur-acts .dl-act { width: 32px; height: 32px; }
+  .sl-list .md-pager { flex-wrap: wrap; gap: 8px; }
+  .sl-list .md-per { display: none; }
+  .sl-tiles { grid-template-columns: 1fr 1fr !important; }
+  .sl-tiles button { padding: 14px 6px !important; }
+  .sl-tiles b { font-size: 1.05rem !important; }
+  .sl-tiles span { font-size: .78rem; }
+  .sl-paybox { grid-template-columns: 130px minmax(0, 1fr) !important; gap: 12px !important; }
+  .sl-donut { width: 130px !important; height: 130px !important; }
+  .sl-donut .dl-donut-c strong { font-size: .86rem !important; }
+  .sl-donut .dl-donut-c span { font-size: .7rem !important; }
+  .sl-legend button { grid-template-columns: 12px minmax(0, 1fr) auto; grid-template-areas: "i l p" "i v v"; row-gap: 0; gap: 2px 8px; padding: 6px 2px !important; }
+  .sl-legend i { grid-area: i; } .sl-legend b { grid-area: l; } .sl-legend em { grid-area: p; font-size: .78rem; } .sl-legend span { grid-area: v; text-align: left; min-width: 0; font-size: .84rem; }
+  .sl .md-head-actions { grid-template-columns: 1.3fr 1.45fr .85fr 1fr !important; }
+  .sl .md-head-actions .pos-btn { font-size: .74rem !important; gap: 4px !important; padding: 0 4px !important; }
+  .sl .md-head-actions .pos-btn .pp-ic { width: 15px; height: 15px; }
+  .sl .md-head-actions .pos-btn span { overflow: visible; text-overflow: clip; }
+  .sl .md-kpi small { white-space: normal; line-height: 1.25; }
+  .sl-list .ds-list-head h2 { white-space: nowrap; font-size: .92rem; }
+  .sl-list .ds-list-head h2 > .pp-ic { display: none; }
+  .sl-list .dl-card-head h2 small { font-size: .78rem; }
+  .sl-status { width: 104px; }
+  .sl-table .pur-acts .dl-act[data-view] { display: none !important; }
+  .sl-table .pur-acts .dl-act[data-menu] { display: inline-grid !important; }
+  .sl-top .dl-card-head h2 { font-size: .98rem; min-width: 0; }
+  .sl-top .dl-card-head h2 small { display: none; }
+  .sl-top-table td, .sl-top-table th { padding: 8px 5px !important; font-size: .8rem !important; }
+  .sl-trend .dz-tip { white-space: normal; max-width: 170px; }
+  .sl { overflow-x: hidden; }
+  .sl .pur-trend .dl-card-head { flex-wrap: nowrap; }
+  .sl .pur-trend .dl-card-head h2 { font-size: 1rem; white-space: nowrap; }
+  .sl-dlg .dl-table-wrap { overflow-x: auto; }
+  .sl-dlg .dl-table { display: table !important; min-width: 560px; }
+  .sl-dlg .dl-table thead { display: table-header-group !important; }
+  .sl-dlg .dl-table tbody { display: table-row-group !important; }
+  .sl-dlg .dl-table tr { display: table-row !important; }
+  .sl-dlg .dl-table td, .sl-dlg .dl-table th { display: table-cell !important; padding: 7px 8px !important; border-bottom: 1px solid var(--pp-line) !important; }
+}
+.sl-bill-acts .pos-btn { width: auto !important; min-width: 0; padding: 0 16px !important; white-space: nowrap; }
+@media (max-width: 1240px) and (min-width: 561px) {
+  .sl .pos-head { flex-wrap: wrap; gap: 14px; }
+  .sl .pos-head .pos-title { flex: 1 1 100%; }
+  .sl .sl-head-actions { width: 100%; justify-content: flex-start; }
+}
+@media (max-width: 1180px) and (min-width: 901px) {
+  .sl-table .c-items { display: none; }
+  .sl-table td { font-size: .8rem; }
+  .sl-table .md-chip { padding: 3px 7px; font-size: .72rem; }
+  .sl-table .md-chip .pp-ic { display: none; }
+}

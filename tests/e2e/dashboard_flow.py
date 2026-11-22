@@ -130,8 +130,8 @@ with sync_playwright() as p:
     ok('Search result opens Medicines filtered', pg.input_value('#q')=='Dolo' and 'Dolo' in pg.inner_text('#rows') and 'Pan' not in pg.inner_text('#rows'), pg.inner_text('#rows')[:200])
     pg.goto(BASE+'/dashboard.html'); pg.wait_for_timeout(1500)
     pg.fill('#ppSearch', latest[0]['invoice_no'][-6:]); pg.wait_for_selector('.pp-sr-item')
-    pg.click('.pp-sr-item'); pg.wait_for_url('**/sales.html?q=*'); pg.wait_for_timeout(1500)
-    ok('Invoice result opens Sales filtered', latest[0]['invoice_no'] in pg.inner_text('#sales-rows'))
+    pg.click('.pp-sr-item'); pg.wait_for_url('**/invoice-view.html?id=*'); pg.wait_for_selector('#ivPaper'); pg.wait_for_timeout(800)
+    ok('Invoice result opens the Invoice View', latest[0]['invoice_no'] in pg.inner_text('#ivPaper'))
     pg.goto(BASE+'/dashboard.html'); pg.wait_for_timeout(1200)
     pg.fill('#ppSearch','Ravi'); pg.wait_for_selector('.pp-sr-item'); pg.click('.pp-sr-item'); pg.wait_for_url('**/customers.html?q=*'); pg.wait_for_timeout(1500)
     ok('Customer result opens Customers filtered', 'Ravi' in pg.inner_text('#rows') and 'Anu' not in pg.inner_text('#rows'), pg.inner_text('#rows')[:200])
@@ -141,9 +141,9 @@ with sync_playwright() as p:
     pg.goto(BASE+'/dashboard.html'); pg.wait_for_timeout(1200)
     pg.click('text=New Sale'); pg.wait_for_url('**/billing.html'); ok('New Sale opens Billing', True)
     pg.goto(BASE+'/dashboard.html'); pg.wait_for_timeout(1200)
-    pg.click('#recent tr'); pg.wait_for_url('**/sales.html?q=*'); ok('Clicking a transaction opens it in Sales', True)
+    pg.click('#recent tr'); pg.wait_for_url('**/invoice-view.html?id=*'); ok('Clicking a transaction opens its Invoice View', True)
     for href, check in [('purchases.html?new=1', lambda: pg.evaluate("document.getElementById('purchaseDialog').open")),
-                        ('returns.html?tab=purchase', lambda: not pg.is_hidden('#purchase-panel')),
+                        ('returns.html?tab=purchase', lambda: 'on' in (pg.get_attribute('#purchase-tab', 'class') or '')),
                         ('finance.html?tab=rec', lambda: 'Owes' in pg.inner_text('#panel') and 'sec' not in (pg.get_attribute('#tabs [data-k="rec"]','class') or '')),
                         ('expenses.html?new=1', lambda: pg.evaluate("document.activeElement.id")=='expense-description'),
                         ('customers.html?new=1', lambda: pg.query_selector('dialog[open]') is not None)]:

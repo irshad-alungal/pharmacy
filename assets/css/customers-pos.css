@@ -1,0 +1,87 @@
+/* ==========================================================================
+   Customers Management — Pallikkal Pharmacy design. Builds on the shared brand
+   styles and distributors-pos.css (list, side cards, dialogs). Prefix: cs-
+   ========================================================================== */
+.cs-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.cs-id { font-weight: 700; color: #02224d; font-size: .86rem; white-space: nowrap; }
+.ds-prof-txt h3 .cs-id { font: 600 .84rem var(--pp-body); padding: 3px 10px; border-radius: 999px; background: #eef2f7; color: #344054; }
+.cs-crown { display: inline-grid; place-items: center; margin-left: 6px; color: #7a4ff0; vertical-align: -2px; }
+.cs-crown .pp-ic { width: 15px; height: 15px; }
+.cs-table .c-cid { width: 104px; }
+.cs-table .c-spent b { font-weight: 600; color: var(--pp-ink); white-space: nowrap; }
+.cs-table .cs-m-phone { display: none; }
+.cs-table .ds-name b { display: inline-flex; align-items: center; }
+.cs-av { border-radius: 50% !important; }
+.ds-sum .pur-sum-tiles .cs-blue { background: #eaf2fe !important; }
+.ds-sum .pur-sum-tiles .a { background: #fff4e0 !important; } .ds-sum .pur-sum-tiles .a b { color: #8a4b05; }
+.ds-sum .pur-sum-tiles .p b { color: #6a3fd8; }
+.cs .dz-kpi.purple .dz-kpi-icon { color: #7a4ff0; }
+
+/* details */
+.cs-prof .ds-prof-logo.ph { border-radius: 50%; }
+.cs-tier { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font: 600 .78rem var(--pp-body); }
+.cs-tier .pp-ic { width: 14px; height: 14px; }
+.cs-tier.t-silver { background: #eef1f5; color: #475467; }
+.cs-tier.t-gold { background: #fff4d6; color: #a15c00; }
+.cs-tier.t-platinum { background: #efe9ff; color: #5b34c7; }
+.cs-kv { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; margin-top: 12px; }
+.cs-kv small { display: block; }
+.cs-notes b { font-weight: 500; white-space: pre-wrap; }
+.cust-sheet-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.cust-sheet-actions .pos-btn { height: 32px !important; font-size: .78rem !important; padding: 0 10px !important; }
+.cust-sheet-actions .pp-ic { width: 14px; height: 14px; }
+.cust-sheet-list { display: grid; gap: 2px; margin-top: 4px; }
+.cust-sheet-list div { display: flex; gap: 6px; align-items: baseline; }
+.cust-sheet-link { padding: 0 !important; border: 0 !important; background: none !important; color: #1d5fbf !important; font-size: .8rem !important; text-decoration: underline; cursor: pointer; }
+.cust-sheet-list small, .cust-sheet-upload-status { color: var(--pp-muted); font-size: .72rem; }
+.cs-checks { display: flex; gap: 18px; flex-wrap: wrap; padding: 10px 12px; border-radius: 10px; background: #f6f8fb; }
+.cs-checks .dl-check { margin: 0; }
+
+@media (max-width: 1640px) and (min-width: 1501px) {
+  .cs-table .c-cid { width: 92px; }
+  .cs-table .c-name { min-width: 150px; }
+  .cs-table .ds-name small:not(.ds-m-line) { white-space: normal; }
+}
+@media (max-width: 1180px) and (min-width: 901px) { .cs-table .c-cid { display: none; } }
+@media (max-width: 900px) {
+  .cs-table tbody tr[data-id] { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "name spent act" "name st act"; row-gap: 4px; }
+  .cs-table .c-cid { display: none !important; }
+  .cs-table .c-spent { grid-area: spent; text-align: right; }
+  .cs-table .c-st { grid-area: st; justify-self: end; }
+  .cs-table .ds-m-line.cs-m-id { display: block !important; font-weight: 600; color: var(--pp-text) !important; }
+  .cs-table .cs-m-phone { display: none; }
+  .cs-kv { grid-template-columns: 1fr 1fr !important; }
+}
+@media (max-width: 560px) {
+  .cs-table tbody tr[data-id] { grid-template-columns: minmax(0, 1fr) auto 32px; }
+  .cs-table .pur-acts .dl-act[data-view] { display: none !important; }
+  .cs-table .c-phone { display: none !important; }
+  .cs-table .c-spent b { font-size: .86rem; }
+  .cs-checks { gap: 8px; }
+}
+.cs .ds-sum .pur-sum-tiles .p b { font-size: 1.35rem; }
+.cs-table .c-email a { max-width: 170px; }
+@media (max-width: 1640px) and (min-width: 1501px) {
+  .cs-table .c-email a { max-width: 104px; }
+  .cs-table td { font-size: .82rem; }
+  .cs-table .c-name { min-width: 140px; }
+  .cs-table .c-cid { width: 84px; }
+  .cs-table .ds-av { width: 30px; height: 30px; }
+  .cs-table .ds-av .pp-ic { width: 16px; height: 16px; }
+  .cs .ds-sum .pur-sum-tiles .p b { font-size: 1.2rem; }
+}
+@media (max-width: 1640px) and (min-width: 1501px) {
+  .cs-table .c-no { display: none; }
+  .cs-table th { white-space: normal; line-height: 1.2; }
+  .cs-table .c-email a { max-width: 96px; }
+  .cs-table .c-phone { font-size: .8rem; }
+}
+@media (max-width: 1640px) and (min-width: 1501px) {
+  .cs-table th.c-r { white-space: normal; }
+  .cs-table .ds-av { display: none; }
+  .cs-table .c-name { min-width: 120px; }
+}
+.cs .ds-sum .pur-sum-tiles b { font-size: 1.35rem !important; }
+@media (max-width: 1640px) { .cs .ds-sum .pur-sum-tiles b { font-size: 1.2rem !important; } }
+@media (max-width: 560px) { .cs .ds-status { width: 112px; } .cs .ds-sum .pur-sum-tiles b { font-size: 1rem !important; } }
+.cs .pur-trend { overflow: hidden; }

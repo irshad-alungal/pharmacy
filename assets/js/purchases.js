@@ -1811,5 +1811,7 @@ const purchaseParams = new URLSearchParams(location.search);
 if (purchaseParams.get('q')) { $('searchPurchase').value = purchaseParams.get('q'); $('period').value = 'all'; }
 await reloadAll();
 if (purchaseParams.get('tab')) setTab(purchaseParams.get('tab'));
-if (purchaseParams.get('new') === '1' && canWrite) $('newPurchase').click();
-if (purchaseParams.get('order') === '1' && canWrite) openOrderForm();
+// ?dist=<distributor id> (from the Distributors page) pre-selects the supplier.
+const presetDist = dists.find(d => d.id === purchaseParams.get('dist'))?.id || '';
+if (purchaseParams.get('new') === '1' && canWrite) { $('newPurchase').click(); if (presetDist) { $('supplier').value = presetDist; renderSupplier(); $('invoiceNo').focus(); } }
+if (purchaseParams.get('order') === '1' && canWrite) openOrderForm(null, { distributor_id: presetDist });

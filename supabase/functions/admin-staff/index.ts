@@ -270,12 +270,30 @@ Deno.serve(async (req) => {
         return fail(400, 'Staff profile could not be created. Please check the Staff ID and try again.');
       }
 
+      const newId = createdAuthId;
       createdAuthId = null;
+
+      // Extra details (0031 staff_details). Best effort: the login is already usable.
+      const address = String(body?.address ?? '').trim().slice(0, 500);
+      const designation = String(body?.designation ?? '').trim().slice(0, 60);
+      const joinDate = /^\d{4}-\d{2}-\d{2}$/.test(String(body?.join_date ?? '')) ? String(body.join_date) : null;
+      if (address || designation || joinDate) {
+        const { error: detailError } = await admin.from('staff_details').upsert({
+          profile_id: newId, branch_id: caller.branch_id, address: address || null, designation: designation || null,
+          join_date: joinDate, updated_by: callerId
+        });
+        if (detailError) console.error('admin-staff details (run migration 0031):', detailError.message);
+      }
+      await admin.from('audit_logs').insert({
+        branch_id: caller.branch_id, user_id: callerId, action: 'staff_created', entity_type: 'staff', entity_id: newId,
+        after_data: { staff_id: staffId, full_name: fullName, role: roleCode }
+      });
 
       return ok({
         success: true,
         message: 'Staff account created successfully.',
         staff: {
+          id: newId,
           staff_id: staffId,
           full_name: fullName,
           role: roleCode,
@@ -283,6 +301,41 @@ Deno.serve(async (req) => {
           must_change_password: true
         }
       });
+    }
+
+    // RESET PASSWORD (new temporary password; the person must change it at next login)
+    if (action === 'reset_password') {
+      const profileId = String(body?.profile_id ?? '').trim();
+      const password = String(body?.password ?? '');
+      if (password.length < 12 || password.length > 128) {
+        return fail(400, 'Temporary password must be 12–128 characters.');
+      }
+      if (profileId === callerId) {
+        return fail(400, 'Use Change password to change your own password.');
+      }
+      const { data: target, error: targetError } = await admin
+        .from('profiles')
+        .select('id,branch_id,role_id')
+        .eq('id', profileId)
+        .maybeSingle();
+      if (targetError || !target || target.branch_id !== caller.branch_id) {
+        return fail(404, 'Staff member not found.');
+      }
+      const { data: targetRole } = await admin.from('roles').select('code,rank').eq('id', target.role_id).maybeSingle();
+      if (!targetRole || targetRole.code === 'super_admin' || (isAdmin && targetRole.rank <= callerRole.rank)) {
+        return fail(403, 'You cannot reset the password of this account.');
+      }
+      const { error: pwError } = await admin.auth.admin.updateUserById(profileId, { password });
+      if (pwError) {
+        console.error('admin-staff reset error:', pwError.message);
+        return fail(400, 'Unable to reset the password.');
+      }
+      await admin.from('profiles').update({ must_change_password: true, updated_at: new Date().toISOString() }).eq('id', profileId);
+      await admin.from('work_sessions').update({ logout_at: new Date().toISOString(), logout_reason: 'admin' }).eq('user_id', profileId).is('logout_at', null);
+      await admin.from('audit_logs').insert({
+        branch_id: caller.branch_id, user_id: callerId, action: 'staff_password_reset', entity_type: 'staff', entity_id: profileId
+      });
+      return ok({ success: true, message: 'Temporary password set. The staff member must change it at the next login.' });
     }
 
     return fail(400, 'Unknown staff management action.');

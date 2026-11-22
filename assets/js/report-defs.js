@@ -28,4 +28,18 @@ export const REPORTS = [
     cols: [T('label', 'Particulars', 5), M('amount', 'Amount (Rs.)')] },
   { id: 'ledger', title: 'Financial ledger', rpc: 'report_ledger', params: ['range'], note: 'Shows up to 5,000 entries. Corrections appear as reversing entries.',
     cols: [D('entry_date', 'Date'), T('account', 'Account', 1.6), M('debit', 'Debit (Rs.)', 1), M('credit', 'Credit (Rs.)', 1), T('memo', 'Memo', 5)] },
+  // v69 Reports & Analytics additions (0029 + client-side views of existing reports)
+  { id: 'category', title: 'Sales by category', rpc: 'reports_sales_by_category', params: ['range'], dates: true, note: 'Each bill total (after discounts, incl. GST) is shared across its lines, so the categories add up to total sales.',
+    post: rows => { const t = rows.reduce((a, r) => a + (+r.sales || 0), 0); return rows.map(r => ({ ...r, share: t ? Math.round(+r.sales / t * 10000) / 100 : 0 })); },
+    cols: [T('category', 'Category', 3), I('bills', 'Bills'), I('medicines', 'Medicines'), Q('qty', 'Qty sold', 1), M('sales', 'Sales (Rs.)', 1), P('share', 'Share')] },
+  { id: 'topcustomers', title: 'Top customers', rpc: 'report_customers', params: ['range'], note: 'Top 25 registered customers by purchases. Walk-in sales have no customer and are not listed.',
+    post: rows => rows.filter(r => +r.purchases > 0).sort((a, b) => +b.purchases - +a.purchases).slice(0, 25).map((r, i) => ({ ...r, rank: i + 1 })),
+    cols: [I('rank', '#'), T('name', 'Customer', 3), T('phone', 'Phone', 2), I('invoices', 'Invoices', 1), M('purchases', 'Purchases (Rs.)', 1), M('returns', 'Returns (Rs.)', 1), M('outstanding_now', 'Owes now (Rs.)', 1)] },
+  { id: 'topmeds', title: 'Top selling medicines', rpc: 'report_medicines', params: ['range'], note: 'Top 25 medicines by net quantity sold (sold − returned). Profit is an estimate from real batch costs.',
+    post: rows => rows.filter(r => +r.net_qty > 0).sort((a, b) => +b.net_qty - +a.net_qty || +b.net_sales_ex_tax - +a.net_sales_ex_tax).slice(0, 25).map((r, i) => ({ ...r, rank: i + 1 })),
+    cols: [I('rank', '#'), T('name', 'Medicine', 3), T('strength', 'Strength', 1.5), Q('net_qty', 'Net qty', 1), M('net_sales_ex_tax', 'Net sales ex-tax (Rs.)', 1), M('est_gross_profit', 'Est. profit (Rs.)', 1), Q('stock_now', 'Stock now')] },
+  { id: 'valuation', title: 'Stock valuation (medicine-wise)', rpc: 'report_stock', params: [], note: 'Value of all stock in hand now, at purchase cost (FIFO) and at selling price. Expired stock is shown separately.',
+    post: rows => { const g = new Map(); for (const r of rows) { const k = `${r.name}\u0000${r.strength || ''}`; const x = g.get(k) || { name: r.name, strength: r.strength, batches: 0, qty: 0, expired_qty: 0, cost_value: 0, retail_value: 0 }; x.batches++; x.qty += +r.qty || 0; if (r.status === 'Expired') x.expired_qty += +r.qty || 0; x.cost_value += +r.cost_value || 0; x.retail_value += +r.retail_value || 0; g.set(k, x); }
+      return [...g.values()].map(x => ({ ...x, cost_value: Math.round(x.cost_value * 100) / 100, retail_value: Math.round(x.retail_value * 100) / 100, margin: Math.round((x.retail_value - x.cost_value) * 100) / 100 })).sort((a, b) => b.cost_value - a.cost_value); },
+    cols: [T('name', 'Medicine', 3), T('strength', 'Strength', 1.5), I('batches', 'Batches', 1), Q('qty', 'Qty', 1), Q('expired_qty', 'Expired qty', 1), M('cost_value', 'At cost (Rs.)', 1), M('retail_value', 'At selling price (Rs.)', 1), M('margin', 'Margin in stock (Rs.)', 1)] },
 ];

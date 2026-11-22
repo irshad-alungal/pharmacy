@@ -4,5 +4,6 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 SITE="$ROOT/tests/e2e/site"
 rm -rf "$SITE" && mkdir -p "$SITE"
 cp -r "$ROOT"/*.html "$ROOT/assets" "$SITE/"
+cp "$ROOT/version.json" "$SITE/" 2>/dev/null || true
 cp "$ROOT/tests/e2e/mock-supabase.js" "$SITE/assets/js/mock-supabase.js"
 sed -i "s#import { createClient } from\$##; s#^  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';#import { createClient } from './mock-supabase.js';#" "$SITE/assets/js/supabase-client.js"

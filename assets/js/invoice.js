@@ -1,10 +1,13 @@
 // Invoice rendering. Input is the JSON from the invoice_detail() database function (no shelf, no purchase price).
+// Layout options (paper, logo, GSTIN / drug licence / patient lines, terms, UPI line, date and time format)
+// come from Settings → Print & Invoice (0033), read from the local settings copy.
+import { cachedSettings, fmtDateTime, fmtDateWith, fmtTimeWith } from './app-settings.js';
 const R = n => new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(+n || 0);
 const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const when = d => new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+const when = d => fmtDateTime(d);
 const PM = { cash: 'Cash', upi: 'UPI', card: 'Card', credit: 'Credit (due)' };
 // Patient / prescription lines saved with the bill (finalize_sale_v3).
-const patientLines = i => [
+const patientLines = (i, S = cachedSettings()) => S.invoice.show_patient === false ? [] : [
   i.patient_name ? `Patient: ${i.patient_name}${i.patient_phone ? ' (' + i.patient_phone + ')' : ''}` : (i.patient_phone ? `Patient phone: ${i.patient_phone}` : ''),
   i.patient_address ? `Address: ${i.patient_address}` : '',
   i.doctor_name ? `Doctor: ${i.doctor_name}` : '',
@@ -12,10 +15,20 @@ const patientLines = i => [
 ].filter(Boolean);
 // "GST included" only when every line's price already contains GST.
 const gstLabel = d => (d.items || []).some(x => x.price_includes_tax === false) ? 'GST' : 'GST included';
-export function invoiceHTML(d, fmt = 'thermal') {
+const defFmt = () => cachedSettings().invoice.default_format === 'a4' ? 'a4' : 'thermal';
+// Extra lines under the totals: UPI payment details, terms, signature (from Settings).
+const extras = (S = cachedSettings()) => {
+  const out = [];
+  if (S.invoice.show_upi && S.payments.upi_id) out.push(`Pay by UPI: ${S.payments.upi_id}${S.payments.upi_name ? ' (' + S.payments.upi_name + ')' : ''}`);
+  if (S.invoice.terms) out.push(S.invoice.terms);
+  return out;
+};
+// S: settings to use (Settings → Print & Invoice passes unsaved values for its live preview).
+export function invoiceHTML(d, fmt = defFmt(), S = cachedSettings()) {
   const th = fmt === 'thermal', s = d.shop || {}, i = d.invoice, c = d.customer;
-  const head = `<div style="text-align:center"><b style="font-size:${th ? 14 : 20}px">${e(s.name || 'PALLIKKAL PHARMACY')}</b><br>${e(s.address || '')}${s.phone ? '<br>Ph: ' + e(s.phone) : ''}${s.gstin ? '<br>GSTIN: ' + e(s.gstin) : ''}${s.drug_licence ? '<br>Drug Licence: ' + e(s.drug_licence) : ''}</div><hr>
-  <div>Invoice: <b>${e(i.invoice_no)}</b><br>Date: ${e(when(i.created_at))}<br>Customer: ${c ? e(c.name) + ' (' + e(c.phone) + ')' : 'Walk-in'}${patientLines(i).map(l => '<br>' + e(l)).join('')}</div><hr>`;
+  const logo = S.general.invoice_logo && S.branding.logo_url && /^(https?:|data:)/.test(S.branding.logo_url) ? `<img src="${e(S.branding.logo_url)}" alt="" style="max-height:${th ? 34 : 56}px;max-width:${th ? 60 : 120}px;display:block;margin:0 auto 3px">` : '';
+  const head = `<div style="text-align:center">${logo}<b style="font-size:${th ? 14 : 20}px">${e(s.name || 'PALLIKKAL PHARMACY')}</b><br>${e(s.address || '')}${s.phone ? '<br>Ph: ' + e(s.phone) : ''}${s.gstin && S.invoice.show_gstin !== false ? '<br>GSTIN: ' + e(s.gstin) : ''}${s.drug_licence && S.invoice.show_drug_licence !== false ? '<br>Drug Licence: ' + e(s.drug_licence) : ''}</div><hr>
+  <div>Invoice: <b>${e(i.invoice_no)}</b><br>Date: ${e(`${fmtDateWith(i.created_at, S.general.date_format)}, ${fmtTimeWith(i.created_at, S.general.time_format)}`)}<br>Customer: ${c ? e(c.name) + ' (' + e(c.phone) + ')' : 'Walk-in'}${patientLines(i, S).map(l => '<br>' + e(l)).join('')}</div><hr>`;
   const items = th
     ? d.items.map(x => `<div><b>${e(x.name)} ${e(x.strength || '')}</b><br><span style="font-size:10px">Batch ${e(x.batch_no)} · Exp ${e(String(x.expiry).slice(0, 7))}</span><div style="display:flex;justify-content:space-between"><span>${x.qty} x ${R(x.unit_price)}${+x.discount_pct > 0 ? ` -${+x.discount_pct}%` : ''}${x.price_includes_tax === false ? ` +GST ${x.tax_rate}%` : ''}</span><span>${R(x.line_total)}</span></div></div>`).join('')
     : `<table style="width:100%;border-collapse:collapse"><tr style="border-bottom:1px solid #000;text-align:left"><th>Item</th><th>Batch</th><th>Exp</th><th style="text-align:right">Qty</th><th style="text-align:right">MRP</th><th style="text-align:right">Disc%</th><th style="text-align:right">GST%</th><th style="text-align:right">Amount</th></tr>${d.items.map(x => `<tr><td>${e(x.name)} ${e(x.strength || '')}</td><td>${e(x.batch_no)}</td><td>${e(String(x.expiry).slice(0, 7))}</td><td style="text-align:right">${x.qty}</td><td style="text-align:right">${R(x.unit_price)}</td><td style="text-align:right">${+x.discount_pct || 0}</td><td style="text-align:right">${x.tax_rate}${x.price_includes_tax === false ? '+' : ''}</td><td style="text-align:right">${R(x.line_total)}</td></tr>`).join('')}</table>`;
@@ -23,10 +36,12 @@ export function invoiceHTML(d, fmt = 'thermal') {
   const tot = `<hr>${+i.line_discount > 0 ? row('You saved (line discounts)', R(i.line_discount)) : ''}${row('Subtotal', R(i.subtotal))}${+i.discount > 0 ? row('Discount', '-' + R(i.discount)) : ''}${row(gstLabel(d), R(i.tax))}${row('TOTAL', '₹' + R(i.total), true)}<hr>
   ${d.payments.map(p => row(PM[p.method] || e(p.method), R(p.amount))).join('')}
   <div style="margin-top:6px;font-size:${th ? 10 : 12}px">${d.tax_summary.map(t => `GST ${t.rate}%: taxable ${R(t.taxable)}, tax ${R(t.tax)}`).join('<br>')}</div>
+  ${extras(S).map(x => `<div style="margin-top:6px;font-size:${th ? 10 : 12}px">${e(x)}</div>`).join('')}
+  ${!th && S.invoice.signature_line ? '<div style="margin-top:36px;text-align:right">Authorised signatory<br>________________________</div>' : ''}
   <div style="text-align:center;margin-top:8px">${e(s.footer_note || '')}</div>`;
   return `<div style="${th ? 'width:72mm;font:11px/1.35 monospace' : 'width:190mm;font:13px/1.45 Arial,sans-serif'};color:#000;background:#fff;padding:2mm">${head}${items}${tot}</div>`;
 }
-export function printInvoice(d, fmt) {
+export function printInvoice(d, fmt = defFmt()) {
   const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(f);
   const doc = f.contentDocument; doc.open();
   doc.write(`<!doctype html><title>${e(d.invoice.invoice_no)}</title><style>@page{size:${fmt === 'thermal' ? '80mm auto' : 'A4'};margin:${fmt === 'thermal' ? '3mm' : '12mm'}}body{margin:0}</style>${invoiceHTML(d, fmt)}`); doc.close();
@@ -44,7 +59,8 @@ export function buildPdf(JsPDF, d, fmt) {
     const money = n => R(n);
     wrap(s.name || 'PALLIKKAL PHARMACY', W - 2 * M, { a: 'center', b: 1, s: th ? 12 : 16 });
     if (s.address) wrap(s.address, W - 2 * M, { a: 'center' }); if (s.phone) wrap('Ph: ' + s.phone, W, { a: 'center' });
-    if (s.gstin) wrap('GSTIN: ' + s.gstin, W, { a: 'center' }); if (s.drug_licence) wrap('Drug Licence: ' + s.drug_licence, W, { a: 'center' });
+    const S = cachedSettings();
+    if (s.gstin && S.invoice.show_gstin !== false) wrap('GSTIN: ' + s.gstin, W, { a: 'center' }); if (s.drug_licence && S.invoice.show_drug_licence !== false) wrap('Drug Licence: ' + s.drug_licence, W, { a: 'center' });
     rule(); T('Invoice: ' + i.invoice_no, M, { b: 1 }); nl(); T('Date: ' + when(i.created_at), M); nl(); T('Customer: ' + (c ? `${c.name} (${c.phone})` : 'Walk-in'), M); nl(); for (const l of patientLines(i)) wrap(l, W - 2 * M); rule();
     if (th) for (const x of d.items) {
       wrap(`${x.name} ${x.strength || ''}`, W - 2 * M, { b: 1 }); T(`Batch ${x.batch_no}  Exp ${String(x.expiry).slice(0, 7)}`, M, { s: 7 }); nl(3);
@@ -63,22 +79,26 @@ export function buildPdf(JsPDF, d, fmt) {
     pair('TOTAL', money(i.total), { b: 1, s: th ? 10 : 13 }); rule();
     for (const p of d.payments) pair(PM[p.method] || p.method, money(p.amount));
     nl(1); for (const t of d.tax_summary) { T(`GST ${t.rate}%: taxable ${R(t.taxable)}, tax ${R(t.tax)}`, M, { s: th ? 7 : 9 }); nl(); }
+    for (const x of extras()) wrap(x, W - 2 * M, { s: th ? 7 : 9 });
     nl(2); if (s.footer_note) wrap(s.footer_note, W - 2 * M, { a: 'center' });
     return y;
   };
   if (th) { const h = run(new JsPDF({ unit: 'mm', format: [W, 3000] })); const doc = new JsPDF({ unit: 'mm', format: [W, Math.max(h + 4, 60)] }); run(doc); return doc; }
   const doc = new JsPDF({ unit: 'mm', format: 'a4' }); run(doc); return doc;
 }
-export async function downloadPDF(d, fmt) {
+export async function downloadPDF(d, fmt = defFmt()) {
   const { jsPDF } = await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm');
   buildPdf(jsPDF, d, fmt).save(`${d.invoice.invoice_no}-${fmt}.pdf`);
 }
-export function showInvoice(d, onClose) {
+export function showInvoice(d, onClose, extra = {}) {
   const dlg = document.createElement('dialog');
-  dlg.innerHTML = `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem"><select id="fm"><option value="thermal">Thermal 80mm</option><option value="a4">A4</option></select>
-  <button id="pr">Print</button><button id="pd" class="sec">Download PDF</button><button id="cl" class="sec">Close</button></div><div id="pv" style="overflow:auto;max-height:72vh;background:#fff"></div>`;
+  const canWa = typeof extra.whatsapp === 'function' && !!String(d.customer?.phone || d.invoice?.patient_phone || '').replace(/\D/g, '');
+  dlg.innerHTML = `<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem"><select id="fm"><option value="thermal">Thermal 80mm</option><option value="a4"${defFmt() === 'a4' ? ' selected' : ''}>A4</option></select>
+  <button id="pr">Print</button><button id="pd" class="sec">Download PDF</button>${canWa ? '<button id="wa" class="sec inv-wa" style="background:#12a01b;color:#fff;border-color:#12a01b">Send on WhatsApp</button>' : ''}<button id="cl" class="sec">Close</button>
+  ${canWa ? `<span id="was" role="status" style="font-size:.85rem;color:#0f7a16">${e(extra.status || '')}</span>` : ''}</div><div id="pv" style="overflow:auto;max-height:72vh;background:#fff"></div>`;
   document.body.appendChild(dlg); const q = s => dlg.querySelector(s), fmt = () => q('#fm').value, draw = () => { q('#pv').innerHTML = invoiceHTML(d, fmt()); };
   q('#fm').onchange = draw; q('#pr').onclick = () => printInvoice(d, fmt()); q('#pd').onclick = () => downloadPDF(d, fmt());
+  if (canWa) q('#wa').onclick = () => extra.whatsapp(d, m => { q('#was').textContent = m; });
   q('#cl').onclick = () => { dlg.close(); dlg.remove(); onClose?.(); }; draw(); dlg.showModal();
 }
 

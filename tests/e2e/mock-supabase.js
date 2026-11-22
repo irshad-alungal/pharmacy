@@ -39,9 +39,16 @@ export function createClient() {
       getUser: async () => ({ data: { user: session()?.user || null }, error: null }),
       onAuthStateChange: cb => { listeners.push(cb); return { data: { subscription: { unsubscribe() {} } } }; },
       signOut: async () => { localStorage.removeItem('e2e_user'); return { error: null }; },
-      signInWithPassword: async ({ email }) => { localStorage.setItem('e2e_user', email); return { data: { user: { id: email }, session: session() }, error: null }; },
-      updateUser: async () => ({ data: {}, error: null }),
-      resetPasswordForEmail: async () => ({ data: {}, error: null })
+      // Test hooks: e2e_email_map maps an email to a profile id; e2e_bad_password is always rejected.
+      signInWithPassword: async ({ email, password }) => {
+        if (password && password === localStorage.getItem('e2e_bad_password')) return { data: { user: null, session: null }, error: { message: 'Invalid login credentials' } };
+        let map = {}; try { map = JSON.parse(localStorage.getItem('e2e_email_map') || '{}'); } catch { /* ignore */ }
+        const id = map[email] || (email === 'e2e@test' ? localStorage.getItem('e2e_user') : email);
+        localStorage.setItem('e2e_user', id); return { data: { user: { id, email }, session: session() }, error: null };
+      },
+      setSession: async ({ access_token }) => { localStorage.setItem('e2e_user', access_token); return { data: { session: session() }, error: null }; },
+      updateUser: async v => { localStorage.setItem('e2e_last_update', JSON.stringify(v || {})); return { data: {}, error: null }; },
+      resetPasswordForEmail: async (email, o) => { localStorage.setItem('e2e_reset', JSON.stringify({ email, o })); return { data: {}, error: null }; }
     },
     storage: { from: bucket => ({
       upload: (path, file) => api('storage', { op: 'upload', bucket, path, size: file?.size || 1, type: file?.type }),

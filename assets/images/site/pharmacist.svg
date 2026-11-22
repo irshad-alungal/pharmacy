@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 300"><defs><linearGradient id="c" x1="0" x2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e9eef3"/></linearGradient></defs>
+<path d="M30 300c0-70 40-110 100-110s100 40 100 110Z" fill="url(#c)" stroke="#dee2e6" stroke-width="2"/>
+<path d="M100 196l30 50 30-50-30 14Z" fill="#2f9e44"/><path d="M118 190h24v26h-24z" fill="#e8b98a"/>
+<path d="M86 190l44 110-60 0c-10-30-6-80 16-110Z" fill="#ffffff" stroke="#dee2e6"/><path d="M174 190l-44 110 60 0c10-30 6-80-16-110Z" fill="#ffffff" stroke="#dee2e6"/>
+<circle cx="130" cy="120" r="50" fill="#e8b98a"/><path d="M78 118c-6-58 30-84 56-82 34 2 58 30 50 82-6-24-20-40-50-46-20 18-40 30-56 46Z" fill="#212529"/><path d="M82 116c-10 40 0 90 10 100l14-40Z" fill="#212529"/><path d="M178 116c10 40 0 90-10 100l-14-40Z" fill="#212529"/>
+<circle cx="112" cy="124" r="5" fill="#212529"/><circle cx="148" cy="124" r="5" fill="#212529"/><path d="M114 148q16 14 32 0" fill="none" stroke="#a61e4d" stroke-width="4" stroke-linecap="round"/>
+<path d="M96 230c-4 30 4 50 14 56M164 230c4 30-4 50-14 56" fill="none" stroke="#495057" stroke-width="4"/><circle cx="110" cy="288" r="7" fill="#495057"/>
+<g transform="translate(176 240)"><rect width="34" height="22" rx="4" fill="#2f9e44"/><path d="M17 5v12M11 11h12" stroke="#fff" stroke-width="3"/></g></svg>

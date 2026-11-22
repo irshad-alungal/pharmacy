@@ -52,28 +52,29 @@ with sync_playwright() as p:
 
     if want('sales'):
         c,pg,errs,_=ctx_for(b,'billing_staff')
-        pg.goto(BASE+'/sales.html'); pg.wait_for_selector('#sales-rows'); pg.wait_for_timeout(1500)
-        ok('sales: invoice list shows the bill', invno in pg.inner_text('#sales-rows'), pg.inner_text('#sales-rows')[:300])
-        pg.click(f'[data-view]'); pg.wait_for_timeout(1500)
+        pg.goto(BASE+'/sales.html'); pg.wait_for_selector('#rows tr[data-id]'); pg.wait_for_timeout(1500)
+        ok('sales: invoice list shows the bill', invno in pg.inner_text('#rows'), pg.inner_text('#rows')[:300])
+        pg.locator('#rows tr[data-id]', has_text=invno).locator('[data-menu]').click(); pg.click('.pur-row-menu [data-act="print"]'); pg.wait_for_timeout(1500)
         ok('sales: invoice opens', pg.query_selector('dialog[open] #pv') is not None, json.dumps(srvlog()))
         ok('sales: no page errors', not errs, errs); c.close()
 
     if want('returns'):
         c,pg,errs,_=ctx_for(b,'billing_staff')
         pg.goto(BASE+'/returns.html'); pg.wait_for_timeout(1500)
+        pg.click('#newReturn'); pg.wait_for_selector('#q')
         pg.fill('#q', invno); pg.wait_for_timeout(1500)
         btn=pg.query_selector(f'[data-invoice]')
         ok('returns: invoice found by number', btn is not None, pg.inner_text('#list')[:300] if pg.query_selector('#list') else '')
         if btn:
-            btn.click(); pg.wait_for_selector('.return-qty'); pg.fill('.return-qty','1'); pg.fill('#return-reason','Wrong strength')
+            btn.click(); pg.wait_for_selector('.return-qty'); pg.fill('.return-qty','1'); pg.select_option('#reasonCode','wrong_medicine'); pg.fill('#return-reason','Wrong strength')
             pg.click('#submit-return'); pg.wait_for_timeout(2500)
             ok('returns: credit note created', 'credit' in pg.inner_text('#msg').lower() or pg.query_selector('dialog[open]') is not None, pg.inner_text('#msg')+json.dumps(srvlog()))
         ok('returns: no page errors', not errs, errs); c.close()
 
     if want('customers'):
         c,pg,errs,_=ctx_for(b,'super_admin', prompt='3000')
-        pg.goto(BASE+'/customers.html'); pg.wait_for_selector('#rows'); pg.wait_for_timeout(1200)
-        pg.click(f'[data-credit="{cust}"]'); pg.wait_for_timeout(1200)
+        pg.goto(BASE+'/customers.html'); pg.wait_for_selector('#rows tr[data-id]'); pg.wait_for_timeout(1200)
+        pg.click(f'#rows tr[data-id="{cust}"] [data-menu]'); pg.click('.pur-row-menu [data-act="limit"]'); pg.wait_for_timeout(1200)
         lim=query('super_admin', Q('customers', cols='id,credit_limit', filters=[['eq','id',cust]]))['data'][0]['credit_limit']
         ok('customers: admin edits credit limit (set_credit_limit)', float(lim)==3000, lim)
         pg.click(f'[data-view="{cust}"]'); pg.wait_for_selector('#customer-view[open]'); pg.wait_for_timeout(1500)
@@ -124,11 +125,12 @@ with sync_playwright() as p:
 
     if want('documents'):
         c,pg,errs,_=ctx_for(b,'inventory_staff')
-        pg.goto(BASE+'/documents.html'); pg.wait_for_selector('#docForm'); pg.wait_for_timeout(800)
+        pg.goto(BASE+'/documents.html'); pg.wait_for_selector('#uploadBtn'); pg.wait_for_timeout(1200)
+        pg.click('#uploadBtn'); pg.wait_for_selector('#docForm'); pg.select_option('#dCat', 'supplier')
         pg.set_input_files('#file', files=[{'name':'challan.pdf','mimeType':'application/pdf','buffer':b'%PDF ch'}])
         pg.select_option('#distributor', index=1); pg.wait_for_timeout(300)
         pg.click('#docForm button[type=submit]'); pg.wait_for_timeout(2000)
-        ok('documents: inventory staff uploads a supplier document (role fix)', 'registered' in pg.inner_text('#uploadMsg'), pg.inner_text('#uploadMsg')+json.dumps(srvlog()))
+        ok('documents: inventory staff uploads a supplier document (role fix)', 'registered' in pg.inner_text('.dl-toast') or 'challan' in pg.inner_text('#rows'), pg.inner_text('#rows')[:300]+json.dumps(srvlog()))
         ok('documents: no page errors', not errs, errs); c.close()
 
     if want('delivery'):
@@ -140,15 +142,16 @@ with sync_playwright() as p:
 
     if want('whatsapp'):
         c,pg,errs,_=ctx_for(b,'super_admin')
-        pg.goto(BASE+'/whatsapp.html'); pg.wait_for_selector('#wa-select-all'); pg.wait_for_timeout(1200)
-        pg.click('#wa-select-all'); pg.fill('#wa-message','Hello {{name}}, 10% off this week!'); pg.fill('#wa-interval','30'); pg.dispatch_event('#wa-interval','input')
-        pg.click('#wa-send'); pg.wait_for_selector('#wa-run-open')
-        pg.click('#wa-run-open'); pg.wait_for_timeout(500)
+        pg.goto(BASE+'/whatsapp.html'); pg.wait_for_selector('#newCampaign'); pg.wait_for_timeout(1500)
+        pg.click('#newCampaign'); pg.wait_for_selector('#wcList [data-c]')
+        pg.click('#wcAll'); pg.fill('#wcName','Weekly offer'); pg.fill('#wcBody','Hello {{name}}, 10% off this week!'); pg.fill('#wcInt','30'); pg.dispatch_event('#wcInt','input')
+        pg.click('#wcStart'); pg.wait_for_selector('#runDlg[open] [data-run="open"]'); pg.wait_for_timeout(500)
+        pg.click('[data-run="open"]'); pg.wait_for_timeout(700)
         opened=pg.evaluate('window.__opened')
         ok('whatsapp: chat opened with personalised message', bool(opened) and 'wa.me/91' in opened[0] and re.search(r'Hello%20(Anu|Ravi)', opened[0]) is not None, opened)
-        ok('whatsapp: interval enforced before next chat', pg.is_disabled('#wa-run-open'), pg.inner_text('#wa-status'))
-        pg.click('#wa-run-skip'); pg.wait_for_timeout(300)
-        ok('whatsapp: campaign finishes', 'finished' in pg.inner_text('#wa-status').lower(), pg.inner_text('#wa-status'))
+        ok('whatsapp: interval enforced before next chat', pg.is_disabled('[data-run="open"]'), pg.inner_text('#runPanel'))
+        pg.click('[data-run="skip"]'); pg.wait_for_timeout(800)
+        ok('whatsapp: campaign finishes', 'finished' in pg.inner_text('#runPanel').lower(), pg.inner_text('#runPanel'))
         ok('whatsapp: no page errors', not errs, errs); c.close()
 
     if want('medicines'):
@@ -162,15 +165,15 @@ with sync_playwright() as p:
 
     if want('expenses'):
         c,pg,errs,_=ctx_for(b,'super_admin')
-        pg.goto(BASE+'/expenses.html'); pg.wait_for_selector('#expense-form'); pg.wait_for_timeout(1500)
+        pg.goto(BASE+'/expenses.html'); pg.wait_for_timeout(2000); pg.click('#addExpense'); pg.wait_for_selector('#expense-form')
         cats=pg.eval_on_selector_all('#expense-category option','els=>els.map(e=>e.value).filter(Boolean)')
         ok('expenses: categories load', len(cats)>0, cats)
         if cats:
             pg.select_option('#expense-category', cats[0]); pg.fill('#expense-amount','1250'); pg.fill('#expense-description','KSEB bill November')
-            pg.select_option('#expense-payment','cash'); pg.click('#expense-save-draft'); pg.wait_for_timeout(1800)
+            pg.click('#payPick [data-pay="cash"]'); pg.click('#expense-save-draft'); pg.wait_for_timeout(1800)
             ok('expenses: draft saved', 'KSEB' in pg.inner_text('#expense-rows'), pg.inner_text('#expense-form-message')+json.dumps(srvlog()))
-            pg.click('[data-expense-post]'); pg.wait_for_timeout(1800)
-            ok('expenses: expense posted', 'posted' in pg.inner_text('#expense-rows').lower(), pg.inner_text('#expense-message')+json.dumps(srvlog()))
+            pg.locator('#expense-rows tr[data-id]', has_text='KSEB').locator('[data-menu]').click(); pg.click('[data-expense-post]'); pg.wait_for_timeout(1800)
+            ok('expenses: expense posted', 'completed' in pg.locator('#expense-rows tr[data-id]', has_text='KSEB').inner_text().lower(), pg.inner_text('#expense-message')+json.dumps(srvlog()))
         ok('expenses: no page errors', not errs, errs); c.close()
 
     if want('finance'):
@@ -184,9 +187,9 @@ with sync_playwright() as p:
 
     if want('settings'):
         c,pg,errs,_=ctx_for(b,'super_admin')
-        pg.goto(BASE+'/settings.html'); pg.wait_for_selector('#branch-profile'); pg.wait_for_timeout(1500)
-        pg.fill('#branch-profile [name=phone]','9847099999'); pg.click('#branch-profile button[type=submit]'); pg.wait_for_timeout(1500)
-        ok('settings: pharmacy profile saved', 'sav' in pg.inner_text('#branch-profile-msg').lower(), pg.inner_text('#branch-profile-msg')+json.dumps(srvlog()))
+        pg.goto(BASE+'/settings.html#business'); pg.wait_for_selector('#branch-profile'); pg.wait_for_timeout(1500)
+        pg.fill('#branch-profile [name=phone]','9847099999'); pg.click('.sg-panel-acts [data-act="save"]'); pg.wait_for_timeout(1500)
+        ok('settings: pharmacy profile saved', 'saved' in pg.inner_text('#toast').lower(), pg.inner_text('#toast')+json.dumps(srvlog()))
         ok('settings: no page errors', not errs, errs); c.close()
     b.close()
 print(f'\n{P} passed, {F} failed')

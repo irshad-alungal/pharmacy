@@ -1,0 +1,123 @@
+/* ==========================================================================
+   Expenses Management — Pallikkal Pharmacy design. Builds on sales-pos.css and
+   returns-pos.css (grid, donut legend, dialogs). Prefix: ex-
+   ========================================================================== */
+.ex-sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); opacity: 0; pointer-events: none; }
+.ex-grid { grid-template-areas: "list reason" "trend sum"; }
+.ex-grid .ex-sum { grid-area: sum; align-self: stretch; }
+.ex-head-actions .pos-btn { min-width: 128px; }
+.ex-head-actions #moreBtn { min-width: 118px; }
+
+/* table */
+.ex-table td { white-space: nowrap; }
+.ex-table .c-dt { color: var(--pp-ink); }
+.ex-table .c-inv b { font-weight: 500; color: var(--pp-ink); }
+.ex-table .ex-clip { display: inline-grid; margin-left: 6px; color: var(--pp-muted); vertical-align: -2px; }
+.ex-table .ex-clip .pp-ic { width: 14px; height: 14px; }
+.ex-cat { display: inline-block; padding: 4px 10px; border-radius: 7px; font-size: .78rem; font-weight: 600; color: color-mix(in srgb, var(--c) 78%, #1d2939); background: color-mix(in srgb, var(--c) 15%, #fff); white-space: nowrap; }
+.sl-pay-chip.p-bank { background: #e3efff; color: #1d5fbf; min-width: 96px; }
+.ex-table small.ex-m-cat, .ex-table small.ex-m-date { display: none; }
+.ex-ic { background: color-mix(in srgb, var(--c) 14%, #fff) !important; color: var(--c) !important; }
+.ex-ic-big { background: color-mix(in srgb, var(--c) 16%, #fff) !important; color: var(--c) !important; }
+.ex-drafts { color: #b45309; font-weight: 600; }
+
+/* categories card */
+.ex-legend button { grid-template-columns: 12px minmax(0, 1fr) 52px 74px !important; }
+.ex-legend span { font-weight: 700 !important; color: var(--pp-ink) !important; font-size: .86rem !important; }
+.ex-donut .dl-donut-c strong { font-size: 1.35rem !important; }
+.ex-donut .dl-donut-c span { font-size: .84rem; }
+
+/* summary */
+.ex-tiles { grid-template-columns: 1fr 1fr !important; gap: 14px !important; margin-top: 8px; }
+.ex-tiles button { padding: 22px 8px !important; }
+.ex-tiles b { font-size: 1.55rem !important; }
+.ex-sum .pur-sum-more { margin-top: 14px; }
+
+/* add / edit form */
+.ex-dlg { width: min(96vw, 760px) !important; }
+.ex-quick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 12px; }
+.ex-quick[hidden] { display: none; }
+.ex-quick small { color: var(--pp-muted); margin-right: 2px; }
+.ex-quick button { display: inline-flex !important; align-items: center; gap: 5px; height: 30px; padding: 0 10px !important; border: 1px solid color-mix(in srgb, var(--c) 35%, #fff) !important; border-radius: 999px !important; background: color-mix(in srgb, var(--c) 9%, #fff) !important; font-size: .78rem !important; color: var(--pp-ink) !important; cursor: pointer; }
+.ex-quick button .pp-ic { width: 14px; height: 14px; color: var(--c); }
+.ex-cat-row { display: grid; grid-template-columns: minmax(0, 1fr) 42px; gap: 6px; }
+.ex-cat-row .pos-btn { width: 42px !important; height: 42px !important; padding: 0 !important; font-size: 1.2rem !important; }
+.ex-pay { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.ex-pay button { height: 42px; padding: 0 4px !important; border: 1px solid var(--pp-line) !important; border-radius: 10px !important; background: #fff !important; font-size: .8rem !important; font-weight: 600; color: var(--pp-text) !important; cursor: pointer; white-space: nowrap; }
+.ex-pay button.on { border-color: #12a01b !important; background: #e6f6e8 !important; color: #0f7a16 !important; }
+.ex-dlg input[type=file] { padding: 8px; height: auto; }
+.ex-amt { font: 800 1.2rem var(--pp-head) !important; color: #0f7a16 !important; }
+.ex-notes { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: #fffaf0; font-size: .86rem; }
+.ex-rcs { display: grid; gap: 6px; }
+.ex-rc { display: grid !important; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--pp-line); border-radius: 10px; }
+.ex-rc > span .pp-ic { width: 22px; height: 22px; color: #1d5fbf; }
+.ex-rc .pos-btn { width: auto !important; padding: 0 12px !important; }
+.ex-rc-dlg { width: min(94vw, 560px) !important; }
+.ex-danger { color: #c4291f !important; border-color: #f3c3c0 !important; }
+.ex-cat-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin: 8px 0 12px; }
+.ex-cat-add .pos-btn { width: auto !important; padding: 0 16px !important; }
+.ex-cat-acts { white-space: nowrap; }
+.ex-cat-acts .pos-btn { width: auto !important; padding: 0 10px !important; margin-left: 4px; }
+.ex-rep-dates { grid-template-columns: 1fr 1fr auto auto !important; align-items: end; gap: 8px !important; }
+.ex-rep-dates .pos-btn { width: auto !important; padding: 0 14px !important; }
+.ex-rep-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.ex-rep-grid .dl-table-wrap { max-height: 46vh; overflow: auto; }
+
+/* responsive */
+@media (max-width: 1640px) {
+  .ex-table td { font-size: .8rem; }
+  .ex-table .c-cust { max-width: 150px; }
+  .ex-table .md-chip { padding: 3px 8px; font-size: .74rem; }
+  .ex-table .md-chip .pp-ic { display: none; }
+  .ex-cat, .sl-pay-chip { padding: 3px 8px; font-size: .74rem; }
+  .sl-pay-chip.p-bank { min-width: 0; }
+  .ex-tiles b { font-size: 1.3rem !important; }
+  .ex-legend button { grid-template-columns: 10px minmax(0, 1fr) 44px 66px !important; }
+  .ex-legend span { font-size: .8rem !important; }
+}
+@media (max-width: 1500px) and (min-width: 901px) { .ex-table .c-pay { display: none; } }
+@media (max-width: 1280px) { .ex-grid { grid-template-areas: "list list" "reason sum" "trend trend"; } }
+@media (max-width: 1060px) { .ex-grid { grid-template-areas: "list" "reason" "trend" "sum"; } }
+@media (max-width: 900px) {
+  .ex-table .c-dt, .ex-table .c-cat, .ex-table .c-pay { display: none !important; }
+  .ex-table tbody tr[data-id] { grid-template-columns: minmax(0, 1fr) auto auto 36px; grid-template-areas: "inv amt st act"; }
+  .ex-table small.ex-m-date { display: block !important; font-size: .78rem; color: var(--pp-text); }
+  .ex-table small.ex-m-cat { display: block !important; margin-top: 3px; }
+  .ex-rep-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .ex .md-head-actions { grid-template-columns: 1.5fr 1.2fr 1fr !important; }
+  .ex-head-actions .pos-btn, .ex-head-actions #moreBtn { min-width: 0; width: 100%; }
+  .ex-table tbody tr[data-id] { grid-template-columns: minmax(0, 1fr) auto 34px; grid-template-areas: "inv amt act" "inv st act"; }
+  .ex-table .c-st { justify-self: end; }
+  .ex-table .c-amt small.ex-m-cat { text-align: right; }
+  .ex-tiles b { font-size: 1.05rem !important; }
+  .ex-tiles button { padding: 14px 6px !important; }
+  .ex-legend button { grid-template-columns: 10px minmax(0, 1fr) auto !important; }
+  .ex-legend span { display: none !important; }
+  .ex-pay { grid-template-columns: 1fr 1fr; }
+  .ex-rep-dates { grid-template-columns: 1fr 1fr !important; }
+}
+.ex-table small.ex-m-pay { display: none; }
+@media (max-width: 1640px) and (min-width: 901px) {
+  .ex-table .c-pay { display: none; }
+  .ex-table small.ex-m-pay { display: block; font-size: .72rem; color: var(--pp-text); margin-top: 1px; }
+}
+@media (min-width: 1061px) {
+  .ex-cats .ex-cat-box { grid-template-columns: 1fr !important; justify-items: center; gap: 18px; }
+  .ex-cats .ex-donut { width: 220px !important; height: 220px !important; }
+  .ex-cats .ex-legend { width: 100%; }
+}
+.ex-donut .dl-donut-c { padding: 0 34px; }
+.ex-donut .dl-donut-c strong { font-size: 1.25rem !important; white-space: nowrap; }
+.ex-donut .dl-donut-c span { font-size: .78rem !important; }
+@media (max-width: 560px) {
+  .ex .rt-list .dl-card-head h2 small { display: none; }
+  .ex-cats .dl-card-head h2 { font-size: .86rem !important; }
+  .ex-cats .dl-card-head h2 .pp-ic { width: 18px !important; height: 18px !important; }
+  .ex-donut .dl-donut-c { padding: 0 22px; }
+  .ex-donut .dl-donut-c strong { font-size: .9rem !important; }
+  .ex-donut .dl-donut-c span { font-size: .64rem !important; }
+  .ex .rt-trend .dz-tip { white-space: normal; max-width: 170px; }
+  .ex .md-kpi .dz-kpi-label { font-size: .76rem; }
+}

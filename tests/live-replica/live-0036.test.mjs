@@ -1,0 +1,73 @@
+// Migration 0036 on the live-schema replica: invoice_view_info, invoice_lookup, invoice_share_link.
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { makeFixture, IDS, asUser, asOwner, q } from './fixture.mjs';
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const mig = n => fs.readFileSync(path.join(HERE, '../../database/migrations', n), 'utf8');
+let pass = 0, fail = 0;
+const ok = (n, c, x = '') => { c ? pass++ : fail++; console.log(`${c ? 'PASS' : 'FAIL'} ${n}${c ? '' : '  → ' + String(x).slice(0, 500)}`); };
+const db = await makeFixture({ postgrest: true });
+for (const m of ['0021_complete_backend_and_live_fixes.sql', '0022_delivery_management_v2.sql', '0025_customers_management.sql', '0026_sales_management.sql', '0030_whatsapp_management.sql', '0036_invoice_view.sql']) await db.exec(mig(m));
+try { await db.exec(mig('0036_invoice_view.sql')); ok('0036 runs a second time', true); } catch (e) { ok('0036 runs a second time', false, e.message); }
+await asOwner(db);
+const B = IDS.branch, B2 = '0b000000-0000-0000-0000-000000000002';
+await q(db, `insert into branches(id,pharmacy_id,code,name,invoice_prefix) values ($1,$2,'BR2','Second','IN2')`, [B2, IDS.pharmacy]);
+const cust = (await q(db, `insert into customers(branch_id,name,phone,email,customer_no) values ($1,'Ajay Kumar','9847000201','ajay@example.in','CUST-0108') returning id`, [B]))[0].id;
+const inv = async (no, total, custId, status, ago, branch = B) => (await q(db, `insert into sales_invoices(branch_id,invoice_no,customer_id,total,subtotal,tax,discount,status,created_by,created_at) values ($1,$2,$3,$4,$4,$4 * 0.1,0,$5,$6,now() - $7::interval) returning id`, [branch, no, custId, total, status, IDS.billing, ago]))[0].id;
+const i1 = await inv('INV-1', 400, cust, 'final', '3 hours');
+const i2 = await inv('INV-2', 300, cust, 'final', '2 hours');
+const i3 = await inv('INV-3', 100, null, 'final', '1 hour');
+const i4 = await inv('INV-4', 50, cust, 'cancelled', '30 minutes');
+await inv('INV-9', 777, null, 'final', '10 minutes', B2);
+await db.exec(`set session_replication_role = replica`);
+for (const [id, no] of [[i1, 'INV-1'], [i2, 'INV-2'], [i3, 'INV-3'], [i4, 'INV-4']]) await q(db, `update sales_invoices set invoice_no=$2 where id=$1`, [id, no]);
+await q(db, `update sales_invoices set invoice_no='INV-9' where branch_id=$1`, [B2]);
+await q(db, `insert into payments(branch_id,invoice_id,method,amount) values ($1,$2,'cash',400),($1,$3,'upi',200),($1,$3,'credit',100),($1,$4,'cash',100)`, [B, i1, i2, i3]);
+await q(db, `insert into sales_returns(branch_id,return_no,invoice_id,customer_id,reason,refund_method,total,created_by) values ($1,'CN-1',$2,$3,'Wrong strength','cash',40,$4)`, [B, i2, cust, IDS.billing]);
+await q(db, `insert into delivery_jobs(branch_id,invoice_id,is_requested,assigned_to,status,delivery_address,delivered_at,requested_at) values ($1,$2,true,$3,'done','MG Road',now(),now() - interval '1 hour')`, [B, i2, IDS.delivery]);
+await db.exec(`set session_replication_role = origin`);
+const as = async (u, sql, p) => { await asUser(db, u); try { return { rows: await q(db, sql, p) }; } catch (e) { return { error: e.message }; } finally { await asOwner(db); } };
+
+let r = await as(IDS.billing, `select invoice_view_info($1) j`, [i2]);
+let j = r.rows?.[0]?.j || {};
+ok('cashier, home delivery, on credit + paid', j.cashier?.name === 'billing user' && j.cashier?.staff_id === 'BIL001' && j.sales_type === 'Home Delivery' && +j.paid === 200 && +j.on_credit === 100 && j.payment_status === 'partly_paid', r.error || JSON.stringify(j).slice(0, 400));
+ok('customer: ID, email, type Regular (2 final bills), outstanding', j.customer?.customer_no === 'CUST-0108' && j.customer?.email === 'ajay@example.in' && j.customer?.type === 'Regular' && j.customer?.bills === 2 && +j.customer?.outstanding === 100, JSON.stringify(j.customer));
+ok('returns listed, net total', j.returns?.length === 1 && j.returns[0].return_no === 'CN-1' && +j.returned === 40 && +j.net_total === 260);
+ok('delivery: done, rider name and staff ID, address', j.delivery?.status === 'done' && j.delivery?.rider === 'delivery user' && j.delivery?.rider_staff_id === 'DEL001' && j.delivery?.address === 'MG Road' && j.delivery?.delivered_at);
+ok('previous / next bill in date order', j.prev?.invoice_no === 'INV-1' && j.next?.invoice_no === 'INV-3');
+j = (await as(IDS.billing, `select invoice_view_info($1) j`, [i1])).rows[0].j;
+ok('first bill: no previous, counter sale, paid', j.prev === null && j.next?.invoice_no === 'INV-2' && j.sales_type === 'Counter Sale' && j.payment_status === 'paid' && j.delivery === null);
+j = (await as(IDS.billing, `select invoice_view_info($1) j`, [i3])).rows[0].j;
+ok('walk-in bill: no customer; last of this branch has next = INV-4 (other branch ignored)', j.customer === null && j.next?.invoice_no === 'INV-4');
+j = (await as(IDS.billing, `select invoice_view_info($1) j`, [i4])).rows[0].j;
+ok('cancelled bill status; newest has no next', j.payment_status === 'cancelled' && j.next === null);
+await q(db, `insert into sales_returns(branch_id,return_no,invoice_id,customer_id,reason,refund_method,total,created_by) values ($1,'CN-2',$2,$3,'All returned','cash',400,$4)`, [B, i1, cust, IDS.billing]);
+j = (await as(IDS.billing, `select invoice_view_info($1) j`, [i1])).rows[0].j;
+ok('fully returned bill shows refunded', j.payment_status === 'refunded' && +j.net_total === 0);
+
+r = await as(IDS.inventory, `select invoice_view_info($1) j`, [i1]); ok('inventory staff cannot open bills', !!r.error);
+r = await as(IDS.delivery, `select invoice_view_info($1) j`, [i1]); ok('delivery staff cannot open bills', !!r.error);
+r = await as(IDS.pharmacist, `select invoice_view_info($1) j`, [i1]); ok('pharmacist can', !r.error);
+const other = (await q(db, `select id from sales_invoices where invoice_no='INV-9'`))[0].id;
+r = await as(IDS.admin, `select invoice_view_info($1) j`, [other]); ok('another branch bill is not found', /not found/.test(r.error || ''));
+r = await as(null, `select invoice_view_info($1) j`, [i1]); ok('not signed in: refused', !!r.error);
+
+r = await as(IDS.billing, `select * from invoice_lookup('inv-')`); ok('lookup: this branch only, newest first', r.rows?.length === 4 && r.rows[0].invoice_no === 'INV-4' && !r.rows.some(x => x.invoice_no === 'INV-9'), r.error || JSON.stringify(r.rows));
+r = await as(IDS.billing, `select * from invoice_lookup('inv-2')`); ok('lookup: exact number first with customer name', r.rows?.[0]?.invoice_no === 'INV-2' && r.rows[0].customer_name === 'Ajay Kumar');
+r = await as(IDS.billing, `select * from invoice_lookup('%')`); ok('lookup: wildcards stripped / too short', r.rows?.length === 0);
+
+r = await as(IDS.billing, `select invoice_share_link($1, 'https://shop.example.in/sales.html') j`, [i2]);
+j = r.rows?.[0]?.j || {};
+ok('share link: 64-hex token and page link', /^[0-9a-f]{64}$/.test(j.token) && j.link === `https://shop.example.in/invoice-view.html?t=${j.token}`, r.error || JSON.stringify(j));
+const j2 = (await as(IDS.billing, `select invoice_share_link($1, null) j`, [i2])).rows[0].j;
+ok('share link reused; no base url → no link', j2.token === j.token && j2.link === null);
+ok('no WhatsApp message queued by the share link', +(await q(db, `select count(*) n from whatsapp_messages where invoice_id=$1`, [i2]))[0].n === 0);
+j = (await as(IDS.billing, `select invoice_view_info($1) j`, [i2])).rows[0].j;
+ok('page shows the link status', j.share_link?.expires_at && j.share_link.views === 0);
+r = await as(null, `select public_invoice($1) j`, [j2.token]);
+ok('customer page still opens with that link', r.rows?.[0]?.j?.invoice?.invoice_no === 'INV-2', r.error);
+r = await as(IDS.billing, `select invoice_share_link($1, 'javascript:alert(1)') j`, [i2]); ok('bad base url ignored', r.rows?.[0]?.j?.link === null);
+r = await as(IDS.billing, `select invoice_share_link($1, null) j`, [other]); ok('share link: other branch refused', !!r.error);
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

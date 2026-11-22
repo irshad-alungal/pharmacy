@@ -1,178 +1,367 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0b5f58">
-  <meta name="description" content="Pallikkal Pharmacy — pharmacy care, medicines and customer support in Thrissur.">
-  <title>PALLIKKAL PHARMACY — Your health, our priority</title>
-  <style>
-    :root{--green:#0f766e;--deep:#103b36;--mint:#dff3ed;--ink:#17312d;--muted:#61736f;--paper:#f7faf8;--white:#fff;--line:#dce9e4}
-    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--paper);line-height:1.6}
-    a{color:inherit;text-decoration:none}.wrap{width:min(1160px,calc(100% - 40px));margin:auto}
-    .topbar{position:sticky;top:0;z-index:20;background:#ffffffed;backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
-    .nav{height:76px;display:flex;align-items:center;justify-content:space-between;gap:24px}.brand{display:flex;align-items:center;gap:12px;font-weight:850;letter-spacing:.03em;color:var(--deep);font-size:1.15rem}.brand-mark{width:42px;height:42px;border-radius:13px;background:var(--green);display:grid;place-items:center;color:white;font-size:25px;font-weight:500}.navlinks{display:flex;align-items:center;gap:28px;color:#47615b;font-size:.95rem}.navlinks>a:hover{color:var(--green)}
-    .login{position:relative}.login summary{list-style:none;cursor:pointer;background:var(--green);color:white;padding:11px 19px;border-radius:999px;font-weight:700;box-shadow:0 6px 16px #0f766e26}.login summary::-webkit-details-marker{display:none}.login summary:after{content:'⌄';margin-left:10px}.login[open] summary{background:var(--deep)}.dropdown{position:absolute;right:0;top:calc(100% + 12px);width:210px;background:white;border:1px solid var(--line);border-radius:14px;padding:8px;box-shadow:0 16px 40px #102c2624}.dropdown a{display:block;padding:11px 13px;border-radius:9px;color:var(--ink);font-weight:600}.dropdown a:hover{background:var(--mint);color:var(--green)}
-    .hero{padding:82px 0 76px;background:radial-gradient(ellipse at 80% 15%,#ccece1 0,transparent 38%),linear-gradient(135deg,#f4faf7,#e8f5ef)}.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;align-items:center;gap:55px}.eyebrow{display:inline-flex;align-items:center;gap:8px;color:var(--green);font-weight:800;text-transform:uppercase;letter-spacing:.13em;font-size:.76rem}.eyebrow:before{content:'';width:24px;height:2px;background:var(--green)}h1{font-size:clamp(2.5rem,5.3vw,4.8rem);line-height:1.05;letter-spacing:-.055em;color:var(--deep);margin:18px 0 22px}.hero p{font-size:1.12rem;color:var(--muted);max-width:570px;margin:0 0 30px}.primary{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border-radius:999px;background:var(--green);color:white;font-weight:750;box-shadow:0 9px 22px #0f766e2b}.primary:hover{background:var(--deep)}.hero-art{min-height:350px;border-radius:34px;background:linear-gradient(145deg,#0f766e,#164a43);position:relative;overflow:hidden;display:grid;place-items:center;box-shadow:0 24px 60px #174e4428}.hero-art:before,.hero-art:after{content:'';position:absolute;border:1px solid #ffffff30;border-radius:50%;width:310px;height:310px}.hero-art:after{width:420px;height:420px}.cross{position:relative;z-index:1;width:148px;height:148px;border-radius:38px;background:#ffffffed;color:var(--green);font-size:112px;line-height:130px;text-align:center;font-weight:300;box-shadow:0 15px 35px #052b253f}.art-label{position:absolute;z-index:2;bottom:25px;left:25px;color:#e8fff7;font-weight:650;letter-spacing:.04em}
-    .section{padding:76px 0}.section-head{text-align:center;max-width:660px;margin:0 auto 38px}.section-head .eyebrow{justify-content:center}.section h2{font-size:clamp(1.8rem,3vw,2.6rem);line-height:1.15;color:var(--deep);letter-spacing:-.035em;margin:13px 0}.section-head p{color:var(--muted);margin:0}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.card{background:white;border:1px solid var(--line);border-radius:20px;padding:27px;box-shadow:0 8px 25px #153e3210}.card-icon{width:48px;height:48px;border-radius:15px;background:var(--mint);display:grid;place-items:center;color:var(--green);font-size:24px}.card h3{color:var(--deep);margin:17px 0 7px}.card p{color:var(--muted);margin:0;font-size:.96rem}.about{background:#eaf5f0}.about-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:55px;align-items:center}.about-symbol{background:var(--deep);color:white;border-radius:26px;min-height:250px;display:grid;place-items:center;font-size:76px}.about-copy h2{font-size:2.2rem;line-height:1.15;color:var(--deep);margin:12px 0}.about-copy p{color:var(--muted)}.contact{padding:62px 0;background:var(--deep);color:white}.contact-inner{display:flex;justify-content:space-between;align-items:center;gap:25px}.contact h2{font-size:2rem;margin:0 0 8px}.contact p{color:#c5ddd5;margin:0}.contact .primary{background:white;color:var(--deep);box-shadow:none}.footer{padding:22px 0;color:#73857f;font-size:.88rem}.footer-inner{display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap}
-    .public-shop-status{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;font-size:.82rem;font-weight:800;white-space:nowrap}
-    .public-shop-status .public-shop-dot{width:9px;height:9px;border-radius:50%;background:currentColor}
-    .public-shop-status.is-open{background:#dcfce7;color:#166534}
-    .public-shop-status.is-closed{background:#fee2e2;color:#991b1b}
-    @media(max-width:760px){.nav{height:auto;min-height:70px;flex-wrap:wrap;padding:13px 0}.navlinks{order:3;width:100%;justify-content:center;gap:18px;font-size:.9rem}.hero{padding:55px 0}.hero-grid,.about-grid{grid-template-columns:1fr;gap:30px}.hero-art{min-height:260px}.cards{grid-template-columns:1fr}.contact-inner{align-items:flex-start;flex-direction:column}.section{padding:58px 0}}
-    @media(max-width:390px){.wrap{width:calc(100% - 28px)}.brand{font-size:1rem}.brand-mark{width:36px;height:36px}.login summary{padding:9px 13px}.navlinks{gap:13px}}
-
-    .language-toggle{border:1px solid var(--green);background:white;color:var(--green);border-radius:999px;padding:9px 14px;font-weight:800;cursor:pointer;white-space:nowrap}.language-toggle:hover{background:var(--mint)}
-    .offer-section{padding:34px 0 10px}.offer-banner{min-height:220px;border-radius:26px;padding:35px 42px;background:linear-gradient(115deg,#0f766e,#164a43 68%,#1e6257);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:25px;overflow:hidden;position:relative;box-shadow:0 18px 40px #174e4420}.offer-copy{max-width:700px;position:relative;z-index:1}.offer-kicker{font-size:.78rem;font-weight:850;letter-spacing:.16em;color:#baf2d9}.offer-banner h2{font-size:clamp(1.65rem,3.3vw,2.55rem);line-height:1.12;margin:10px 0;color:#fff}.offer-banner p{margin:0;color:#d9f2e9;max-width:620px}.offer-art{width:145px;height:145px;flex:0 0 145px;border-radius:50%;background:#ffffff1c;border:1px solid #ffffff50;display:grid;place-items:center;font-size:5rem;font-weight:900;color:#fff;position:relative}.offer-art span{position:absolute;font-size:2rem;right:2px;top:2px;color:#baf2d9}
-    .delivery-section{padding:34px 0 20px}.delivery-notice{display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:center;background:#e6f5ee;border:1px solid #c9e8d8;border-radius:22px;padding:27px 30px}.delivery-icon{width:58px;height:58px;border-radius:18px;background:#c9ead8;color:#166534;display:grid;place-items:center;font-size:2rem}.delivery-notice h2{font-size:1.5rem;color:var(--deep);margin:7px 0}.delivery-notice p{margin:0;color:var(--muted);max-width:720px}.delivery-rule{display:grid;grid-template-columns:auto auto;gap:2px 12px;align-items:center;border-left:1px solid #c2dfce;padding-left:25px}.delivery-rule strong{font-size:1.25rem;color:#166534}.delivery-rule span{font-size:.8rem;color:#527064}
-    .ayurvedic-section{padding:72px 0;background:#f0f6ed}.ayurvedic-grid{display:grid;grid-template-columns:90px 1.1fr .9fr;gap:30px;align-items:center}.ayurvedic-mark{width:82px;height:82px;border-radius:25px;background:#dcebd6;color:#386b42;display:grid;place-items:center;font-size:3.2rem}.ayurvedic-copy h2{font-size:2.2rem;color:var(--deep);margin:10px 0}.ayurvedic-copy>p{color:var(--muted);margin:0 0 14px}.demo-label{display:inline-block;background:#fff2cc;color:#805b12;border-radius:7px;padding:5px 9px;font-size:.78rem;font-weight:750;margin-bottom:10px}.ayurvedic-details p{margin:5px 0;color:var(--muted);font-size:.93rem}.ayurvedic-details a{color:var(--green);font-weight:650}.outline-link{display:inline-flex;margin-top:15px;border:1px solid var(--green);color:var(--green);border-radius:999px;padding:10px 16px;font-weight:750}.map-placeholder{min-height:250px;border-radius:22px;background:linear-gradient(135deg,#dbe9d9,#c5ddce);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#315c43;text-align:center;padding:20px;position:relative;overflow:hidden}.map-placeholder:before,.map-placeholder:after{content:'';position:absolute;width:150%;height:1px;background:#ffffffa8;transform:rotate(-25deg)}.map-placeholder:after{transform:rotate(25deg)}.map-pin{font-size:3.2rem;z-index:1}.map-placeholder strong,.map-placeholder span{z-index:1}.map-placeholder span{font-size:.83rem;color:#55745e}
-    @media(max-width:850px){.delivery-notice{grid-template-columns:auto 1fr}.delivery-rule{grid-column:2;border-left:0;border-top:1px solid #c2dfce;padding:14px 0 0}.ayurvedic-grid{grid-template-columns:70px 1fr}.map-placeholder{grid-column:1/-1}.nav{gap:12px}}
-    @media(max-width:560px){.language-toggle{padding:8px 10px;font-size:.82rem}.offer-banner{padding:26px 23px;min-height:190px}.offer-art{width:85px;height:85px;flex-basis:85px;font-size:3rem}.delivery-notice{grid-template-columns:1fr;padding:22px}.delivery-rule{grid-column:1}.ayurvedic-grid{grid-template-columns:1fr}.ayurvedic-mark{width:65px;height:65px}.navlinks{flex-wrap:wrap}}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#02224d">
+<meta name="description" content="Pallikkal Pharmacy, Thrissur — genuine medicines, pharmacist guidance, home delivery, prescription refills and our Ayurvedic sister store.">
+<title>PALLIKKAL PHARMACY — Your Health. Our Priority.</title>
+<link rel="icon" type="image/png" href="assets/images/brand/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800&display=swap">
+<link rel="stylesheet" href="assets/css/site.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="wrap nav">
-      <a class="brand" href="#home" aria-label="Pallikkal Pharmacy home"><span class="brand-mark" aria-hidden="true">＋</span><span>PALLIKKAL PHARMACY</span></a>
-      <span id="publicShopStatus" class="public-shop-status is-closed" role="status" aria-live="polite"><span class="public-shop-dot"></span><span id="publicShopStatusText">Shop Closed</span></span>
-      <button class="language-toggle" id="languageToggle" type="button" aria-label="Switch language">മലയാളം</button>
-      <nav class="navlinks" aria-label="Main navigation">
-        <a href="#home" data-i18n="navHome">Home</a><a href="#services" data-i18n="navServices">Services</a><a href="#about" data-i18n="navAbout">About</a><a href="#ayurvedic" data-i18n="navAyur">Ayurvedic Store</a><a href="#contact" data-i18n="navContact">Contact</a>
-      </nav>
-      <details class="login">
-        <summary data-i18n="login">Login</summary>
-        <div class="dropdown">
-          <a href="staff-login.html" data-i18n="staffLogin">Staff login</a>
-          <a href="admin-login.html" data-i18n="adminLogin">Admin login</a>
-        </div>
-      </details>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 3h3.5l1.8 4.5-2.3 1.4a11 11 0 0 0 5.1 5.1l1.4-2.3L19 13.5V17a3 3 0 0 1-3 3A15 15 0 0 1 2 6a3 3 0 0 1 3-3Z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-pill" viewBox="0 0 24 24"><rect x="2.6" y="8.2" width="18.8" height="7.6" rx="3.8" transform="rotate(-45 12 12)"/><path d="m8.6 8.6 6.8 6.8"/></symbol>
+  <symbol id="i-truck" viewBox="0 0 24 24"><path d="M2 6h11v10H2zM13 9h4.5l3.5 3.5V16h-8"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-9-9.5C2 6.9 4.3 4 7.4 4c2 0 3.4 1.1 4.6 2.7C13.2 5.1 14.6 4 16.6 4 19.7 4 22 6.9 21 10.5 19.5 15.4 12 20 12 20Z"/></symbol>
+  <symbol id="i-refill" viewBox="0 0 24 24"><path d="M7 3h10v4H7zM6 7h12v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2Z"/><path d="M12 11v6M9 14h6"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19c0-8 5-14 15-15-1 10-7 15-15 15Z"/><path d="M5 19c3-4 6-6.5 10-9"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8Z"/><circle cx="7.5" cy="8.5" r="1.5"/></symbol>
+  <symbol id="i-wa" viewBox="0 0 24 24"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3 3Z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1.2-1.4-2-1-1 .8c-1-.4-1.9-1.3-2.3-2.3l.8-1-1-2L9 9.5Z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3Z"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="m3 6 6-2 6 2 6-2v14l-6 2-6-2-6 2Z"/><path d="M9 4v14M15 6v14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 9 4.5 4h15L21 9M3 9v11h18V9M3 9h18"/><path d="M9 20v-6h6v6"/></symbol>
+  <symbol id="i-car" viewBox="0 0 24 24"><path d="M5 16V11l2-5h10l2 5v5M3 16h18v3H3z"/><circle cx="7.5" cy="13" r="1"/><circle cx="16.5" cy="13" r="1"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2 4 2 4H5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-guide" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M15 4h6v5h-3l-2 2v-2h-1Z"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></symbol>
+  <symbol id="i-care" viewBox="0 0 24 24"><path d="M4 14c3 0 5 1.5 6 3h4c.8 0 1.5.7 1.5 1.5S14.8 20 14 20H8"/><path d="M15.5 17.5 20 15c.8-.4 1.7 0 2 .8.2.6 0 1.2-.5 1.6L15 21H4"/><path d="M13 10s-3-1.8-3-4a1.8 1.8 0 0 1 3-1.3A1.8 1.8 0 0 1 16 6c0 2.2-3 4-3 4Z"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 13H6Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M12 12v5M9.5 14.5h5"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-bike" viewBox="0 0 24 24"><circle cx="5.5" cy="17" r="3"/><circle cx="18.5" cy="17" r="3"/><path d="M5.5 17 9 9h5l4.5 8M9 9 8 6H6M14 9l-2 8h-6"/></symbol>
+  <symbol id="i-fb" viewBox="0 0 24 24"><path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8Z"/></symbol>
+  <symbol id="i-ig" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/></symbol>
+  <symbol id="i-yt" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3Z"/></symbol>
+</svg>
+
+<!-- top info bar -->
+<div class="s-top">
+  <div class="wrap">
+    <span class="s-top-i s-top-hide-m"><svg class="ic"><use href="#i-pin"/></svg><span id="tAddress">Near KSRTC Bus Stand, Thrissur, Kerala</span></span>
+    <span class="s-top-sep s-top-hide-m"></span>
+    <span class="s-top-i s-top-hide-s"><svg class="ic"><use href="#i-phone"/></svg><a id="tPhone" href="tel:+919000000001">+91 90000 00001</a></span>
+    <span class="s-top-sep s-top-hide-l"></span>
+    <span class="s-top-i s-top-hide-l"><svg class="ic"><use href="#i-mail"/></svg><a id="tEmail" href="mailto:info@pallikkalpharmacy.in">info@pallikkalpharmacy.in</a></span>
+    <div class="s-top-r">
+      <span id="publicShopStatus" class="s-status is-closed" role="status" aria-live="polite"><span class="s-status-dot"></span><span id="publicShopStatusText" data-i18n="shopClosed">Shop Closed</span></span>
+      <span class="s-top-i s-top-hide-xs"><svg class="ic"><use href="#i-clock"/></svg><span><span data-i18n="today">Today</span>: <b id="tHours" style="color:#fff">8:00 AM – 9:00 PM</b></span></span>
     </div>
-  </header>
+  </div>
+</div>
 
-  <main>
-    <section class="hero" id="home">
-      <div class="wrap hero-grid">
-        <div>
-          <span class="eyebrow" data-i18n="welcome">Welcome to Pallikkal Pharmacy</span>
-          <h1 data-i18n="heroTitle">Your health.<br>Our priority.</h1>
-          <p data-i18n="heroText">Thoughtful pharmacy care and everyday health essentials, with a team focused on helping you make informed choices for your wellbeing.</p>
-          <a class="primary" href="#services"><span data-i18n="explore">Explore our services</span> <span aria-hidden="true">→</span></a>
-        </div>
-        <div class="hero-art" aria-label="Pharmacy care symbol"><div class="cross" aria-hidden="true">＋</div><div class="art-label" data-i18n="heroTag">CARE · TRUST · WELLBEING</div></div>
+<!-- header -->
+<header class="s-head" id="sHead">
+  <div class="wrap">
+    <a class="s-logo" href="#home" aria-label="Pallikkal Pharmacy home"><img src="assets/images/brand/logo-horizontal-dark.png" alt="Pallikkal Pharmacy" width="640" height="156"></a>
+    <nav class="s-nav" aria-label="Main navigation">
+      <a href="#home" class="is-active" data-i18n="navHome">Home</a>
+      <div class="s-nav-dd" id="svcDD">
+        <button type="button" aria-haspopup="true" aria-expanded="false"><span data-i18n="navServices">Services</span><svg class="ic"><use href="#i-down"/></svg></button>
+        <div class="s-menu" id="svcMenu"></div>
       </div>
-    </section>
+      <a href="#highlights" data-act="offers" data-i18n="navOffers">Offers</a>
+      <a href="#about" data-i18n="navAbout">About Us</a>
+      <a href="#ayurvedic" id="navAyur" data-i18n="navAyur">Ayurvedic Store</a>
+      <a href="#contact" data-i18n="navContact">Contact</a>
+    </nav>
+    <div class="s-head-r">
+      <div class="s-lang" role="group" aria-label="Language"><button type="button" data-lang="en" class="on">English</button><button type="button" data-lang="ml">മലയാളം</button></div>
+      <button class="language-toggle sr" id="languageToggle" type="button">മലയാളം</button>
+      <div class="s-nav-dd s-login" id="loginDD">
+        <button type="button" class="btn btn-navy btn-sm" aria-haspopup="true" aria-expanded="false"><svg class="ic"><use href="#i-user"/></svg><span data-i18n="login">Login</span><svg class="ic"><use href="#i-down"/></svg></button>
+        <div class="s-menu r">
+          <a href="staff-login.html"><svg class="ic"><use href="#i-user"/></svg><span><span data-i18n="staffLogin">Staff login</span><small data-i18n="staffLoginS">Billing, inventory, pharmacist</small></span></a>
+          <a href="admin-login.html"><svg class="ic"><use href="#i-lock"/></svg><span><span data-i18n="adminLogin">Admin login</span><small data-i18n="adminLoginS">Owner and administrators</small></span></a>
+          <a href="delivery-boy-login.html"><svg class="ic"><use href="#i-bike"/></svg><span><span data-i18n="deliveryLogin">Delivery login</span><small data-i18n="deliveryLoginS">Delivery partners</small></span></a>
+        </div>
+      </div>
+      <a class="s-user" href="staff-login.html" aria-label="Staff login"><svg class="ic"><use href="#i-user"/></svg></a>
+      <button class="s-burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false"><svg class="ic"><use href="#i-menu"/></svg></button>
+    </div>
+  </div>
+</header>
 
-    <section class="offer-section" id="offers" aria-label="Offers">
-      <div class="wrap">
-        <article class="offer-banner">
-          <div class="offer-copy"><span class="offer-kicker" data-i18n="offerKicker">SPECIAL OFFERS</span><h2 data-i18n="offerTitle">Offers and updates from Pallikkal Pharmacy</h2><p data-i18n="offerText">Check this space for our latest offers. Visit us or contact our team for current details.</p></div>
-          <div class="offer-art" aria-hidden="true">%<span>✦</span></div>
+<div class="s-drawer" id="drawer" aria-hidden="true">
+  <div class="s-drawer-bg" data-close></div>
+  <aside class="s-drawer-p" aria-label="Menu">
+    <div class="s-drawer-h"><img src="assets/images/brand/logo-horizontal-dark.png" alt="Pallikkal Pharmacy" width="640" height="156"><button class="s-x" type="button" data-close aria-label="Close menu"><svg class="ic"><use href="#i-x"/></svg></button></div>
+    <a class="dl" href="#home"><svg class="ic"><use href="#i-store"/></svg><span data-i18n="navHome">Home</span></a>
+    <a class="dl" href="#services"><svg class="ic"><use href="#i-pill"/></svg><span data-i18n="navServices">Services</span></a>
+    <a class="dl" href="#highlights" data-act="offers"><svg class="ic"><use href="#i-tag"/></svg><span data-i18n="navOffers">Offers</span></a>
+    <a class="dl" href="#order"><svg class="ic"><use href="#i-bag"/></svg><span data-i18n="orderOnline">Order Medicines Online</span></a>
+    <a class="dl" href="#about"><svg class="ic"><use href="#i-heart"/></svg><span data-i18n="navAbout">About Us</span></a>
+    <a class="dl" href="#ayurvedic" data-ayur><svg class="ic"><use href="#i-leaf"/></svg><span data-i18n="navAyur">Ayurvedic Store</span></a>
+    <a class="dl" href="#contact"><svg class="ic"><use href="#i-phone"/></svg><span data-i18n="navContact">Contact</span></a>
+    <hr>
+    <div class="s-lang" role="group" aria-label="Language"><button type="button" data-lang="en" class="on">English</button><button type="button" data-lang="ml">മലയാളം</button></div>
+    <hr>
+    <a class="dl" href="staff-login.html"><svg class="ic"><use href="#i-user"/></svg><span data-i18n="staffLogin">Staff login</span></a>
+    <a class="dl" href="admin-login.html"><svg class="ic"><use href="#i-lock"/></svg><span data-i18n="adminLogin">Admin login</span></a>
+    <a class="dl" href="delivery-boy-login.html"><svg class="ic"><use href="#i-bike"/></svg><span data-i18n="deliveryLogin">Delivery login</span></a>
+  </aside>
+</div>
+
+<main>
+  <!-- hero -->
+  <section class="s-hero" id="home">
+    <div class="s-hero-bg" id="heroBg" aria-hidden="true"></div>
+    <div class="wrap">
+      <div class="s-hero-copy">
+        <span class="s-pill"><svg class="ic"><use href="#i-heart"/></svg><span data-i18n="welcome">Welcome to Pallikkal Pharmacy</span></span>
+        <h1 id="heroTitle" data-i18n="heroTitle">Your Health.<br><em>Our Priority.</em></h1>
+        <p id="heroText" data-i18n="heroText">Trusted pharmacy care, genuine medicines and everyday health essentials for you and your family.</p>
+        <div class="s-hero-m" id="heroM" aria-hidden="true"></div>
+        <div class="s-hero-cta">
+          <a class="btn btn-green" href="#services"><span data-i18n="explore">Explore Our Services</span><svg class="ic"><use href="#i-right"/></svg></a>
+          <button class="btn btn-line" type="button" data-act="order"><svg class="ic"><use href="#i-bag"/></svg><span data-i18n="orderOnline">Order Medicines Online</span></button>
+        </div>
+        <div class="s-values">
+          <div><span><svg class="ic"><use href="#i-heart"/></svg></span><b data-i18n="vCare">Care</b></div>
+          <div><span><svg class="ic"><use href="#i-shield"/></svg></span><b data-i18n="vTrust">Trust</b></div>
+          <div><span><svg class="ic"><use href="#i-leaf"/></svg></span><b data-i18n="vWell">Wellbeing</b></div>
+        </div>
+      </div>
+      <div class="s-feats rv">
+        <div class="s-feat"><i class="t-green"><svg class="ic"><use href="#i-shield"/></svg></i><div><b data-i18n="f1">Genuine Medicines</b><small data-i18n="f1s">From licensed distributors</small></div></div>
+        <div class="s-feat"><i class="t-blue"><svg class="ic"><use href="#i-guide"/></svg></i><div><b data-i18n="f2">Pharmacist Guidance</b><small data-i18n="f2s">Ask us anything</small></div></div>
+        <div class="s-feat" id="featDelivery"><i class="t-amber"><svg class="ic"><use href="#i-truck"/></svg></i><div><b data-i18n="f3">Home Delivery</b><small><span data-i18n="within">Within</span> <span class="dRadius">5</span> km</small></div></div>
+        <div class="s-feat"><i class="t-red"><svg class="ic"><use href="#i-heart"/></svg></i><div><b data-i18n="f4">Health &amp; Wellness</b><small data-i18n="f4s">Everyday essentials</small></div></div>
+        <div class="s-feat"><i class="t-violet"><svg class="ic"><use href="#i-refill"/></svg></i><div><b data-i18n="f5">Prescription Refill</b><small data-i18n="f5s">Send it on WhatsApp</small></div></div>
+        <div class="s-feat" data-ayur><i class="t-teal"><svg class="ic"><use href="#i-leaf"/></svg></i><div><b data-i18n="f6">Ayurvedic Products</b><small data-i18n="f6s">At our sister store</small></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- quick highlights -->
+  <section class="s-sec" id="highlights">
+    <div class="wrap">
+      <div class="s-sh rv"><span class="s-kick" data-i18n="hlKicker">Quick Highlights</span><h2 data-i18n="hlTitle">Everything You Need, at a Glance</h2><p data-i18n="hlText">Offers, delivery, refills and essentials — all in one place.</p></div>
+      <div class="s-hl">
+        <article class="s-hl-c rv" id="offers" style="--c:var(--red)">
+          <span class="s-hl-badge" id="offerBadge" hidden>0</span>
+          <div class="s-hl-ic t-red"><svg class="ic"><use href="#i-tag"/></svg></div>
+          <h3 data-i18n="hl1">Special Offers</h3>
+          <p id="offerLead" data-i18n="hl1t">Save more on medicines and wellness products. Ask at the counter for today's offers.</p>
+          <div class="art"><img src="assets/images/site/offer.svg" alt="" width="200" height="110"></div>
+          <button class="btn btn-line btn-sm" type="button" data-act="offers"><span data-i18n="viewOffers">View Offers</span><svg class="ic"><use href="#i-right"/></svg></button>
+        </article>
+        <article class="s-hl-c rv" id="delivery-info" style="--c:var(--green)">
+          <div class="s-hl-ic t-green"><svg class="ic"><use href="#i-truck"/></svg></div>
+          <h3 data-i18n="hl2">Home Delivery</h3>
+          <ul id="deliveryList">
+            <li><svg class="ic"><use href="#i-check"/></svg><span><span data-i18n="within">Within</span> <b><span class="dRadius">5</span> km</b></span></li>
+            <li><svg class="ic"><use href="#i-check"/></svg><span><span data-i18n="minPurchase">Minimum purchase</span> <b>₹<span class="dMin">300</span></b></span></li>
+          </ul>
+          <p id="deliveryOff" hidden data-i18n="deliveryOff">Home delivery is paused right now. Please visit the store or call us.</p>
+          <div class="art"><img src="assets/images/site/scooter.svg" alt="" width="200" height="120"></div>
+          <button class="btn btn-line btn-sm" type="button" data-act="delivery"><span data-i18n="knowMore">Know More</span><svg class="ic"><use href="#i-right"/></svg></button>
+        </article>
+        <article class="s-hl-c rv" style="--c:var(--blue)">
+          <div class="s-hl-ic t-blue"><svg class="ic"><use href="#i-refill"/></svg></div>
+          <h3 data-i18n="hl3">Prescription Refill</h3>
+          <p data-i18n="hl3t">Send a photo of your prescription and we'll keep your medicines ready.</p>
+          <div class="art"><img src="assets/images/site/rx.svg" alt="" width="200" height="120"></div>
+          <button class="btn btn-line btn-sm" type="button" data-act="refill"><svg class="ic"><use href="#i-upload"/></svg><span data-i18n="uploadRx">Upload Prescription</span></button>
+        </article>
+        <article class="s-hl-c rv" style="--c:var(--amber)">
+          <div class="s-hl-ic t-amber"><svg class="ic"><use href="#i-heart"/></svg></div>
+          <h3 data-i18n="hl4">Health Essentials</h3>
+          <p data-i18n="hl4t">Vitamins, supplements, baby care, first aid and personal care.</p>
+          <div class="art"><img src="assets/images/site/essentials.svg" alt="" width="200" height="120"></div>
+          <button class="btn btn-line btn-sm" type="button" data-act="stock"><span data-i18n="exploreProducts">Explore Products</span><svg class="ic"><use href="#i-right"/></svg></button>
         </article>
       </div>
-    </section>
 
-    <section class="delivery-section" id="delivery-info">
-      <div class="wrap delivery-notice">
-        <div class="delivery-icon" aria-hidden="true">⌂</div>
-        <div><span class="eyebrow" data-i18n="deliveryKicker">DELIVERY AVAILABLE</span><h2 data-i18n="deliveryTitle">Get your medicines delivered to your doorstep</h2><p data-i18n="deliveryText">Delivery is available within a 5 km radius for purchases of ₹300 or more. Please contact the pharmacy to confirm service availability for your address.</p></div>
-        <div class="delivery-rule"><strong>5 km</strong><span data-i18n="radius">Service radius</span><strong>₹300+</strong><span data-i18n="minimum">Minimum purchase</span></div>
-      </div>
-    </section>
-
-    <section class="section" id="services">
-      <div class="wrap">
-        <div class="section-head"><span class="eyebrow" data-i18n="servicesKicker">WHAT WE FOCUS ON</span><h2 data-i18n="servicesTitle">Care for your everyday health</h2><p data-i18n="servicesText">Support and essentials to help you look after yourself and your family.</p></div>
-        <div class="cards">
-          <article class="card"><div class="card-icon" aria-hidden="true">✚</div><h3 data-i18n="service1Title">Medicine support</h3><p data-i18n="service1Text">Help with finding medicines and understanding the information provided with them.</p></article>
-          <article class="card"><div class="card-icon" aria-hidden="true">♡</div><h3 data-i18n="service2Title">Everyday wellness</h3><p data-i18n="service2Text">Health and personal-care essentials for your day-to-day needs.</p></article>
-          <article class="card"><div class="card-icon" aria-hidden="true">☏</div><h3 data-i18n="service3Title">Helpful guidance</h3><p data-i18n="service3Text">A welcoming place to ask questions and get support with your pharmacy needs.</p></article>
+      <!-- order online + stock check -->
+      <div class="s-order" id="order">
+        <div class="s-box rv" id="stockBox">
+          <h3><span class="s-hl-ic t-green"><svg class="ic"><use href="#i-search"/></svg></span><span data-i18n="stockTitle">Is your medicine available?</span></h3>
+          <p data-i18n="stockText">Type at least 3 letters of the medicine name to check if we have it in stock.</p>
+          <div class="s-search"><svg class="ic"><use href="#i-search"/></svg><input id="stockQ" type="search" autocomplete="off" maxlength="60" placeholder="e.g. Paracetamol" aria-label="Medicine name"></div>
+          <div class="s-results" id="stockRes" aria-live="polite"></div>
+          <div class="s-try"><span data-i18n="tryLbl">Try:</span><button type="button" data-try="Paracetamol">Paracetamol</button><button type="button" data-try="Vitamin">Vitamin</button><button type="button" data-try="Cough">Cough</button><button type="button" data-try="Cetirizine">Cetirizine</button></div>
+          <div class="s-note"><svg class="ic"><use href="#i-info"/></svg><span data-i18n="stockNote">Availability is for guidance only. Prescription medicines are given only against a valid prescription.</span></div>
+          <div class="s-ask"><img src="assets/images/site/pharmacist.svg" alt="" width="260" height="300"><div><b data-i18n="askT">Can't find your medicine?</b><span data-i18n="askS">Our pharmacist can arrange it — usually within a day.</span></div><a class="btn btn-line-green btn-sm" id="askWa" href="#contact"><svg class="ic"><use href="#i-wa"/></svg><span data-i18n="askBtn">Ask the pharmacist</span></a></div>
+        </div>
+        <div class="s-box rv">
+          <h3><span class="s-hl-ic t-blue"><svg class="ic"><use href="#i-bag"/></svg></span><span data-i18n="orderOnline">Order Medicines Online</span></h3>
+          <p data-i18n="orderText">Fill in the list and send it to us on WhatsApp. We'll call you to confirm the price and the delivery time.</p>
+          <form class="s-form" id="orderForm" novalidate>
+            <div class="s-f"><label for="oName" data-i18n="oName">Your name</label><input id="oName" autocomplete="name" maxlength="60" required></div>
+            <div class="s-f"><label for="oPhone" data-i18n="oPhone">Mobile number</label><input id="oPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="15" required></div>
+            <div class="s-f full"><label for="oItems" data-i18n="oItems">Medicines and quantity</label><textarea id="oItems" maxlength="800" required placeholder="Dolo 650 – 1 strip&#10;Vitamin C – 1 bottle"></textarea></div>
+            <div class="s-f full"><span style="font-weight:600;font-size:.82rem;color:var(--ink)" data-i18n="oHow">How do you want it?</span>
+              <div class="s-seg"><label><input type="radio" name="oHow" value="delivery" checked><svg class="ic"><use href="#i-truck"/></svg><span data-i18n="oDelivery">Home delivery</span></label><label><input type="radio" name="oHow" value="pickup"><svg class="ic"><use href="#i-store"/></svg><span data-i18n="oPickup">Pick up at store</span></label></div></div>
+            <div class="s-f full" id="oAddrF"><label for="oAddr" data-i18n="oAddr">Delivery address</label><input id="oAddr" autocomplete="street-address" maxlength="200"></div>
+            <div class="s-form-foot"><span class="s-err" id="oErr" role="alert"></span><button class="btn btn-green" type="submit"><svg class="ic"><use href="#i-wa"/></svg><span data-i18n="oSend">Send order on WhatsApp</span></button></div>
+          </form>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <section class="section about" id="about">
-      <div class="wrap about-grid">
-        <div class="about-symbol" aria-hidden="true">＋</div>
-        <div class="about-copy"><span class="eyebrow" data-i18n="aboutKicker">ABOUT US</span><h2 data-i18n="aboutTitle">Here to support healthier days</h2><p data-i18n="aboutText">At Pallikkal Pharmacy, we believe pharmacy care should feel clear, respectful and approachable. Our focus is on helping customers access everyday health essentials and make informed decisions.</p></div>
-      </div>
-    </section>
+  <!-- services -->
+  <section class="s-sec alt" id="services">
+    <div class="wrap">
+      <div class="s-sh rv"><span class="s-kick" data-i18n="servicesKicker">Our Services</span><h2 data-i18n="servicesTitle">Complete Pharmacy Care for You</h2><p data-i18n="servicesText">Support and essentials to help you look after yourself and your family.</p></div>
+      <div class="s-svc" id="svcGrid"></div>
+    </div>
+  </section>
 
-    <section class="ayurvedic-section" id="ayurvedic">
-      <div class="wrap ayurvedic-grid">
-        <div class="ayurvedic-mark" aria-hidden="true">❋</div>
-        <div class="ayurvedic-copy"><span class="eyebrow" data-i18n="ayurKicker">OUR SISTER STORE</span><h2 data-i18n="ayurTitle">Ayurvedic Store</h2><p data-i18n="ayurText">Explore traditional Ayurvedic products and wellness essentials at our associated store.</p>
-          <div class="demo-label" data-i18n="demoDetails">Demo contact details — replace before publishing</div>
-          <div class="ayurvedic-details"><p><strong data-i18n="addressLabel">Address:</strong> <span data-i18n="demoAddress">Demo address, Thrissur, Kerala, India</span></p><p><strong data-i18n="phoneLabel">Phone:</strong> <a href="tel:+919876543210">+91 98765 43210</a></p><p><strong>Email:</strong> <a href="mailto:ayurvedic.demo@example.com">ayurvedic.demo@example.com</a></p><p><strong data-i18n="websiteLabel">Website:</strong> <a href="https://example.com" target="_blank" rel="noopener">www.example.com</a></p></div>
-          <a class="outline-link" href="https://www.google.com/maps/search/?api=1&query=Ayurvedic+Store+Thrissur+Kerala" target="_blank" rel="noopener"><span data-i18n="viewLocation">View location</span> ↗</a>
+  <!-- about -->
+  <section class="s-sec" id="about">
+    <div class="wrap s-about">
+      <div class="s-about-art rv" id="aboutArt"><div class="bg" id="aboutBg"></div><img class="ph" src="assets/images/site/pharmacist.svg" alt="" width="260" height="300">
+        <div class="s-about-badge"><span class="s-hl-ic t-green" style="margin:0"><svg class="ic"><use href="#i-shield"/></svg></span><div><b data-i18n="badgeT">Licensed Pharmacy</b><small id="aboutLic" data-i18n="badgeS">Qualified pharmacists</small></div></div></div>
+      <div class="rv">
+        <span class="s-kick l" data-i18n="aboutKicker">About Us</span>
+        <h2 class="s-h2" data-i18n="aboutTitle">Here to Support Healthier Days</h2>
+        <p id="aboutText" data-i18n="aboutText">Pallikkal Pharmacy is a trusted local pharmacy in Thrissur, dedicated to providing genuine medicines, reliable advice and everyday health essentials for you and your family.</p>
+        <div class="s-pts">
+          <div class="s-pt"><span class="s-hl-ic t-green"><svg class="ic"><use href="#i-shield"/></svg></span><div><b data-i18n="a1">Quality &amp; Safety</b><span data-i18n="a1t">Genuine medicines stored the right way, checked for expiry.</span></div></div>
+          <div class="s-pt"><span class="s-hl-ic t-blue"><svg class="ic"><use href="#i-guide"/></svg></span><div><b data-i18n="a2">Caring Guidance</b><span data-i18n="a2t">Clear answers about how and when to take your medicines.</span></div></div>
+          <div class="s-pt"><span class="s-hl-ic t-red"><svg class="ic"><use href="#i-heart"/></svg></span><div><b data-i18n="a3">Your Wellbeing</b><span data-i18n="a3t">Everyday care for every member of your family.</span></div></div>
         </div>
-        <div class="map-placeholder"><div class="map-pin">⌖</div><strong data-i18n="locationDemo">Store location (demo)</strong><span data-i18n="locationNote">Update with the actual address and map pin</span></div>
+        <button class="btn btn-navy" type="button" data-act="about"><span data-i18n="aboutMore">Learn More About Us</span><svg class="ic"><use href="#i-right"/></svg></button>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <section class="contact" id="contact">
-      <div class="wrap" style="display:grid;grid-template-columns:1fr auto;gap:28px;align-items:start">
-        <div>
-          <h2 data-i18n="contactTitle">Contact Pallikkal Pharmacy</h2>
-          <p data-i18n="contactText">Visit our pharmacy or contact our team for assistance.</p>
-          <div class="pharmacy-contact-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:22px">
-            <div><strong data-i18n="pharmacyPhoneLabel">Phone</strong><p><a href="tel:+919000000001">+91 90000 00001</a></p></div>
-            <div><strong data-i18n="pharmacyEmailLabel">Email</strong><p><a href="mailto:info@pallikkalmedicals.example">info@pallikkalmedicals.example</a></p></div>
-            <div><strong data-i18n="pharmacyWebsiteLabel">Website</strong><p><a href="https://pallikkalmedicals.example" target="_blank" rel="noopener">pallikkalmedicals.example</a></p></div>
-            <div><strong data-i18n="pharmacyAddressLabel">Address</strong><p data-i18n="pharmacyAddress">Pallikkal, Thrissur, Kerala, India (demo address)</p></div>
+  <!-- ayurvedic sister store -->
+  <section class="s-sec alt" id="ayurvedic">
+    <div class="wrap">
+      <div class="s-ayur rv">
+        <div class="s-ayur-l">
+          <span class="s-kick l" data-i18n="ayurKicker">Our Sister Store</span>
+          <h2 class="s-h2" id="ayName">Pallikkal Ayurvedic Store</h2>
+          <p id="ayText" data-i18n="ayurText">Traditional Ayurvedic products and wellness essentials for a natural and healthier lifestyle.</p>
+          <div class="s-ayur-f">
+            <div><span><svg class="ic"><use href="#i-leaf"/></svg></span><span data-i18n="ay1">Authentic Ayurvedic</span></div>
+            <div><span><svg class="ic"><use href="#i-heart"/></svg></span><span data-i18n="ay2">Herbal Wellness</span></div>
+            <div><span><svg class="ic"><use href="#i-shield"/></svg></span><span data-i18n="ay3">Trusted Brands</span></div>
+            <div><span><svg class="ic"><use href="#i-guide"/></svg></span><span data-i18n="ay4">Expert Guidance</span></div>
           </div>
-          <span class="demo-label" data-i18n="pharmacyDemoLabel">Demo contact details — replace before publishing</span>
+          <div class="s-ayur-d">
+            <div id="ayAddrR"><svg class="ic"><use href="#i-pin"/></svg><span id="ayAddr">Thrissur, Kerala</span></div>
+            <div id="ayPhoneR" hidden><svg class="ic"><use href="#i-phone"/></svg><a id="ayPhone" href="#"></a></div>
+            <div id="ayEmailR" hidden><svg class="ic"><use href="#i-mail"/></svg><a id="ayEmail" href="#"></a></div>
+            <div id="ayWebR" hidden><svg class="ic"><use href="#i-globe"/></svg><a id="ayWeb" href="#" target="_blank" rel="noopener"></a></div>
+          </div>
+          <div class="s-ayur-cta">
+            <a class="btn btn-green" id="ayMap" href="https://www.google.com/maps/search/?api=1&amp;query=Ayurvedic+Store+Thrissur+Kerala" target="_blank" rel="noopener"><svg class="ic"><use href="#i-map"/></svg><span data-i18n="viewLocation">View Location on Map</span></a>
+            <button class="btn btn-line-green" type="button" data-act="ayur"><span data-i18n="ayExplore">Explore Ayurvedic Products</span><svg class="ic"><use href="#i-right"/></svg></button>
+          </div>
         </div>
-        <a class="primary" href="staff-login.html"><span data-i18n="staffPortal">Staff portal</span> <span aria-hidden="true">→</span></a>
+        <div class="s-ayur-r" id="ayImg" role="img" aria-label="Ayurvedic products"></div>
       </div>
-    </section>
-  </main>
+    </div>
+  </section>
 
-  <footer class="footer"><div class="wrap footer-inner"><span>© <span id="year"></span> PALLIKKAL PHARMACY</span><span data-i18n="footerTag">Care · Trust · Wellbeing</span></div></footer>
-  <script>
-    (function(){
-      const translations={
-        en:{navHome:'Home',navServices:'Services',navAbout:'About',navAyur:'Ayurvedic Store',navContact:'Contact',login:'Login',staffLogin:'Staff login',adminLogin:'Admin login',welcome:'Welcome to Pallikkal Pharmacy',heroTitle:'Your health.<br>Our priority.',heroText:'Thoughtful pharmacy care and everyday health essentials, with a team focused on helping you make informed choices for your wellbeing.',explore:'Explore our services',heroTag:'CARE · TRUST · WELLBEING',offerKicker:'SPECIAL OFFERS',offerTitle:'Offers and updates from Pallikkal Pharmacy',offerText:'Check this space for our latest offers. Visit us or contact our team for current details.',deliveryKicker:'DELIVERY AVAILABLE',deliveryTitle:'Get your medicines delivered to your doorstep',deliveryText:'Delivery is available within a 5 km radius for purchases of ₹300 or more. Please contact the pharmacy to confirm service availability for your address.',radius:'Service radius',minimum:'Minimum purchase',servicesKicker:'WHAT WE FOCUS ON',servicesTitle:'Care for your everyday health',servicesText:'Support and essentials to help you look after yourself and your family.',service1Title:'Medicine support',service1Text:'Help with finding medicines and understanding the information provided with them.',service2Title:'Everyday wellness',service2Text:'Health and personal-care essentials for your day-to-day needs.',service3Title:'Helpful guidance',service3Text:'A welcoming place to ask questions and get support with your pharmacy needs.',aboutKicker:'ABOUT US',aboutTitle:'Here to support healthier days',aboutText:'At Pallikkal Pharmacy, we believe pharmacy care should feel clear, respectful and approachable. Our focus is on helping customers access everyday health essentials and make informed decisions.',ayurKicker:'OUR SISTER STORE',ayurTitle:'Ayurvedic Store',ayurText:'Explore traditional Ayurvedic products and wellness essentials at our associated store.',demoDetails:'Demo contact details — replace before publishing',addressLabel:'Address:',demoAddress:'Demo address, Thrissur, Kerala, India',phoneLabel:'Phone:',websiteLabel:'Website:',viewLocation:'View location',locationDemo:'Store location (demo)',locationNote:'Update with the actual address and map pin',contactTitle:'How can we help?',contactText:'Visit Pallikkal Pharmacy or speak with our team about your pharmacy needs.',staffPortal:'Staff portal',pharmacyPhoneLabel:'Phone',pharmacyEmailLabel:'Email',pharmacyWebsiteLabel:'Website',pharmacyAddressLabel:'Address',pharmacyAddress:'Pallikkal, Thrissur, Kerala, India (demo address)',pharmacyDemoLabel:'Demo contact details — replace before publishing',footerTag:'Care · Trust · Wellbeing'},
-        ml:{navHome:'ഹോം',navServices:'സേവനങ്ങൾ',navAbout:'ഞങ്ങളെക്കുറിച്ച്',navAyur:'ആയുർവേദ സ്റ്റോർ',navContact:'ബന്ധപ്പെടുക',login:'ലോഗിൻ',staffLogin:'സ്റ്റാഫ് ലോഗിൻ',adminLogin:'അഡ്മിൻ ലോഗിൻ',welcome:'പള്ളിക്കൽ മെഡിക്കൽസിലേക്ക് സ്വാഗതം',heroTitle:'നിങ്ങളുടെ ആരോഗ്യം.<br>ഞങ്ങളുടെ മുൻഗണന.',heroText:'നിങ്ങളുടെ ക്ഷേമത്തിനായി അറിവോടെയുള്ള തീരുമാനങ്ങൾ എടുക്കാൻ സഹായിക്കുന്ന ആത്മാർത്ഥമായ ഫാർമസി സേവനങ്ങളും ദൈനംദിന ആരോഗ്യ ഉൽപ്പന്നങ്ങളും.',explore:'ഞങ്ങളുടെ സേവനങ്ങൾ കാണുക',heroTag:'പരിചരണം · വിശ്വാസം · ക്ഷേമം',offerKicker:'പ്രത്യേക ഓഫറുകൾ',offerTitle:'പള്ളിക്കൽ മെഡിക്കൽസിലെ ഓഫറുകളും അറിയിപ്പുകളും',offerText:'ഞങ്ങളുടെ പുതിയ ഓഫറുകൾക്കായി ഈ ഭാഗം പരിശോധിക്കുക. കൂടുതൽ വിവരങ്ങൾക്ക് സന്ദർശിക്കുകയോ ബന്ധപ്പെടുകയോ ചെയ്യുക.',deliveryKicker:'ഹോം ഡെലിവറി ലഭ്യമാണ്',deliveryTitle:'മരുന്നുകൾ നിങ്ങളുടെ വീട്ടിലെത്തിക്കുന്നു',deliveryText:'₹300 അല്ലെങ്കിൽ അതിലധികം വിലയുള്ള വാങ്ങലുകൾക്ക് 5 കിലോമീറ്റർ പരിധിക്കുള്ളിൽ ഡെലിവറി ലഭ്യമാണ്. നിങ്ങളുടെ വിലാസത്തിൽ സേവനം ലഭ്യമാണെന്ന് ഫാർമസിയുമായി ബന്ധപ്പെട്ടു ഉറപ്പാക്കുക.',radius:'സേവന പരിധി',minimum:'കുറഞ്ഞ വാങ്ങൽ തുക',servicesKicker:'ഞങ്ങളുടെ ശ്രദ്ധ',servicesTitle:'നിങ്ങളുടെ ദൈനംദിന ആരോഗ്യത്തിനായുള്ള പരിചരണം',servicesText:'നിങ്ങളെയും കുടുംബത്തെയും ആരോഗ്യത്തോടെ പരിപാലിക്കാൻ ആവശ്യമായ സഹായവും ഉൽപ്പന്നങ്ങളും.',service1Title:'മരുന്ന് സഹായം',service1Text:'മരുന്നുകൾ കണ്ടെത്താനും അവയോടൊപ്പമുള്ള വിവരങ്ങൾ മനസ്സിലാക്കാനും സഹായം.',service2Title:'ദൈനംദിന ക്ഷേമം',service2Text:'ദൈനംദിന ആവശ്യങ്ങൾക്കുള്ള ആരോഗ്യ-വ്യക്തിഗത പരിചരണ ഉൽപ്പന്നങ്ങൾ.',service3Title:'സഹായകരമായ മാർഗനിർദേശം',service3Text:'നിങ്ങളുടെ ഫാർമസി ആവശ്യങ്ങളെക്കുറിച്ച് ചോദ്യങ്ങൾ ചോദിക്കാനും സഹായം നേടാനും സ്വാഗതം.',aboutKicker:'ഞങ്ങളെക്കുറിച്ച്',aboutTitle:'ആരോഗ്യകരമായ ദിവസങ്ങൾക്ക് നിങ്ങളോടൊപ്പം',aboutText:'പള്ളിക്കൽ മെഡിക്കൽസിൽ, വ്യക്തവും മാന്യവും സമീപിക്കാവുന്നതുമായ ഫാർമസി സേവനമാണ് ഞങ്ങൾ വിശ്വസിക്കുന്നത്. ദൈനംദിന ആരോഗ്യ ഉൽപ്പന്നങ്ങൾ ലഭ്യമാക്കാനും അറിവോടെയുള്ള തീരുമാനങ്ങൾ എടുക്കാനും ഉപഭോക്താക്കളെ സഹായിക്കുകയാണ് ഞങ്ങളുടെ ലക്ഷ്യം.',ayurKicker:'ഞങ്ങളുടെ അനുബന്ധ സ്ഥാപനം',ayurTitle:'ആയുർവേദ സ്റ്റോർ',ayurText:'ഞങ്ങളുടെ അനുബന്ധ സ്റ്റോറിൽ പരമ്പരാഗത ആയുർവേദ ഉൽപ്പന്നങ്ങളും ആരോഗ്യസംരക്ഷണ സാധനങ്ങളും ലഭ്യമാണ്.',demoDetails:'ഡെമോ ബന്ധപ്പെടാനുള്ള വിവരങ്ങൾ — പ്രസിദ്ധീകരിക്കുന്നതിന് മുമ്പ് മാറ്റുക',addressLabel:'വിലാസം:',demoAddress:'ഡെമോ വിലാസം, തൃശ്ശൂർ, കേരളം, ഇന്ത്യ',phoneLabel:'ഫോൺ:',websiteLabel:'വെബ്സൈറ്റ്:',viewLocation:'ലൊക്കേഷൻ കാണുക',locationDemo:'സ്റ്റോർ ലൊക്കേഷൻ (ഡെമോ)',locationNote:'യഥാർത്ഥ വിലാസവും മാപ്പ് ലൊക്കേഷനും ചേർക്കുക',contactTitle:'ഞങ്ങൾക്ക് എങ്ങനെ സഹായിക്കാം?',contactText:'പള്ളിക്കൽ മെഡിക്കൽസ് സന്ദർശിക്കുകയോ നിങ്ങളുടെ ഫാർമസി ആവശ്യങ്ങൾക്കായി ഞങ്ങളുടെ ടീമുമായി ബന്ധപ്പെടുകയോ ചെയ്യുക.',staffPortal:'സ്റ്റാഫ് പോർട്ടൽ',pharmacyPhoneLabel:'ഫോൺ',pharmacyEmailLabel:'ഇമെയിൽ',pharmacyWebsiteLabel:'വെബ്സൈറ്റ്',pharmacyAddressLabel:'വിലാസം',pharmacyAddress:'പള്ളിക്കൽ, തൃശ്ശൂർ, കേരളം, ഇന്ത്യ (ഡെമോ വിലാസം)',pharmacyDemoLabel:'ഡെമോ ബന്ധപ്പെടൽ വിവരങ്ങൾ — പ്രസിദ്ധീകരിക്കുന്നതിന് മുമ്പ് മാറ്റുക',footerTag:'പരിചരണം · വിശ്വാസം · ക്ഷേമം'}
-      };
-      const button=document.getElementById('languageToggle');
-      function setLanguage(lang){document.documentElement.lang=lang;document.querySelectorAll('[data-i18n]').forEach(el=>{const value=translations[lang][el.dataset.i18n];if(value!==undefined)el.innerHTML=value;});button.textContent=lang==='en'?'മലയാളം':'English';localStorage.setItem('alza_public_language',lang);}
-      const saved=localStorage.getItem('alza_public_language');setLanguage(saved==='ml'?'ml':'en');button.addEventListener('click',()=>setLanguage(document.documentElement.lang==='en'?'ml':'en'));
-    })();
-  </script>
-  <script type="module">
-    import { sb } from './assets/js/supabase-client.js';
+  <!-- stores -->
+  <section class="s-sec" id="stores">
+    <div class="wrap">
+      <div class="s-sh rv"><span class="s-kick" data-i18n="storesKicker">Our Locations</span><h2><span data-i18n="storesTitle">Visit Our Stores in</span> <span id="storesCity">Thrissur</span></h2><p data-i18n="storesText">Pick a store to see it on the map.</p></div>
+      <div class="s-stores">
+        <button class="s-store on rv" type="button" id="storeMain" data-store="main">
+          <div class="ph" style="background-image:url('assets/images/site/store.svg')" id="storeMainImg"></div>
+          <div class="bd">
+            <h3><span id="smName">Pallikkal Pharmacy</span><span class="s-chip ok" id="smChip">Open</span></h3>
+            <div class="row"><svg class="ic"><use href="#i-pin"/></svg><span id="smAddr">Thrissur, Kerala</span></div>
+            <div class="row"><svg class="ic"><use href="#i-phone"/></svg><span id="smPhone">+91 90000 00001</span></div>
+            <div class="row"><svg class="ic"><use href="#i-clock"/></svg><table class="s-hours" id="hoursTbl"><tbody><tr><td>Mon – Sat</td><td>8:00 AM – 9:00 PM</td></tr><tr><td>Sunday</td><td>9:00 AM – 1:00 PM</td></tr></tbody></table></div>
+          </div>
+        </button>
+        <button class="s-store rv" type="button" id="storeAyur" data-store="ayur" data-ayur>
+          <div class="ph" style="background-image:url('assets/images/site/store-ayur.svg')" id="storeAyurImg"></div>
+          <div class="bd">
+            <h3><span id="saName">Pallikkal Ayurvedic Store</span><span class="s-chip ok" data-i18n="sister">Sister store</span></h3>
+            <div class="row"><svg class="ic"><use href="#i-pin"/></svg><span id="saAddr">Thrissur, Kerala</span></div>
+            <div class="row" id="saPhoneR"><svg class="ic"><use href="#i-phone"/></svg><span id="saPhone">—</span></div>
+            <div class="row"><svg class="ic"><use href="#i-leaf"/></svg><span data-i18n="saNote">Ayurvedic medicines, oils and herbal care</span></div>
+          </div>
+        </button>
+        <div class="s-map rv" id="mapBox"><div class="s-map-off"><div><svg class="ic" style="width:34px;height:34px;margin:0 auto 8px;color:var(--green)"><use href="#i-map"/></svg><b data-i18n="mapLoading">Loading map…</b></div></div></div>
+      </div>
+      <div class="s-reach">
+        <div class="rv"><span class="s-hl-ic t-green"><svg class="ic"><use href="#i-bike"/></svg></span><span><b data-i18n="r1">Easy to Reach</b><small data-i18n="r1t">In the heart of the city</small></span></div>
+        <div class="rv"><span class="s-hl-ic t-blue"><svg class="ic"><use href="#i-car"/></svg></span><span><b data-i18n="r2">Parking Available</b><small data-i18n="r2t">Two-wheeler and car parking nearby</small></span></div>
+        <div class="rv"><span class="s-hl-ic t-amber"><svg class="ic"><use href="#i-flag"/></svg></span><span><b data-i18n="r3">Near Key Landmarks</b><small data-i18n="r3t">Close to bus stand and main roads</small></span></div>
+      </div>
+    </div>
+  </section>
 
-    const badge = document.getElementById('publicShopStatus');
-    const label = document.getElementById('publicShopStatusText');
+  <!-- help / contact -->
+  <section id="contact">
+    <div class="wrap">
+      <div class="s-help rv">
+        <div>
+          <span class="s-kick l" data-i18n="helpKicker">We're here for you</span>
+          <h2 data-i18n="contactTitle">Need Help or Have a Question?</h2>
+          <p data-i18n="contactText">Our pharmacists are happy to help with medicines, availability and delivery.</p>
+          <div class="s-help-cta">
+            <a class="btn btn-green" id="cNow" href="tel:+919000000001"><svg class="ic"><use href="#i-phone"/></svg><span data-i18n="contactNow">Contact Us Now</span></a>
+            <a class="btn btn-white" href="staff-login.html"><svg class="ic"><use href="#i-user"/></svg><span data-i18n="staffPortal">Staff Portal</span></a>
+          </div>
+        </div>
+        <div class="s-help-g">
+          <a class="s-help-c" id="cCall" href="tel:+919000000001"><i><svg class="ic"><use href="#i-phone"/></svg></i><b data-i18n="callUs">Call Us</b><span id="cCallT">+91 90000 00001</span><small data-i18n="callNow">Call now →</small></a>
+          <a class="s-help-c" id="cWa" href="#" target="_blank" rel="noopener"><i><svg class="ic"><use href="#i-wa"/></svg></i><b>WhatsApp</b><span id="cWaT">+91 90000 00001</span><small data-i18n="chatNow">Chat now →</small></a>
+          <a class="s-help-c" id="cMail" href="mailto:info@pallikkalpharmacy.in"><i><svg class="ic"><use href="#i-mail"/></svg></i><b data-i18n="emailUs">Email Us</b><span id="cMailT">info@pallikkalpharmacy.in</span><small data-i18n="writeUs">Write to us →</small></a>
+          <a class="s-help-c" id="cVisit" href="#stores"><i><svg class="ic"><use href="#i-pin"/></svg></i><b data-i18n="visitUs">Visit Us</b><span id="cVisitT">Thrissur, Kerala</span><small data-i18n="getDir">Get directions →</small></a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
 
-    async function updatePublicShopStatus() {
-      try {
-        const { data, error } = await sb.rpc('public_shop_is_open');
-        if (error) throw error;
-        const isOpen = data === true;
-        badge.classList.toggle('is-open', isOpen);
-        badge.classList.toggle('is-closed', !isOpen);
-        label.textContent = isOpen ? 'Shop Open' : 'Shop Closed';
-      } catch (error) {
-        // Keep the last successfully fetched status visible during temporary outages.
-        console.error('Could not refresh public shop status:', error);
-      }
-    }
+<footer class="s-foot">
+  <div class="wrap s-foot-g">
+    <div>
+      <img src="assets/images/brand/logo-horizontal.png" alt="Pallikkal Pharmacy" width="640" height="156">
+      <p style="margin:0" data-i18n="footAbout">Your trusted neighbourhood pharmacy for genuine medicines, caring guidance and everyday wellness.</p>
+      <div class="s-soc" id="socials"></div>
+    </div>
+    <div><h4 data-i18n="quickLinks">Quick Links</h4><ul>
+      <li><a href="#home" data-i18n="navHome">Home</a></li><li><a href="#highlights" data-act="offers" data-i18n="navOffers">Offers</a></li><li><a href="#about" data-i18n="navAbout">About Us</a></li><li data-ayur><a href="#ayurvedic" data-i18n="navAyur">Ayurvedic Store</a></li><li><a href="#contact" data-i18n="navContact">Contact</a></li></ul></div>
+    <div><h4 data-i18n="ourServices">Our Services</h4><ul id="footSvc"></ul></div>
+    <div><h4 data-i18n="storeDetails">Store Details</h4><ul>
+      <li><svg class="ic"><use href="#i-pin"/></svg><span id="fAddr">Thrissur, Kerala</span></li>
+      <li><svg class="ic"><use href="#i-clock"/></svg><span id="fHours">Mon – Sat: 8:00 AM – 9:00 PM</span></li>
+      <li id="fLicR" hidden><svg class="ic"><use href="#i-shield"/></svg><span><span data-i18n="dl">Drug Licence</span>: <span id="fLic"></span></span></li></ul></div>
+    <div><h4 data-i18n="getInTouch">Get in Touch</h4><ul>
+      <li><svg class="ic"><use href="#i-phone"/></svg><a id="fPhone" href="tel:+919000000001">+91 90000 00001</a></li>
+      <li><svg class="ic"><use href="#i-wa"/></svg><a id="fWa" href="#" target="_blank" rel="noopener">WhatsApp</a></li>
+      <li><svg class="ic"><use href="#i-mail"/></svg><a id="fEmail" href="mailto:info@pallikkalpharmacy.in">info@pallikkalpharmacy.in</a></li>
+      <li><svg class="ic"><use href="#i-user"/></svg><a href="staff-login.html" data-i18n="staffPortal">Staff Portal</a></li></ul></div>
+  </div>
+  <div class="wrap s-foot-b">
+    <span>© <span id="year"></span> <span id="fName">PALLIKKAL PHARMACY</span>. <span data-i18n="rights">All rights reserved.</span></span>
+    <nav><button type="button" data-legal="privacy" data-i18n="privacy">Privacy Policy</button><button type="button" data-legal="terms" data-i18n="terms">Terms &amp; Conditions</button><button type="button" data-legal="disclaimer" data-i18n="disclaimer">Disclaimer</button></nav>
+  </div>
+</footer>
 
-    updatePublicShopStatus();
-    // Polling keeps the public status current on every device without requiring
-    // public read access to the underlying branch status table.
-    window.setInterval(updatePublicShopStatus, 15000);
-    window.addEventListener('focus', updatePublicShopStatus);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') updatePublicShopStatus();
-    });
+<a class="s-wa" id="waFloat" href="#" target="_blank" rel="noopener" aria-label="Chat on WhatsApp"><svg class="ic"><use href="#i-wa"/></svg></a>
+<button class="s-up" id="toTop" type="button" aria-label="Back to top"><svg class="ic"><use href="#i-up"/></svg></button>
 
-    document.getElementById('year').textContent = new Date().getFullYear();
-    document.addEventListener('click', (event) => {
-      const menu = document.querySelector('.login');
-      if (menu && !menu.contains(event.target)) menu.open = false;
-    });
-  </script>
+<dialog class="s-dlg" id="dlg"><div class="s-dlg-h"><h3 id="dlgT"></h3><button class="s-x" type="button" data-close aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div><div class="s-dlg-b" id="dlgB"></div><div class="s-dlg-f" id="dlgF"></div></dialog>
+
+<script type="module" src="assets/js/site.js"></script>
 </body>
 </html>
