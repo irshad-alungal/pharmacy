@@ -36,33 +36,34 @@ const P = {
 export const icon = (name, cls = '') =>
   `<svg class="pp-ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
 
-// Primary order follows the approved dashboard design; the remaining pages
-// are listed after it so nothing becomes unreachable.
+// Sidebar order. Staff see the first ten that their role allows; administrators also see the
+// "More" group (Purchases … Audit logs) under a MORE label.
 const NAV = [
   ['dashboard', 'Dashboard', 'dashboard'],
-  ['sales', 'Sales', 'cart'],
+  ['billing', 'Billing', 'receipt'],
+  ['delivery', 'Delivery', 'scooter'],
   ['medicines', 'Medicines', 'pill'],
   ['inventory', 'Inventory', 'box'],
-  ['purchases', 'Purchases', 'bag'],
   ['customers', 'Customers', 'users'],
+  ['sales', 'Sales', 'cart'],
+  ['returns', 'Returns', 'undo'],
   ['distributors', 'Distributors', 'truck'],
-  ['delivery', 'Delivery', 'scooter'],
+  ['whatsapp', 'WhatsApp', 'chat'],
+  ['purchases', 'Purchases', 'bag'],
+  ['expenses', 'Expenses', 'wallet'],
   ['finance', 'Finance', 'finance'],
   ['reports', 'Reports', 'reports'],
   ['staff', 'Staff', 'staff'],
-  ['settings', 'Settings', 'settings'],
-  ['billing', 'Billing', 'receipt'],
-  ['returns', 'Returns', 'undo'],
-  ['expenses', 'Expenses', 'wallet'],
-  ['whatsapp', 'WhatsApp', 'chat'],
   ['documents', 'Documents', 'file'],
+  ['settings', 'Settings', 'settings'],
   ['audit-logs', 'Audit logs', 'shield']
 ];
-const BOTTOM = [['dashboard', 'Dashboard', 'dashboard'], ['sales', 'Sales', 'cart'], ['medicines', 'Medicines', 'pill'], ['inventory', 'Inventory', 'box']];
+const MORE_FROM = 'purchases';
+const BOTTOM = [['dashboard', 'Dashboard', 'dashboard'], ['billing', 'Billing', 'receipt'], ['medicines', 'Medicines', 'pill'], ['inventory', 'Inventory', 'box']];
 // Staff without the dashboard get Billing as their first bottom-bar item.
 const NAV_BY_PAGE = Object.fromEntries(NAV.map(n => [n[0], n]));
 const bottomItems = (canAccess, page) => {
-  let items = canAccess('dashboard') ? BOTTOM : [['billing', 'Billing', 'receipt'], ...BOTTOM.slice(1)];
+  let items = canAccess('dashboard') ? BOTTOM : [['billing', 'Billing', 'receipt'], ['sales', 'Sales', 'cart'], ['medicines', 'Medicines', 'pill'], ['inventory', 'Inventory', 'box']];
   // Keep the current page reachable in one tap (e.g. Dashboard · Sales · Billing · Delivery).
   if (page && !items.some(([p]) => p === page) && NAV_BY_PAGE[page]) {
     items = [items[0], items[1], page === 'billing' ? items[2] : ['billing', 'Billing', 'receipt'], NAV_BY_PAGE[page]];
@@ -79,10 +80,11 @@ export const displayName = prof => {
 
 export function brandShellMarkup(page, prof, canAccess) {
   const items = NAV.filter(([p]) => canAccess(p));
-  const primary = items.slice(0, 12), extra = items.slice(12);
+  const cut = NAV.findIndex(n => n[0] === MORE_FROM);
+  const primary = items.filter(n => NAV.indexOf(n) < cut), extra = items.filter(n => NAV.indexOf(n) >= cut);
   const link = ([p, l, ic]) => `<a href="${p}.html" class="pp-nav-link${p === page ? ' active' : ''}"${p === page ? ' aria-current="page"' : ''}>${icon(ic)}<span>${esc(l)}</span></a>`;
   const name = displayName(prof);
-  const home = canAccess('dashboard') ? 'dashboard.html' : canAccess('billing') ? 'billing.html' : `${items[0]?.[0] || 'dashboard'}.html`;
+  const home = canAccess('billing') ? 'billing.html' : `${items[0]?.[0] || 'dashboard'}.html`;
   return `
   <div class="pp-app">
     <aside class="pp-sidebar" id="ppSidebar" aria-label="Main navigation">

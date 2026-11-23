@@ -12,6 +12,7 @@ import { esc, inr } from './utils.js';
 import { friendly, safeQ } from './ui.js';
 import { setNotifications } from './brand-shell.js';
 import { searchBox, mountGlobalSearch } from './global-search.js';
+import { attachSuggest, matchNames } from './suggest.js';
 
 const prof = await mountShell('purchases', 'Purchases', { layout: 'brand' });
 const $ = id => document.getElementById(id);
@@ -193,7 +194,7 @@ $('view').innerHTML = `
     <div class="pb-sup-grid">
       <div class="pb-sup-left">
         <div class="purchase-field"><label for="supplier">Supplier / Distributor *</label>
-          <div class="pb-sup-pick"><select id="supplier" required><option value="">Select supplier</option>${dists.map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join('')}</select>
+          <div class="pb-sup-pick"><input id="supplierName" maxlength="120" autocomplete="off" placeholder="Type distributor name…" required><input id="supplier" type="hidden">
           <button type="button" class="pos-btn pos-btn-sm" id="newDistBtn" title="Add a new distributor">${I.plusC}<span>New</span></button></div></div>
         <div class="pb-sup-card" id="supCard"></div>
       </div>
@@ -214,13 +215,12 @@ $('view').innerHTML = `
   <section class="pb-card pb-items">
     <div class="pb-step"><b>2</b><h4>Medicine items</h4><span class="pb-count" id="itemCount">0 items</span>
       <div class="pb-step-acts"><button class="pos-btn pos-btn-sm" type="button" id="excelTemplate">${I.download}<span>Template</span></button><button class="pos-btn pos-btn-sm" type="button" id="excelUploadBtn">${I.upload}<span>Import Excel</span></button><input id="excelFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="pos-btn pos-btn-sm pos-btn-solid" type="button" id="addItem">${I.plusC}<span>Add medicine</span></button></div></div>
-    <details class="pb-help"><summary>How to enter a bill line</summary><p>Type the medicine name and pick it from the list (or <b>+ Create</b> it). <b>Pack</b> = units in one strip (15'S → 15). <b>Qty</b> and <b>Free</b> are in packs, exactly as billed. <b>MRP</b> and <b>Rate</b> are per pack (trade price). <b>Sch ₹</b> is the scheme discount amount and <b>Disc %</b> the cash discount — both reduce the taxable value like on the supplier bill. Expiry can be typed as <b>06/28</b>. Press <b>Enter</b> to jump to the next box; Enter on the last box adds a new line.</p></details>
-    <datalist id="medicineSuggestions"></datalist>
+    <details class="pb-help"><summary>How to enter a bill line</summary><p>Type the medicine name and pick it from the suggestions (or <b>+ Create</b> it). <b>Pack</b> = units in one strip (15'S → 15). <b>Qty</b> and <b>Free</b> are in packs, exactly as billed. <b>MRP</b> and <b>Rate</b> are per pack (trade price). <b>Discount</b>: type <b>3%</b> for a percentage or <b>10</b> for a fixed ₹ amount on the line — it reduces the taxable value like on the supplier bill. <b>GST %</b> is typed as a number (0 is allowed). Expiry can be typed as <b>06/28</b>. Press <b>Enter</b> to jump to the next box; Enter on the last box adds a new line.</p></details>
     <div class="pb-table-wrap"><table class="pb-table" id="itemTable"><thead><tr>
-      <th class="c-n">#</th><th class="c-med">Medicine *</th><th>HSN</th><th>Pack</th><th>Batch *</th><th>Expiry *</th><th>Qty *</th><th>Free</th><th>MRP / pack</th><th>Rate / pack *</th><th>Sch ₹</th><th>Disc %</th><th>GST %</th><th class="c-r">Taxable</th><th class="c-r">Net</th><th></th>
+      <th class="c-n">#</th><th class="c-med">Medicine *</th><th>Pack</th><th>Batch *</th><th>Expiry *</th><th>Qty *</th><th>Free</th><th>MRP / pack</th><th>Rate / pack *</th><th>Discount</th><th>GST %</th><th class="c-r">Taxable</th><th class="c-r">Net</th><th></th>
     </tr></thead><tbody id="itemRows"></tbody>
-    <tfoot><tr><td colspan="6"><button type="button" class="pb-addline" id="addItem2">${I.plusC}<span>Add another medicine</span></button><button type="button" class="pb-addline" id="addFive">+5 lines</button></td>
-      <td class="c-r" id="ftQty">0</td><td class="c-r" id="ftFree">0</td><td colspan="5" class="c-r pb-ft-lbl">Totals</td><td class="c-r" id="ftTaxable">₹0.00</td><td class="c-r" id="ftNet">₹0.00</td><td></td></tr></tfoot></table></div>
+    <tfoot><tr><td colspan="5"><button type="button" class="pb-addline" id="addItem2">${I.plusC}<span>Add another medicine</span></button><button type="button" class="pb-addline" id="addFive">+5 lines</button></td>
+      <td class="c-r" id="ftQty">0</td><td class="c-r" id="ftFree">0</td><td colspan="4" class="c-r pb-ft-lbl">Totals</td><td class="c-r" id="ftTaxable">₹0.00</td><td class="c-r" id="ftNet">₹0.00</td><td></td></tr></tfoot></table></div>
   </section>
 
   <div class="pb-two">
@@ -238,7 +238,7 @@ $('view').innerHTML = `
       <div class="pb-step"><b>₹</b><h4>Bill total</h4></div>
       <div class="purchase-summary-box pb-sumbox">
         <div class="purchase-summary-line"><span>Gross (qty × rate)</span><strong id="sumGross">₹0.00</strong></div>
-        <div class="purchase-summary-line"><span>Scheme + cash discount</span><strong id="sumLineDisc">₹0.00</strong></div>
+        <div class="purchase-summary-line"><span>Line discounts</span><strong id="sumLineDisc">₹0.00</strong></div>
         <div class="purchase-summary-line"><span>Taxable value</span><strong id="sumSubtotal">₹0.00</strong></div>
         <div class="purchase-summary-line sub"><span>CGST</span><strong id="sumCgst">₹0.00</strong></div>
         <div class="purchase-summary-line sub"><span>SGST</span><strong id="sumSgst">₹0.00</strong></div>
@@ -313,11 +313,10 @@ function makeItemRow(seed = {}, focus = false) {
   const tr = document.createElement('tr');
   tr.className = 'purchase-item-row';
   const mode = seed.rate_mode || ($('invoiceTaxMode').value === 'inclusive' ? 'inclusive' : 'exclusive');
-  const sch = seed.sch_disc ?? (seed.disc_pct ? 0 : seed.discount ?? 0);
+  const discText = seed.disc_text != null ? String(seed.disc_text) : num(seed.sch_disc) > 0 ? String(seed.sch_disc) : num(seed.disc_pct) > 0 ? `${num(seed.disc_pct)}%` : num(seed.discount) > 0 ? String(seed.discount) : '';
   const cells = [
     ['#', '<span class="pb-n"></span>', 'c-n'],
-    ['Medicine *', `<input class="med-name" list="medicineSuggestions" placeholder="Type medicine name…" autocomplete="off" value="${esc(seed.medicine_label || '')}"><small class="pb-medinfo"></small><button type="button" class="purchase-link create-med" hidden>+ Create “<span></span>”</button>`, 'c-med'],
-    ['HSN', `<input class="hsn" placeholder="HSN" maxlength="12" value="${esc(seed.hsn || '')}">`, 'c-hsn'],
+    ['Medicine *', `<input class="med-name" placeholder="Type medicine name…" autocomplete="off" value="${esc(seed.medicine_label || '')}"><small class="pb-medinfo"></small><button type="button" class="purchase-link create-med" hidden>+ Create “<span></span>”</button>`, 'c-med'],
     ['Pack', `<input class="pack" type="number" min="1" step="1" value="${seed.pack ?? 1}" title="Units in one pack (15'S = 15)">`, 'c-pack'],
     ['Batch *', `<input class="batch" placeholder="Batch" maxlength="40" value="${esc(seed.batch_no || '')}">`, 'c-batch'],
     ['Expiry *', `<input class="expiry" placeholder="MM/YY" maxlength="10" value="${esc(expShow(seed.expiry || ''))}" inputmode="numeric"><small class="pb-exp"></small>`, 'c-exp'],
@@ -325,9 +324,8 @@ function makeItemRow(seed = {}, focus = false) {
     ['Free', `<input class="free" type="number" min="0" step="1" value="${seed.free_qty ?? 0}">`, 'c-free'],
     ['MRP / pack', `<input class="mrp" type="number" min="0" step=".01" value="${seed.mrp ?? 0}"><small class="pb-units"><output class="billing-rate">₹0.00</output>/unit</small>`, 'c-mrp'],
     ['Rate / pack *', `<input class="rate" type="number" min="0" step=".01" value="${seed.rate ?? 0}"><select class="rate-mode" aria-label="Rate mode"><option value="exclusive">+GST</option><option value="inclusive">incl. GST</option></select>`, 'c-rate'],
-    ['Sch ₹', `<input class="line-discount" type="number" min="0" step=".01" value="${sch}" title="Scheme discount amount">`, 'c-sch'],
-    ['Disc %', `<input class="disc-pct" type="number" min="0" max="100" step=".01" value="${seed.disc_pct ?? 0}" title="Cash discount %">`, 'c-dpct'],
-    ['GST %', `<select class="gst" aria-label="GST %">${[0, 5, 12, 18, 28].map(g => `<option value="${g}">${g}</option>`).join('')}</select>`, 'c-gst'],
+    ['Discount', `<input class="disc" maxlength="12" placeholder="3% or 10" value="${esc(discText)}" title="3% = percentage · 10 = fixed ₹ amount"><small class="pb-units pb-disc-hint"></small>`, 'c-sch'],
+    ['GST %', `<input class="gst" type="number" min="0" max="40" step=".01" inputmode="decimal" aria-label="GST %" title="Type the GST % (0 allowed)">`, 'c-gst'],
     ['Taxable', '<output class="line-taxable">₹0.00</output>', 'c-r c-tx'],
     ['Net', '<output class="line-total">₹0.00</output>', 'c-r c-net'],
     ['', `<div class="pb-row-acts"><button class="dl-act dup-line" type="button" title="Same medicine, another batch" aria-label="Duplicate line">${I.layers}</button><button class="dl-act remove-line" type="button" title="Remove line" aria-label="Remove medicine row">${I.xs}</button></div>`, 'c-act']
@@ -343,10 +341,15 @@ function makeItemRow(seed = {}, focus = false) {
   if (focus) tr.querySelector('.med-name').focus();
   return tr;
 }
-function setGst(tr, v) {
-  const sel = tr.querySelector('.gst'), val = String(num(v));
-  if (![...sel.options].some(o => o.value === val)) sel.insertAdjacentHTML('beforeend', `<option value="${val}">${val}</option>`);
-  sel.value = val;
+function setGst(tr, v) { tr.querySelector('.gst').value = String(num(v)); }
+// Discount box: "3%" (or "3 %") = percentage of the line; a plain number = fixed ₹ amount for the line.
+export function parseDisc(text) {
+  const t = String(text ?? '').trim().replace(/,/g, '');
+  if (!t) return { pct: 0, amt: 0, ok: true };
+  let m;
+  if ((m = t.match(/^(\d+(?:\.\d+)?)\s*%$/))) { const p = +m[1]; return { pct: p, amt: 0, ok: p <= 100 }; }
+  if ((m = t.match(/^₹?\s*(\d+(?:\.\d+)?)$/))) return { pct: 0, amt: +m[1], ok: true };
+  return { pct: 0, amt: 0, ok: false };
 }
 
 // Per line, as on the supplier bill: gross = qty × rate; scheme ₹ then cash-discount % reduce it to the
@@ -354,7 +357,8 @@ function setGst(tr, v) {
 function calcLine(tr) {
   const v = c => tr.querySelector(c).value;
   const qty = num(v('.qty')), free = num(v('.free')), pack = Math.max(1, Math.floor(num(v('.pack')) || 1));
-  const rate = num(v('.rate')), sch = num(v('.line-discount')), pct = Math.min(100, Math.max(0, num(v('.disc-pct')))), gst = num(v('.gst')), mrp = num(v('.mrp'));
+  const dsc = parseDisc(v('.disc'));
+  const rate = num(v('.rate')), sch = dsc.amt, pct = Math.min(100, Math.max(0, dsc.pct)), gst = num(v('.gst')), mrp = num(v('.mrp'));
   const mode = v('.rate-mode');
   const gross = qty * rate;
   const schD = Math.min(sch, gross);
@@ -371,10 +375,12 @@ function calcLine(tr) {
   tr.querySelector('.billing-rate').textContent = fmt(mrp / pack);
   tr.querySelector('.line-taxable').textContent = fmt(taxable);
   tr.querySelector('.line-total').textContent = fmt(total);
+  const dh = tr.querySelector('.pb-disc-hint');
+  if (dh) { dh.textContent = !dsc.ok ? 'Use 3% or 10' : discount > 0 ? `− ${fmt(discount)}${pct ? ` (${pct}%)` : ''}` : ''; dh.classList.toggle('bad', !dsc.ok); }
   const ex = v('.expiry').trim(), iso = parseExp(ex), hint = tr.querySelector('.pb-exp');
   hint.textContent = !ex ? '' : iso === null ? 'Use MM/YY' : iso <= today() ? 'Expired' : dmy(iso);
   hint.className = `pb-exp ${!ex ? '' : iso === null || iso <= today() ? 'bad' : iso <= addDays(today(), 180) ? 'warn' : 'ok'}`;
-  return { qty, free, pack, rate, discount, gross, gst, mode, mrp, priceEx, discEx, taxable, tax, total, stockUnits, sch: schD, pct };
+  return { qty, free, pack, rate, discount, gross, gst, mode, mrp, priceEx, discEx, taxable, tax, total, stockUnits, sch: schD, pct, discOk: dsc.ok };
 }
 
 function calcTotals() {
@@ -427,14 +433,7 @@ async function searchMedicines(text) {
   // "Cetirizine 10 mg" (name + strength, e.g. typed or from Excel): retry with the first word.
   if (!error && !(data || []).length && q.includes(' ')) ({ data, error } = await run(q.split(' ')[0]));
   if (error) throw error;
-  const dl = $('medicineSuggestions');
-  dl.innerHTML = '';
-  for (const m of data || []) {
-    medicineMap.set(medLabel(m).toLowerCase(), m);
-    const op = document.createElement('option');
-    op.value = medLabel(m);
-    dl.appendChild(op);
-  }
+  for (const m of data || []) medicineMap.set(medLabel(m).toLowerCase(), m);
   return data || [];
 }
 
@@ -466,14 +465,16 @@ async function resolveMedicine(tr) {
   calcTotals();
 }
 
-let medTimer;
+// Medicine type-ahead under the box (not a drop-down list).
+attachSuggest($('itemRows'), '.med-name', async q => {
+  if (safeQ(q).length < 2) return [];
+  await new Promise(r => setTimeout(r, 180));
+  const list = await searchMedicines(q);
+  return list.map(m => ({ label: medLabel(m), value: medLabel(m), sub: [m.tax_rate != null ? `GST ${num(m.tax_rate)}%` : '', num(m.mrp) > 0 ? `MRP ₹${money2(m.mrp)}/unit` : ''].filter(Boolean).join(' · '), data: m }));
+}, (input, it) => { medicineMap.set(it.value.toLowerCase(), it.data); const tr = input.closest('tr'); if (tr) resolveMedicine(tr); }, { min: 2, limit: 10 });
 $('itemRows').addEventListener('input', e => {
   const tr = e.target.closest('tr');
   if (!tr) return;
-  if (e.target.classList.contains('med-name')) {
-    clearTimeout(medTimer);
-    medTimer = setTimeout(() => searchMedicines(e.target.value).catch(() => {}), 250);
-  }
   if (e.target.classList.contains('gst')) tr.dataset.gstTouched = '1';
   calcTotals();
 });
@@ -496,7 +497,7 @@ function openNewMedicine(tr) {
   $('nmName').value = tr.querySelector('.med-name').value.trim();
   $('nmStrength').value = '';
   $('nmBarcode').value = '';
-  $('nmGst').value = tr.querySelector('.gst').value || 5;
+  $('nmGst').value = tr.querySelector('.gst').value === '' ? 5 : tr.querySelector('.gst').value;
   $('nmError').textContent = '';
   $('newMedDialog').showModal();
 }
@@ -533,7 +534,14 @@ $('invoiceTaxMode').onchange = () => {
 // ---- bill-entry helpers: supplier card, keyboard flow, quick actions ----
 function renderSupplier() {
   const d = allDists.find(x => x.id === $('supplier').value);
-  if (!d) { $('supCard').innerHTML = `<div class="pb-sup-empty">${I.truck}<span>Choose the supplier printed at the top of the bill. Not in the list? Use <b>New</b>.</span></div>`; return; }
+  if (d && $('supplierName').value.trim().toLowerCase() !== d.name.trim().toLowerCase()) $('supplierName').value = d.name;
+  if (!d) {
+    const typed = $('supplierName').value.trim();
+    $('supCard').innerHTML = typed
+      ? `<div class="pb-sup-empty">${I.truck}<span><b>${esc(typed)}</b> is a new distributor — it will be added when you post this bill (or use <b>New</b> to add phone, GSTIN and licence now).</span></div>`
+      : `<div class="pb-sup-empty">${I.truck}<span>Type the supplier printed at the top of the bill and pick it from the suggestions. New supplier? Just type the name.</span></div>`;
+    return;
+  }
   const bills = purchaseRows.filter(p => p.distributor_id === d.id && p.status !== 'cancelled');
   const bal = isAdmin ? bills.reduce((a, p) => a + Math.max(0, num(p.total) - num(p.paid) - num(p.returned)), 0) : null;
   const last = bills.map(p => p.invoice_date).sort().pop();
@@ -542,7 +550,25 @@ function renderSupplier() {
     <div class="pb-sup-kv">${kv('GSTIN', d.gstin)}${kv('Drug licence', d.drug_licence)}${kv('Phone', d.phone)}${kv('Contact', d.contact_person)}${kv('Address', d.address)}
     ${kv('Last bill', last ? dmy(last) : 'No bills yet')}${isAdmin ? `<div><small>Payable now</small><b class="${bal > 0.005 ? 'pur-red' : 'pur-green'}">${fmt(bal)}</b></div>` : ''}</div>`;
 }
-$('supplier').addEventListener('change', renderSupplier);
+const distByName = name => { const n = String(name || '').trim().toLowerCase(); return n ? allDists.find(x => x.name.trim().toLowerCase() === n) : null; };
+attachSuggest($('purchaseForm'), '#supplierName', q => matchNames(allDists, q).map(d => ({ label: d.name, value: d.name, sub: [d.gstin, d.phone, d.active === false ? 'inactive' : ''].filter(Boolean).join(' · '), data: d })),
+  (input, it) => { $('supplier').value = it.data.id; renderSupplier(); checkDuplicate(); }, { min: 1, limit: 8 });
+$('supplierName').addEventListener('input', () => { const d = distByName($('supplierName').value); $('supplier').value = d ? d.id : ''; renderSupplier(); });
+$('supplierName').addEventListener('change', () => { checkDuplicate(); });
+// A typed name that is not in the list becomes a new distributor when the bill is posted.
+async function ensureSupplier() {
+  if ($('supplier').value) return '';
+  const name = $('supplierName').value.trim();
+  if (name.length < 2) return 'Type the supplier / distributor name.';
+  const d = distByName(name);
+  if (d) { $('supplier').value = d.id; return ''; }
+  const { data, error } = await sb.from('distributors').insert({ branch_id: prof.branch_id, name }).select('id,name,phone,gstin,active,drug_licence,address,contact_person').single();
+  if (error) return friendly(error);
+  allDists.push(data); dists.push(data);
+  $('fDist')?.insertAdjacentHTML('beforeend', `<option value="${esc(data.id)}">${esc(data.name)}</option>`);
+  $('supplier').value = data.id; renderSupplier();
+  return '';
+}
 $('newDistBtn').onclick = () => {
   dlg(`<h3>${I.truck} New distributor</h3><p class="dl-muted">Copy the details from the top of the supplier bill.</p>
     <div class="md-form-grid">
@@ -554,6 +580,7 @@ $('newDistBtn').onclick = () => {
       <div class="pos-field md-span-2"><label for="ndAddr">Address</label><input id="ndAddr" maxlength="300"></div>
     </div><p class="pos-form-msg" id="ndMsg"></p>
     <div class="pos-dialog-foot"><button type="button" class="pos-btn" data-close>Cancel</button><button type="button" class="pos-btn pos-btn-solid" id="ndSave">${I.plusC}<span>Add distributor</span></button></div>`);
+  $('ndName').value = distByName($('supplierName').value) ? '' : $('supplierName').value.trim();
   $('ndName').focus();
   $('ndSave').onclick = async () => {
     const name = $('ndName').value.trim(), gst = $('ndGst').value.trim().toUpperCase();
@@ -566,9 +593,8 @@ $('newDistBtn').onclick = () => {
     $('ndSave').disabled = false;
     if (error) return ($('ndMsg').textContent = friendly(error));
     allDists.push(data); dists.push(data);
-    $('supplier').insertAdjacentHTML('beforeend', `<option value="${esc(data.id)}">${esc(data.name)}</option>`);
     $('fDist').insertAdjacentHTML('beforeend', `<option value="${esc(data.id)}">${esc(data.name)}</option>`);
-    $('supplier').value = data.id; renderSupplier(); checkDuplicate();
+    $('supplier').value = data.id; $('supplierName').value = data.name; renderSupplier(); checkDuplicate();
     $('puDlg').close();
     $('invoiceNo').focus();
     setMsg(`Distributor “${data.name}” added.`);
@@ -590,7 +616,7 @@ $('payFull')?.addEventListener('click', () => { $('amountPaid').value = calcTota
 $('invoiceTaxMode').addEventListener('change', () => $('itemTable').classList.toggle('pb-mixed', $('invoiceTaxMode').value === 'mixed'));
 $('addItem2').onclick = () => makeItemRow({ tax_rate: lastGst() }, true);
 $('addFive').onclick = () => { const g = lastGst(); const first = makeItemRow({ tax_rate: g }); for (let i = 0; i < 4; i++) makeItemRow({ tax_rate: g }); first.querySelector('.med-name').focus(); };
-const lastGst = () => { const rows = [...$('itemRows').children]; return rows.length ? num(rows[rows.length - 1].querySelector('.gst').value) : 5; };
+const lastGst = () => { const rows = [...$('itemRows').children]; return rows.length && rows[rows.length - 1].querySelector('.gst').value !== '' ? num(rows[rows.length - 1].querySelector('.gst').value) : 5; };
 // Enter moves to the next box; Enter on the last box of the last line adds a new line.
 $('itemRows').addEventListener('keydown', e => {
   if (e.key !== 'Enter' || !e.target.matches('input, select')) return;
@@ -610,7 +636,7 @@ $('itemRows').addEventListener('change', e => {
 $('itemRows').addEventListener('click', e => {
   const d = e.target.closest('.dup-line'); if (!d) return;
   const tr = d.closest('tr');
-  const n = makeItemRow({ medicine_id: tr.dataset.medicineId, medicine_label: tr.querySelector('.med-name').value, hsn: tr.querySelector('.hsn').value, pack: num(tr.querySelector('.pack').value), mrp: num(tr.querySelector('.mrp').value), rate: num(tr.querySelector('.rate').value), tax_rate: num(tr.querySelector('.gst').value), rate_mode: tr.querySelector('.rate-mode').value, qty: 1 });
+  const n = makeItemRow({ medicine_id: tr.dataset.medicineId, medicine_label: tr.querySelector('.med-name').value, disc_text: tr.querySelector('.disc').value, pack: num(tr.querySelector('.pack').value), mrp: num(tr.querySelector('.mrp').value), rate: num(tr.querySelector('.rate').value), tax_rate: num(tr.querySelector('.gst').value), rate_mode: tr.querySelector('.rate-mode').value, qty: 1 });
   tr.after(n); calcTotals(); n.querySelector('.batch').focus();
 });
 
@@ -642,6 +668,7 @@ $('invoiceNo').addEventListener('change', checkDuplicate);
 function collectPayload() {
   return {
     distributor_id: $('supplier').value || null,
+    distributor_name: $('supplierName').value.trim(),
     invoice_no: $('invoiceNo').value.trim(),
     invoice_date: $('invoiceDate').value || null,
     due_date: $('dueDate').value || null,
@@ -657,7 +684,6 @@ function collectPayload() {
     items: [...$('itemRows').children].map(tr => ({
       medicine_id: tr.dataset.medicineId || null,
       medicine_label: tr.querySelector('.med-name').value.trim(),
-      hsn: tr.querySelector('.hsn').value.trim(),
       pack: num(tr.querySelector('.pack').value) || 1,
       batch_no: tr.querySelector('.batch').value.trim(),
       expiry: parseExp(tr.querySelector('.expiry').value) || tr.querySelector('.expiry').value,
@@ -666,9 +692,7 @@ function collectPayload() {
       mrp: num(tr.querySelector('.mrp').value),
       rate: num(tr.querySelector('.rate').value),
       rate_mode: tr.querySelector('.rate-mode').value,
-      discount: num(tr.querySelector('.line-discount').value),
-      sch_disc: num(tr.querySelector('.line-discount').value),
-      disc_pct: num(tr.querySelector('.disc-pct').value),
+      disc_text: tr.querySelector('.disc').value.trim(),
       tax_rate: num(tr.querySelector('.gst').value),
       gst_touched: !!tr.dataset.gstTouched
     }))
@@ -679,6 +703,7 @@ function fillForm(p = {}) {
   $('purchaseForm').reset();
   $('itemRows').innerHTML = '';
   $('supplier').value = p.distributor_id || '';
+  $('supplierName').value = allDists.find(d => d.id === p.distributor_id)?.name || p.distributor_name || '';
   $('invoiceNo').value = p.invoice_no || '';
   $('invoiceDate').value = p.invoice_date || today();
   $('dueDate').value = p.due_date || '';
@@ -719,7 +744,7 @@ function openForm(draft = null, order = null) {
   $('pbStatus').textContent = order ? `Order ${order.po_no}` : draft?.id ? 'Draft' : '';
   $('purchaseDialog').showModal();
   if (draft?.id) checkDuplicate();
-  setTimeout(() => (order ? $('invoiceNo') : $('supplier').value ? $('invoiceNo') : $('supplier')).focus(), 50);
+  setTimeout(() => (order ? $('invoiceNo') : $('supplier').value ? $('invoiceNo') : $('supplierName')).focus(), 50);
 }
 $('newPurchase').onclick = () => openForm();
 $('closePurchase').onclick = () => $('purchaseDialog').close();
@@ -813,8 +838,8 @@ async function uploadAttachments(invoiceId, distributorId, invoiceDate) {
 $('excelUploadBtn').onclick = () => $('excelFile').click();
 $('excelTemplate').onclick = () => {
   if (!window.XLSX) return alert('Excel library is not available. Please check your internet connection.');
-  const headers = ['sl no', 'Item Name', 'HSN', 'Pack', 'Batch', 'Expiry', 'Qty', 'Free', 'MRP', 'Trade Price', 'Sch Disc', 'Disc %', 'GST %', 'Rate mode'];
-  const ws = XLSX.utils.aoa_to_sheet([headers, [1, 'Thyronorm 50 Tab', '30049082', 120, 'TMD26267', '06/28', 2, 0, 132.87, 101.23, 0, 3, 5, 'exclusive'], [2, 'Pantop 40mg Tab', '30049039', 15, 'SPH261247', '01/29', 4, 0, 174.45, 132.91, 0, 3, 5, 'exclusive']]);
+  const headers = ['sl no', 'Item Name', 'Pack', 'Batch', 'Expiry', 'Qty', 'Free', 'MRP', 'Trade Price', 'Discount', 'GST %', 'Rate mode'];
+  const ws = XLSX.utils.aoa_to_sheet([headers, [1, 'Thyronorm 50 Tab', 120, 'TMD26267', '06/28', 2, 0, 132.87, 101.23, '3%', 5, 'exclusive'], [2, 'Pantop 40mg Tab', 15, 'SPH261247', '01/29', 4, 0, 174.45, 132.91, 10, 0, 'exclusive']]);
   ws['!cols'] = headers.map(h => ({ wch: Math.max(12, h.length + 2) }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Medicine Items');
@@ -839,20 +864,20 @@ $('excelFile').onchange = async e => {
       if (!label && !pick('Batch')) continue;
       const gst = pick('GST %', 'GST', 'Tax %');
       imported.push({
-        medicine_label: label, hsn: pick('HSN', 'HSN Code'), batch_no: String(pick('Batch', 'batch')).trim(),
+        medicine_label: label, batch_no: String(pick('Batch', 'batch')).trim(),
         pack: packOf(pick('Pack factor', 'Pack')), qty: Number(pick('Qty (packs)', 'Qty (strips)', 'Qty', 'Quantity', 'Billed')) || 1,
         free_qty: Number(pick('Free (packs)', 'Free (strips)', 'Free Qty', 'Free')) || 0, expiry: exp,
         mrp: Number(pick('MRP per pack', 'MRP', 'M.R.P')) || 0, rate: Number(pick('Rate per pack', 'Rate', 'Trade Price', 'Trade Rate', 'PTR')) || 0,
-        sch_disc: Number(pick('Sch Disc', 'Scheme Discount', 'Sch. Disc')) || 0, disc_pct: Number(pick('Disc %', 'Discount %', 'CD %')) || 0,
+        disc_text: (() => { const d = String(pick('Discount', 'Disc', 'Discount Amount')).trim(); if (d) return d; const p = Number(pick('Disc %', 'Discount %', 'CD %')) || 0, a = Number(pick('Sch Disc', 'Scheme Discount', 'Sch. Disc')) || 0; return a ? String(a) : p ? `${p}%` : ''; })(),
         rate_mode: String(pick('Rate mode', 'Rate Mode') || $('invoiceTaxMode').value || 'exclusive').toLowerCase() === 'inclusive' ? 'inclusive' : 'exclusive',
-        discount: Number(pick('Discount', 'Discount Amount')) || 0, tax_rate: gst === '' ? 5 : Number(gst), gst_touched: gst !== ''
+        tax_rate: gst === '' ? 5 : Number(String(gst).replace('%', '')) || 0, gst_touched: gst !== ''
       });
     }
     if (!imported.length) throw new Error('No medicine rows found. Check the template headings.');
     if (!$('purchaseDialog').open) openForm();
     const blank = [...$('itemRows').children].filter(tr => !tr.querySelector('.med-name').value.trim());
     blank.forEach(tr => tr.remove());
-    imported.forEach(it => { if (!it.sch_disc && it.discount) it.sch_disc = it.discount; makeItemRow(it); });
+    imported.forEach(it => makeItemRow(it));
     const unknown = [...$('itemRows').children].filter(tr => !tr.dataset.medicineId).length;
     setMsg(`${imported.length} medicine row(s) imported.${unknown ? ` ${unknown} row(s) are checking the medicine master — use “Create” on any row that stays red.` : ''} Review every row before posting.`);
   } catch (err) {
@@ -866,7 +891,7 @@ $('excelFile').onchange = async e => {
 // Validate → confirm → post
 // ---------------------------------------------------------------------------
 function validateForm() {
-  if (!$('supplier').value) return 'Select a supplier.';
+  if (!$('supplier').value && $('supplierName').value.trim().length < 2) return 'Type the supplier / distributor name.';
   if (!$('invoiceNo').value.trim()) return 'Enter the supplier invoice number.';
   if (!$('invoiceDate').value) return 'Enter the invoice date.';
   if ($('invoiceDate').value > today()) return 'Invoice date cannot be in the future.';
@@ -885,7 +910,9 @@ function validateForm() {
     if (!(c.qty > 0) || !Number.isInteger(c.qty)) return `Row ${n}: quantity must be a whole number of packs above zero.`;
     if (c.free < 0 || !Number.isInteger(c.free)) return `Row ${n}: free quantity must be a whole number.`;
     if (!(c.pack >= 1)) return `Row ${n}: pack factor must be at least 1.`;
+    if (tr.querySelector('.gst').value.trim() === '') return `Row ${n}: enter the GST % (type 0 if there is no GST).`;
     if (c.gst < 0 || c.gst > 40) return `Row ${n}: GST must be between 0 and 40.`;
+    if (!c.discOk) return `Row ${n}: discount “${tr.querySelector('.disc').value}” is not valid. Type 3% for a percentage or 10 for a ₹ amount.`;
     if (c.discount > c.qty * c.rate) return `Row ${n}: discount exceeds the line amount.`;
     if (c.mrp > 0 && c.priceEx > c.mrp) return `Row ${n}: purchase rate per pack is above the MRP per pack. Check the values.`;
     const key = `${tr.dataset.medicineId}|${batch.toLowerCase()}`;
@@ -900,6 +927,8 @@ function validateForm() {
 $('confirmPurchase').onclick = async () => {
   const err = validateForm();
   if (err) return setMsg(err, 'error');
+  const supErr = await ensureSupplier();
+  if (supErr) return setMsg(supErr, 'error');
   if (await checkDuplicate()) return setMsg('This supplier invoice is already posted.', 'error');
   const t = calcTotals();
   const paid = isAdmin ? num($('amountPaid').value) : 0;
@@ -931,7 +960,7 @@ $('postNow').onclick = async () => {
       medicine_id: tr.dataset.medicineId, batch_no: tr.querySelector('.batch').value.trim(), expiry: expISO(tr),
       qty: c.qty, free_qty: c.free, pack: c.pack, price: Math.round(c.priceEx * 10000) / 10000,
       discount: Math.round(c.discEx * 100) / 100, tax_rate: c.gst, mrp: c.mrp || null,
-      hsn: tr.querySelector('.hsn').value.trim() || null, rate_mode: c.mode
+      hsn: null, rate_mode: c.mode
     };
   });
   const payment = isAdmin && num($('amountPaid').value) > 0

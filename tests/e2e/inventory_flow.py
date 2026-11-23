@@ -193,13 +193,11 @@ with sync_playwright() as p:
     ok('Bell notifications reflect stock alerts', pg.locator('#ppNotifList li, #ppNotifList a, .pp-notif-item').count() >= 0)
     ok('No page errors (admin)', not errs, errs); c.close()
 
-    # billing staff: read only
+    # billing staff: same Inventory access as every staff role (0037), no money totals
     c, pg, errs = ctx(b, 'billing_staff'); open_page(pg)
-    ok('Billing staff: only Batch Stock and Alerts sections', [t.strip() for t in pg.locator('#invTabs [data-k] span').all_inner_texts()] == ['Batch Stock', 'Alerts'])
-    ok('Billing staff: no adjust / transfer buttons', pg.query_selector('#adjBtn') is None and pg.query_selector('#trfBtn') is None)
-    ok('Billing staff: movement card hidden (no access), MRP value shown', pg.is_hidden('#movesCard') and 'MRP' in pg.inner_text('#valBody') and 'administrators' in pg.inner_text('#valBody'))
-    pg.click('#r [data-menu]'); pg.wait_for_timeout(200)
-    ok('Billing staff: row menu only offers details / open medicine', pg.locator('.md-row-menu [data-do="adjust"], .md-row-menu [data-q]').count() == 0)
+    ok('Billing staff: stock movements and adjust / transfer available (staff parity)', 'Movements' in ' '.join(pg.locator('#invTabs [data-k] span').all_inner_texts()) and pg.query_selector('#adjBtn') is not None, pg.locator('#invTabs [data-k] span').all_inner_texts())
+    ok('Billing staff: no stock money totals (administrators only)', '₹' not in pg.inner_text('#valBody') and 'administrators' in pg.inner_text('#valBody'))
+    ok('Billing staff: no purchase links (Purchases is Admin-only)', pg.locator('a[href^="purchases.html"]').count() == 0)
     ok('No page errors (billing staff)', not errs, errs); c.close()
 
     # pharmacist: can adjust and transfer, no cost figures

@@ -192,7 +192,7 @@ with sync_playwright() as p:
     ok('Billing staff can open; no Stop link (admin only)', noB in pg.inner_text('.iv-no') and not pg.query_selector('[data-a="revoke"]'))
     c.close()
     c, pg, errs = ctx(b, 'inventory_staff'); pg.goto(BASE + f'/invoice-view.html?id={B}'); pg.wait_for_timeout(2500)
-    ok('Inventory staff: no access', not pg.query_selector('#ivPaper') and 'access' in pg.inner_text('body').lower())
+    ok('Inventory staff can open the bill (Sales is a staff page)', pg.query_selector('#ivPaper') is not None)
     c.close()
 
     # customer link (?t=)

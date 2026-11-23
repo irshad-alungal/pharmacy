@@ -58,17 +58,17 @@ with sync_playwright() as p:
         c.close()
 
     if not flows or 'purchase' in flows:
-        c,pg,errs=ctx_for(b,'inventory_staff')
+        c,pg,errs=ctx_for(b,'super_admin')
         pg.on('dialog', lambda d: d.accept())
         srvlog()
         pg.goto(BASE+'/purchases.html'); pg.wait_for_selector('#newPurchase')
         pg.click('#newPurchase'); pg.wait_for_selector('#purchaseDialog[open]')
-        pg.select_option('#supplier', label='Kerala Pharma Distributors')
+        pg.fill('#supplierName', 'Kerala Pharma Distributors')
         pg.fill('#invoiceNo','KPD-2002')
         row='#itemRows tr:first-child '
         pg.fill(row+'.med-name','Cetirizine 10 mg'); pg.dispatch_event(row+'.med-name','change'); pg.wait_for_timeout(1200)
         pg.fill(row+'.pack','10'); pg.fill(row+'.batch','C-9'); pg.fill(row+'.expiry','2028-09-30'); pg.fill(row+'.qty','4'); pg.fill(row+'.free','1')
-        pg.fill(row+'.mrp','180'); pg.fill(row+'.rate','95'); pg.select_option(row+'.gst','12')
+        pg.fill(row+'.mrp','180'); pg.fill(row+'.rate','95'); pg.fill(row+'.gst','12')
         units=pg.inner_text(row+'.stock-units')
         ok('purchase: stock units = 10 × (4 + 1) = 50', units=='50', units)
         # second row: new medicine via create
@@ -89,10 +89,10 @@ with sync_playwright() as p:
         if not pg.query_selector('#confirmDialog[open]'): print('FORM MSG:', pg.inner_text('#formError'), [ (r.get_attribute('data-medicine-id'), r.query_selector('.med-name').input_value()) for r in pg.query_selector_all('#itemRows tr')])
         pg.wait_for_selector('#confirmDialog[open]', timeout=3000)
         pg.click('#postNow'); pg.wait_for_timeout(3000)
-        ok('purchase: posted by inventory_staff and detail opened', pg.query_selector('#viewDialog[open]') is not None, pg.inner_text('#formError')+json.dumps(srvlog()))
+        ok('purchase: posted by admin and detail opened', pg.query_selector('#viewDialog[open]') is not None, pg.inner_text('#formError')+json.dumps(srvlog()))
         detail=pg.inner_text('#viewContent') if pg.query_selector('#viewDialog[open]') else ''
         ok('purchase: detail shows lines and attached bill', 'C-9' in detail and 'bill.pdf' in detail, detail[:500])
-        ok('purchase: cost hidden from inventory staff', 'Rate/pack' not in detail)
+        ok('purchase: admin sees the rate per pack', 'Rate' in detail)
         pg.click('#closeView'); pg.click('[data-tab="drafts"]'); pg.wait_for_timeout(500)
         ok('purchase: draft removed after posting', 'KPD-2002' not in pg.inner_text('#purchaseRows'))
         ok('purchase: no page errors', not errs, errs)

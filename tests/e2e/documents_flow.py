@@ -239,27 +239,17 @@ with sync_playwright() as p:
     c.close()
 
     # --- roles ---
-    c, pg, errs = ctx(b, 'pharmacist'); open_page(pg)
-    ok('Pharmacist: upload, no folders / management, no staff & supplier docs', pg.query_selector('#uploadBtn') and not pg.query_selector('#folderBtn') and not pg.query_selector('#cats [data-cat="supplier"]') and not pg.query_selector('#cats [data-cat="staff"]'))
-    pg.click('#uploadBtn'); pg.wait_for_selector('#docForm')
-    ok('Pharmacist: no Staff / Supplier category in upload', 'staff' not in pg.eval_on_selector_all('#dCat option', 'o=>o.map(x=>x.value)') and 'supplier' not in pg.eval_on_selector_all('#dCat option', 'o=>o.map(x=>x.value)'))
-    close_dlg(pg)
-    upload(pg, 'Pharmacist licence copy', 'licenses', 'PH-9')
-    ok('Pharmacist uploads a pharmacy document', SQL("select count(*)::int n from pharmacy_documents where name='Pharmacist licence copy'")[0]['n'] == 1)
-    r = pg.locator('#rows tr[data-id]').first; r.locator('[data-rowmenu]').click()
-    ok('Pharmacist row menu: no edit / remove', 'Edit' not in pg.inner_text('#rowMenu') and 'Remove' not in pg.inner_text('#rowMenu'))
-    ok('Pharmacist: no page errors', not errs, errs); c.close()
-
-    c, pg, errs = ctx(b, 'inventory_staff'); open_page(pg)
-    ok('Inventory staff sees supplier documents (download disabled)', pg.query_selector('#cats [data-cat="supplier"]') is not None)
+    c, pg, errs = ctx(b, 'super_admin'); open_page(pg)
     pg.click('#uploadBtn'); pg.wait_for_selector('#docForm'); pg.select_option('#dCat', 'supplier')
     pg.set_input_files('#file', files=[{'name': 'challan.pdf', 'mimeType': 'application/pdf', 'buffer': b'%PDF ch'}])
     pg.select_option('#distributor', index=1); pg.wait_for_timeout(300)
     pg.click('#dSave'); pg.wait_for_timeout(1800)
-    ok('Inventory staff uploads a supplier document', SQL("select count(*)::int n from purchase_documents where status='active'")[0]['n'] == 1, pg.inner_text('#uploadMsg') if pg.query_selector('#uploadMsg') else '')
-    pg.fill('#q', 'delivery'); pg.wait_for_timeout(300); pg.fill('#q', ''); pg.select_option('#fCat', 'supplier'); pg.wait_for_timeout(900)
-    ok('Inventory staff: supplier open/download is Admin only', pg.locator('#rows tr[data-id] [data-a="download"][disabled]').count() >= 1)
-    ok('Inventory: no page errors', not errs, errs); c.close()
+    ok('Admin uploads a supplier document', SQL("select count(*)::int n from purchase_documents where status='active'")[0]['n'] >= 1)
+    c.close()
+    # Documents is an Admin page (MORE section): staff roles have no access.
+    for who in ('pharmacist', 'inventory_staff'):
+        c, pg, errs = ctx(b, who); pg.goto(BASE + '/documents.html'); pg.wait_for_timeout(2500)
+        ok(f'{who}: Documents is Admin-only', pg.query_selector('#kTotal') is None and 'do not have access' in pg.inner_text('body')); c.close()
 
     c, pg, errs = ctx(b, 'billing_staff'); pg.goto(BASE + '/documents.html'); pg.wait_for_timeout(2500)
     ok('Billing staff cannot open Documents', pg.query_selector('#kTotal') is None); c.close()

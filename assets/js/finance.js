@@ -261,6 +261,11 @@ function renderOverviewShell() {
       </section>
     </div>
   </div>
+  <section class="pos-card pur-trend fn-open" id="openCard">
+    <div class="dl-card-head"><h2>${I.sun}Daily Opening Balance <small id="openSub"></small></h2>
+      <label class="dl-select pur-mini"><select id="opRange" aria-label="Range"><option value="14">Last 14 Days</option><option value="30" selected>Last 30 Days</option><option value="90">Last 90 Days</option></select></label></div>
+    <div class="fn-open-g"><div class="dz-chart pur-chart fn-chart" id="opChart"></div><div class="fn-open-side" id="opSide"></div></div>
+  </section>
   <div class="fn-bottom">
     <section class="pos-card pur-trend fn-ive">
       <div class="dl-card-head"><h2>${I.bars}Income vs Expenses</h2>
@@ -296,6 +301,7 @@ async function loadOverview() {
   ]);
   Object.assign(ov, { month: m, prev: p, bal, monthly: mo || [], cats: catRes.data || [], dues: dues.data || [], pays: pays.data || [] });
   renderKpis(); renderBalances(); drawCash(); drawIE(); renderCats(); renderSummary();
+  loadOpeningChart();
   await loadTxns();
   notify();
 }
@@ -355,6 +361,36 @@ function barChart(el, series, line, tipFn) {
 const monthsFor = n => ov.monthly.slice(-n);
 const mLabel = m => new Date(String(m).slice(0, 10) + 'T00:00:00Z').toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' });
 const mFull = m => new Date(String(m).slice(0, 10) + 'T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+// ---- Daily opening balance (morning pop-up at the first sign-in of the day)
+async function openingRows(days) {
+  const t = today(), from = addDays(t, -(days - 1));
+  let rows = await rpc28('cash_book', { p_from: from, p_to: t }).catch(() => null);
+  if (!rows) {
+    const { data } = await sb.from('daily_cash_openings').select('opening_date,amount,created_at').eq('branch_id', prof.branch_id).gte('opening_date', from).lte('opening_date', t);
+    rows = (data || []).map(o => ({ day: o.opening_date, opening: o.amount, opening_at: o.created_at }));
+  }
+  const by = new Map((rows || []).map(r => [String(r.day).slice(0, 10), r]));
+  const out = []; for (let i = days - 1; i >= 0; i--) { const d = addDays(t, -i); out.push({ day: d, ...(by.get(d) || {}), opening: by.get(d)?.opening ?? null }); }
+  return out;
+}
+function drawOpening(el, side, rows) {
+  const labels = rows.map(r => String(Number(r.day.slice(8)))), vals = rows.map(r => r.opening === null ? 0 : num(r.opening));
+  const days = rows.filter(r => r.opening !== null), avg = days.length ? days.reduce((a, r) => a + num(r.opening), 0) / days.length : 0;
+  const tr = rows[rows.length - 1];
+  barChart(el, [{ cls: 'g', vals, labels: labels.map((l, i) => rows.length > 31 && i % 7 ? '' : rows.length > 16 && i % 2 ? '' : l) }], null,
+    i => `${esc(dmy(rows[i].day))}<small>${rows[i].opening === null ? 'No opening entered' : `Opening ${fmtMoney(rows[i].opening)}${rows[i].opening_by ? ` · ${esc(rows[i].opening_by)}` : ''}${rows[i].opening_at ? ` · ${esc(tShort(rows[i].opening_at))}` : ''}`}</small>`);
+  if (side) side.innerHTML = `
+    <div class="fn-open-k"><small>Today</small><b>${tr.opening === null ? '—' : fmtMoney(tr.opening)}</b><em>${tr.opening === null ? 'Not entered yet' : `${esc(tr.opening_by || '')}${tr.opening_at ? ` · ${esc(tShort(tr.opening_at))}` : ''}`}</em></div>
+    <div class="fn-open-k"><small>Average opening</small><b>${fmtMoney(avg)}</b><em>${days.length} of ${rows.length} days entered</em></div>
+    <div class="fn-open-k"><small>Highest</small><b>${fmtMoney(Math.max(0, ...days.map(r => num(r.opening))))}</b><em>Lowest ${fmtMoney(days.length ? Math.min(...days.map(r => num(r.opening))) : 0)}</em></div>
+    ${canManageOpeningBalances ? '<button type="button" class="dl-link" data-go-ob>Daily cash book ›</button>' : ''}`;
+}
+async function loadOpeningChart() {
+  if (!$('opChart')) return;
+  const rows = await openingRows(+$('opRange').value);
+  $('openSub').textContent = `(entered at the first sign-in each day)`;
+  drawOpening($('opChart'), $('opSide'), rows);
+}
 function drawCash() {
   const ms = monthsFor(+$('cfRange').value), labels = ms.map(x => mLabel(x.month));
   barChart($('cfChart'), [{ cls: 'g', vals: ms.map(x => num(x.money_in)), labels }, { cls: 'r', vals: ms.map(x => num(x.money_out)), labels }], { vals: ms.map(x => num(x.money_in) - num(x.money_out)) },
@@ -456,6 +492,8 @@ function openTxn(t) {
 let menuEl = null;
 const closeMenu = () => { menuEl?.remove(); menuEl = null; };
 function wireOverview() {
+  $('opRange').onchange = loadOpeningChart;
+  $('openCard').onclick = e => { if (e.target.closest('[data-go-ob]')) setTab('ob'); };
   $('txnPeriod').onchange = async () => { ov.period = $('txnPeriod').value; ov.page = 1; await loadTxns(); };
   let deb; $('tq').oninput = () => { clearTimeout(deb); deb = setTimeout(() => { ov.page = 1; drawTxns(); }, 200); };
   $('txnPer').onchange = () => { ov.page = 1; drawTxns(); };
@@ -667,6 +705,8 @@ async function viewOpening() {
   $('panel').innerHTML = `
     <div class="fn-pane-head"><h2>${I.sun}Opening balances</h2><p class="dl-muted">The opening cash entered in the morning pop-up (first sign-in of the day) starts each day's cash book. Bank and party balances are entered once when you start using the system.</p></div>
     <section class="fn-today" id="todayCash"><p class="dl-muted">Loading today's cash…</p></section>
+    <section class="fn-block fn-open-tab"><div class="fn-block-head"><h3 class="sl-sub">${I.sun} Daily opening balance <small>(chart of the cash book below)</small></h3></div>
+      <div class="fn-open-g"><div class="dz-chart pur-chart fn-chart" id="obcChart"></div><div class="fn-open-side" id="obcSide"></div></div></section>
     <section class="fn-block"><div class="fn-block-head"><h3 class="sl-sub">${I.cash} Daily cash book <small>(from the morning opening)</small></h3>
       <div class="fn-filters fn-inline"><div class="pos-field"><label for="cbFrom">From</label><input id="cbFrom" type="date" value="${addDays(t, -29)}"></div><div class="pos-field"><label for="cbTo">To</label><input id="cbTo" type="date" value="${t}" max="${t}"></div></div></div>
       <div class="dl-table-wrap"><table class="dl-table md-plain fn-cb"><thead><tr><th>Date</th><th class="c-r">Morning opening</th><th>Entered by</th><th class="c-r">Cash in</th><th class="c-r">Cash out</th><th class="c-r">Expected closing</th><th class="c-r">Next morning</th><th>Difference</th><th></th></tr></thead><tbody id="cbRows"><tr><td colspan="9" class="dl-empty">Loading…</td></tr></tbody></table></div>
@@ -698,6 +738,9 @@ async function loadTodayAndBook() {
     rows = (data || []).map(o => ({ day: o.opening_date, opening: o.amount, opening_at: o.created_at, opening_note: o.note }));
   }
   cashBook = rows || [];
+  { const by = new Map(cashBook.map(r => [String(r.day).slice(0, 10), r])), list = [];
+    for (let d = from; d <= to; d = addDays(d, 1)) list.push({ day: d, ...(by.get(d) || {}), opening: by.get(d)?.opening ?? null });
+    if ($("obcChart") && list.length) drawOpening($("obcChart"), $("obcSide"), list.slice(-120)); }
   const todayRow = cashBook.find(r => String(r.day).slice(0, 10) === t) || (await rpc28('cash_book', { p_from: t, p_to: t }).catch(() => null) || [])[0];
   const op = todayRow?.opening;
   $('todayCash').innerHTML = op === null || op === undefined ? `

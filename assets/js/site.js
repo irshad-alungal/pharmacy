@@ -39,14 +39,14 @@ const TR = {
     eAddr: 'Enter the delivery address.', oSent: 'WhatsApp opened with your order — press Send there.', added: 'Added to your order list.',
     servicesKicker: 'Our Services', servicesTitle: 'Complete Pharmacy Care for You', servicesText: 'Support and essentials to help you look after yourself and your family.', learnMore: 'Learn More',
     aboutKicker: 'About Us', aboutTitle: 'Here to Support Healthier Days',
-    aboutText: 'Pallikkal Pharmacy is a trusted local pharmacy in Thrissur, dedicated to providing genuine medicines, reliable advice and everyday health essentials for you and your family.',
+    aboutText: 'Pallikkal Pharmacy is a trusted local pharmacy at Pallikkal Bazar, Malappuram, dedicated to providing genuine medicines, reliable advice and everyday health essentials for you and your family.',
     a1: 'Quality &amp; Safety', a1t: 'Genuine medicines stored the right way, checked for expiry.', a2: 'Caring Guidance', a2t: 'Clear answers about how and when to take your medicines.',
     a3: 'Your Wellbeing', a3t: 'Everyday care for every member of your family.', aboutMore: 'Learn More About Us', badgeT: 'Licensed Pharmacy', badgeS: 'Qualified pharmacists',
     ayurKicker: 'Our Sister Store', ayurText: 'Traditional Ayurvedic products and wellness essentials for a natural and healthier lifestyle.',
     ay1: 'Authentic Ayurvedic', ay2: 'Herbal Wellness', ay3: 'Trusted Brands', ay4: 'Expert Guidance', viewLocation: 'View Location on Map', ayExplore: 'Explore Ayurvedic Products',
     storesKicker: 'Our Locations', storesTitle: 'Visit Our Stores in', storesText: 'Pick a store to see it on the map.', sister: 'Sister store',
     saNote: 'Ayurvedic medicines, oils and herbal care', mapLoading: 'Loading map…', mapOpen: 'Open in Google Maps', open: 'Open', closed: 'Closed',
-    r1: 'Easy to Reach', r1t: 'In the heart of the city', r2: 'Parking Available', r2t: 'Two-wheeler and car parking nearby', r3: 'Near Key Landmarks', r3t: 'Close to bus stand and main roads',
+    r1: 'Easy to Reach', r1t: 'Right at Pallikkal Bazar', r2: 'Parking Available', r2t: 'Two-wheeler and car parking nearby', r3: 'Near Key Landmarks', r3t: 'On the main road at Pallikkal Bazar',
     helpKicker: "We're here for you", contactTitle: 'Need Help or Have a Question?', contactText: 'Our pharmacists are happy to help with medicines, availability and delivery.',
     contactNow: 'Contact Us Now', staffPortal: 'Staff Portal', callUs: 'Call Us', callNow: 'Call now →', chatNow: 'Chat now →', emailUs: 'Email Us', writeUs: 'Write to us →', visitUs: 'Visit Us', getDir: 'Get directions →',
     footAbout: 'Your trusted neighbourhood pharmacy for genuine medicines, caring guidance and everyday wellness.',
@@ -92,14 +92,14 @@ const TR = {
     eAddr: 'ഡെലിവറി വിലാസം നൽകുക.', oSent: 'ഓർഡറുമായി വാട്സാപ്പ് തുറന്നു — അവിടെ Send അമർത്തുക.', added: 'ഓർഡർ ലിസ്റ്റിൽ ചേർത്തു.',
     servicesKicker: 'ഞങ്ങളുടെ സേവനങ്ങൾ', servicesTitle: 'നിങ്ങൾക്കായി സമ്പൂർണ്ണ ഫാർമസി പരിചരണം', servicesText: 'നിങ്ങളെയും കുടുംബത്തെയും പരിപാലിക്കാൻ ആവശ്യമായ സഹായവും ഉൽപ്പന്നങ്ങളും.', learnMore: 'കൂടുതൽ അറിയുക',
     aboutKicker: 'ഞങ്ങളെക്കുറിച്ച്', aboutTitle: 'ആരോഗ്യകരമായ ദിവസങ്ങൾക്ക് നിങ്ങളോടൊപ്പം',
-    aboutText: 'യഥാർത്ഥ മരുന്നുകളും വിശ്വസനീയമായ ഉപദേശവും ദൈനംദിന ആരോഗ്യ ഉൽപ്പന്നങ്ങളും നൽകുന്ന തൃശ്ശൂരിലെ വിശ്വസ്ത ഫാർമസിയാണ് പള്ളിക്കൽ ഫാർമസി.',
+    aboutText: 'യഥാർത്ഥ മരുന്നുകളും വിശ്വസനീയമായ ഉപദേശവും ദൈനംദിന ആരോഗ്യ ഉൽപ്പന്നങ്ങളും നൽകുന്ന മലപ്പുറം പള്ളിക്കൽ ബസാറിലെ വിശ്വസ്ത ഫാർമസിയാണ് പള്ളിക്കൽ ഫാർമസി.',
     a1: 'ഗുണമേന്മയും സുരക്ഷയും', a1t: 'ശരിയായി സൂക്ഷിച്ച, കാലാവധി പരിശോധിച്ച യഥാർത്ഥ മരുന്നുകൾ.', a2: 'കരുതലോടെയുള്ള മാർഗനിർദേശം', a2t: 'മരുന്നുകൾ എങ്ങനെ, എപ്പോൾ കഴിക്കണം എന്നതിന് വ്യക്തമായ മറുപടി.',
     a3: 'നിങ്ങളുടെ ക്ഷേമം', a3t: 'കുടുംബത്തിലെ എല്ലാവർക്കും ദൈനംദിന പരിചരണം.', aboutMore: 'ഞങ്ങളെക്കുറിച്ച് കൂടുതൽ', badgeT: 'ലൈസൻസുള്ള ഫാർമസി', badgeS: 'യോഗ്യതയുള്ള ഫാർമസിസ്റ്റുകൾ',
     ayurKicker: 'ഞങ്ങളുടെ അനുബന്ധ സ്റ്റോർ', ayurText: 'പ്രകൃതിദത്തവും ആരോഗ്യകരവുമായ ജീവിതത്തിനായി പരമ്പരാഗത ആയുർവേദ ഉൽപ്പന്നങ്ങൾ.',
     ay1: 'യഥാർത്ഥ ആയുർവേദം', ay2: 'ഹെർബൽ വെൽനസ്', ay3: 'വിശ്വസ്ത ബ്രാൻഡുകൾ', ay4: 'വിദഗ്ധ സഹായം', viewLocation: 'മാപ്പിൽ ലൊക്കേഷൻ കാണുക', ayExplore: 'ആയുർവേദ ഉൽപ്പന്നങ്ങൾ കാണുക',
     storesKicker: 'ഞങ്ങളുടെ സ്റ്റോറുകൾ', storesTitle: 'ഞങ്ങളുടെ സ്റ്റോറുകൾ സന്ദർശിക്കൂ —', storesText: 'മാപ്പിൽ കാണാൻ ഒരു സ്റ്റോർ തിരഞ്ഞെടുക്കുക.', sister: 'അനുബന്ധ സ്റ്റോർ',
     saNote: 'ആയുർവേദ മരുന്നുകൾ, എണ്ണകൾ, ഹെർബൽ പരിചരണം', mapLoading: 'മാപ്പ് ലോഡ് ചെയ്യുന്നു…', mapOpen: 'ഗൂഗിൾ മാപ്പിൽ തുറക്കുക', open: 'തുറന്നിരിക്കുന്നു', closed: 'അടച്ചിരിക്കുന്നു',
-    r1: 'എളുപ്പത്തിൽ എത്താം', r1t: 'നഗരഹൃദയത്തിൽ', r2: 'പാർക്കിംഗ് സൗകര്യം', r2t: 'ടൂവീലർ, കാർ പാർക്കിംഗ് സമീപത്ത്', r3: 'പ്രധാന സ്ഥലങ്ങൾക്ക് സമീപം', r3t: 'ബസ് സ്റ്റാൻഡിനും പ്രധാന റോഡുകൾക്കും അടുത്ത്',
+    r1: 'എളുപ്പത്തിൽ എത്താം', r1t: 'പള്ളിക്കൽ ബസാറിൽ തന്നെ', r2: 'പാർക്കിംഗ് സൗകര്യം', r2t: 'ടൂവീലർ, കാർ പാർക്കിംഗ് സമീപത്ത്', r3: 'പ്രധാന സ്ഥലങ്ങൾക്ക് സമീപം', r3t: 'ബസ് സ്റ്റാൻഡിനും പ്രധാന റോഡുകൾക്കും അടുത്ത്',
     helpKicker: 'ഞങ്ങൾ നിങ്ങൾക്കൊപ്പം', contactTitle: 'സഹായം വേണോ, എന്തെങ്കിലും ചോദിക്കാനുണ്ടോ?', contactText: 'മരുന്നുകൾ, ലഭ്യത, ഡെലിവറി എന്നിവയെക്കുറിച്ച് സഹായിക്കാൻ ഞങ്ങളുടെ ഫാർമസിസ്റ്റുകൾ തയ്യാർ.',
     contactNow: 'ഇപ്പോൾ ബന്ധപ്പെടുക', staffPortal: 'സ്റ്റാഫ് പോർട്ടൽ', callUs: 'വിളിക്കുക', callNow: 'ഇപ്പോൾ വിളിക്കൂ →', chatNow: 'ചാറ്റ് ചെയ്യൂ →', emailUs: 'ഇമെയിൽ', writeUs: 'എഴുതൂ →', visitUs: 'സന്ദർശിക്കുക', getDir: 'വഴി കാണുക →',
     footAbout: 'യഥാർത്ഥ മരുന്നുകൾക്കും കരുതലുള്ള മാർഗനിർദേശത്തിനും ദൈനംദിന ആരോഗ്യത്തിനുമുള്ള നിങ്ങളുടെ വിശ്വസ്ത ഫാർമസി.',
@@ -256,7 +256,7 @@ const ACTS = {
     const A = SITE.ayurveda || {};
     openDlg(A.name || T('ayurT'), `<p>${esc(OVR.ayurText ?? T('ayurText'))}</p><ul>${T('ayurList').split('|').map(x => `<li>${esc(x)}</li>`).join('')}</ul>`,
       [A.phone ? `<a class="btn btn-green btn-sm" href="tel:+${intl(A.phone)}">${icon('phone')}<span>${T('ayurCall')}</span></a>` : '',
-        `<a class="btn btn-line btn-sm" href="${mapsLink(A.map_query || [A.name, A.address].filter(Boolean).join(', ') || 'Ayurvedic Store Thrissur Kerala')}" target="_blank" rel="noopener">${icon('map')}<span>${T('ayurVisit')}</span></a>`]);
+        `<a class="btn btn-line btn-sm" href="${mapsLink(A.map_query || [A.name, A.address].filter(Boolean).join(', ') || 'Pallikkal Bazar, Pallikkal PO, Malappuram 673634')}" target="_blank" rel="noopener">${icon('map')}<span>${T('ayurVisit')}</span></a>`]);
   },
   map() { closeDlg(); showMap('main'); goTo('#stores'); }
 };
@@ -425,8 +425,8 @@ function applyInfo() {
   if (SITE.stock_check === false) $('#stockBox').hidden = true;
   setLanguage(lang);
 }
-const mainQuery = () => SITE.map_query || [shopName(), fullAddress()].filter(Boolean).join(', ') || 'Pallikkal Pharmacy Thrissur';
-const ayurQuery = () => { const A = SITE.ayurveda || {}; return A.map_query || [A.name, A.address].filter(Boolean).join(', ') || 'Ayurvedic Store Thrissur Kerala'; };
+const mainQuery = () => SITE.map_query || [shopName(), fullAddress()].filter(Boolean).join(', ') || 'Pallikkal Pharmacy, Pallikkal Bazar, Malappuram 673634';
+const ayurQuery = () => { const A = SITE.ayurveda || {}; return A.map_query || [A.name, A.address].filter(Boolean).join(', ') || 'Pallikkal Bazar, Pallikkal PO, Malappuram 673634'; };
 
 // ------------------------------------------------------------------ map
 let mapShown = false;

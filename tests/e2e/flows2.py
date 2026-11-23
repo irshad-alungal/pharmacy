@@ -124,13 +124,13 @@ with sync_playwright() as p:
         ok('initial stock: no page errors', not errs, errs); c.close()
 
     if want('documents'):
-        c,pg,errs,_=ctx_for(b,'inventory_staff')
+        c,pg,errs,_=ctx_for(b,'super_admin')
         pg.goto(BASE+'/documents.html'); pg.wait_for_selector('#uploadBtn'); pg.wait_for_timeout(1200)
         pg.click('#uploadBtn'); pg.wait_for_selector('#docForm'); pg.select_option('#dCat', 'supplier')
         pg.set_input_files('#file', files=[{'name':'challan.pdf','mimeType':'application/pdf','buffer':b'%PDF ch'}])
         pg.select_option('#distributor', index=1); pg.wait_for_timeout(300)
         pg.click('#docForm button[type=submit]'); pg.wait_for_timeout(2000)
-        ok('documents: inventory staff uploads a supplier document (role fix)', 'registered' in pg.inner_text('.dl-toast') or 'challan' in pg.inner_text('#rows'), pg.inner_text('#rows')[:300]+json.dumps(srvlog()))
+        ok('documents: admin uploads a supplier document', 'registered' in pg.inner_text('.dl-toast') or 'challan' in pg.inner_text('#rows'), pg.inner_text('#rows')[:300]+json.dumps(srvlog()))
         ok('documents: no page errors', not errs, errs); c.close()
 
     if want('delivery'):
@@ -158,7 +158,7 @@ with sync_playwright() as p:
         c,pg,errs,_=ctx_for(b,'inventory_staff')
         pg.goto(BASE+'/medicines.html'); pg.wait_for_selector('#new'); pg.wait_for_timeout(1000)
         pg.click('#new'); pg.wait_for_selector('#dlg[open]')
-        pg.fill('#f [name=name]','Montair LC'); pg.fill('#f [name=strength]','10 mg'); pg.fill('#f [name=discount_percentage]','5')
+        pg.fill('#f [name=name]','Montair LC'); pg.fill('#f [name=strength]','10 mg'); pg.fill('#f [name=discount_text]','5%')
         pg.click('#f button[type=submit]'); pg.wait_for_timeout(1800)
         ok('medicines: inventory staff adds a medicine', 'Montair LC' in pg.inner_text('#rows'), (pg.inner_text('#err') if pg.query_selector('#err') else '')+json.dumps(srvlog()))
         ok('medicines: no page errors', not errs, errs); c.close()

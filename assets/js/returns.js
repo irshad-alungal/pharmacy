@@ -16,7 +16,7 @@ if (!prof) throw new Error('Unable to load user profile.');
 const view = document.getElementById('view');
 const branchId = prof.branch_id;
 const isAdmin = ['super_admin', 'admin'].includes(prof.role);
-const canCustomerReturn = ['super_admin', 'admin', 'pharmacist', 'billing_staff'].includes(prof.role);
+const canCustomerReturn = ['super_admin', 'admin', 'admin_staff', 'pharmacist', 'billing_staff', 'billing', 'inventory_staff', 'inventory'].includes(prof.role);   // every staff role (0037)
 const canPurchaseReturn = isAdmin;
 if (!canCustomerReturn && !canPurchaseReturn) { view.textContent = 'Not authorised to view returns.'; throw new Error('Not authorised'); }
 if (!branchId) { view.textContent = 'Your profile has no assigned branch. Contact the administrator.'; throw new Error('Missing profile branch_id.'); }
@@ -99,7 +99,7 @@ const filt = { period: 'month', from: '', to: '', type: '', reason: '', method: 
 let expiryList = null;
 
 view.innerHTML = `
-<div class="pos dl md pur ds sl rt">
+<div class="pos dl md pur ds sl rt${isAdmin ? '' : ' rt-staff'}">
   <section class="pos-head">
     <div class="pos-title"><span class="pos-title-ic">${I.undo}</span>
       <div><h1>Returns Management</h1><p id="subTitle">Manage sales returns, refund/adjustments, and return analytics.</p></div></div>
@@ -113,7 +113,7 @@ view.innerHTML = `
           ${canPurchaseReturn ? `<button type="button" data-more="expiry">${I.clock}<span>Expired / near-expiry stock to return</span></button>` : ''}
           <button type="button" data-more="csv">${I.download}<span>Export CSV</span></button>
           <button type="button" data-more="print">${I.print}<span>Print returns list</span></button>
-          <button type="button" data-more="top">${I.pill}<span>Top returned medicines</span></button>
+          ${isAdmin ? `<button type="button" data-more="top">${I.pill}<span>Top returned medicines</span></button>` : ''}
           ${canCustomerReturn ? `<a href="sales.html">${I.bill}<span>Sales bills</span></a>` : ''}
           ${canPurchaseReturn ? `<a href="purchases.html">${I.truck}<span>Purchase bills</span></a>` : ''}
         </div></div>
@@ -300,6 +300,15 @@ async function renderKpis() {
   const all = store[kind]?.rows || [], a = inWin(all, cur), b = inWin(all, prev);
   $('kCount').textContent = count(a.length);
   $('kCountNote').innerHTML = vsLast(a.length, b.length);
+  if (!isAdmin) {
+    // Staff: counts only — no money totals.
+    const t0 = today(), td = all.filter(r => String(r.created_at || '').length && new Date(r.created_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) === t0);
+    const lbl = (id, l) => { $(id).closest('.dz-kpi').querySelector('.dz-kpi-label').textContent = l; };
+    lbl('kValue', 'Returns Today'); $('kValue').textContent = count(td.length); $('kValueNote').textContent = 'credit notes today';
+    lbl('kRate', 'Exchanges'); $('kRate').textContent = count(a.filter(r => r.refund_type === 'exchange').length); $('kRateNote').textContent = 'this month';
+    lbl('kFourth', 'Refunds'); $('kFourth').textContent = count(a.filter(r => r.refund_type !== 'exchange').length); $('kFourthNote').textContent = 'this month';
+    return;
+  }
   $('kValue').textContent = rupees0(sum(a));
   $('kValueNote').innerHTML = vsLast(sum(a), sum(b));
   for (const id of ['kCount', 'kValue']) $(id).closest('.dz-kpi').title = `This month, compared with last month up to day ${dayN}`;
@@ -401,6 +410,7 @@ function renderReasons() {
   $('donutN').textContent = count(total);
   $('reasonLegend').innerHTML = total ? parts.filter(p => p.n).sort((a, b) => b.n - a.n).map(p => `<button type="button" data-reason="${p.k}" title="${rupees0(p.v)}"><i style="background:${p.col}"></i><b>${esc(p.l)}</b><em>${(p.n / total * 100).toFixed(1)}%</em><span>(${p.n})</span></button>`).join('') : '<p class="dl-muted">No returns in this period.</p>';
   const value = sum(rows);
+  if (!isAdmin) { $('moneyTiles').innerHTML = ''; $('reasonLegend').querySelectorAll('[title]').forEach(b => b.removeAttribute('title')); return; }
   if (kind === 'sales') {
     const ref = sum(rows.filter(r => r.refund_type !== 'exchange')), ex = value - ref;
     $('moneyTiles').innerHTML = `
@@ -490,7 +500,7 @@ function notify() {
 async function refresh() {
   await loadList();
   await renderKpis().catch(e => note(friendly(e), true));
-  renderReasons(); drawChart(); await renderTop(); notify();
+  renderReasons(); if (isAdmin) { drawChart(); await renderTop(); } notify();
 }
 
 // ---------------------------------------------------------------------------
@@ -878,7 +888,7 @@ const goList = async (patch, period) => { Object.assign(filt, { reason: '', type
 $('reasonLegend').onclick = e => { const b = e.target.closest('[data-reason]'); if (b) goList({ reason: b.dataset.reason }, $('reasonPeriod').value); };
 $('moneyTiles').onclick = e => { const b = e.target.closest('[data-tile]'); if (!b) return; if (b.dataset.tile === 'expiry') return expiryDialog(); goList(kind === 'sales' ? { type: b.dataset.tile } : {}, $('reasonPeriod').value); };
 $('reasonPeriod').onchange = renderReasons;
-$('trendRange').onchange = () => { drawChart(); renderTop(); };
+$('trendRange').onchange = () => { if (isAdmin) { drawChart(); renderTop(); } };
 $('topAll').onclick = topDialog;
 $('topRows').onclick = e => { const tr = e.target.closest('tr[data-med]'); if (!tr) return; $('rq').value = tr.dataset.med; const r = $('trendRange').value; goList({}, r === '7' ? '7d' : r === 'month' ? 'month' : r === '30' ? '30d' : 'year'); };
 document.querySelector('.md-kpis').onclick = e => {

@@ -188,3 +188,6 @@
 }
 .rt-dlg .pos-dialog-foot { gap: 10px; flex-wrap: wrap; }
 .rt-dlg .pos-dialog-foot .pos-btn { width: auto !important; min-width: 0; padding: 0 18px !important; white-space: nowrap; }
+
+/* staff: no money totals (v78) */
+.rt-staff .rt-trend, .rt-staff .rt-top, .rt-staff #moneyTiles { display: none !important; }

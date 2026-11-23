@@ -4,9 +4,9 @@ BASE='http://localhost:8790'
 U={'super_admin':'0c000000-0000-0000-0000-000000000001','billing_staff':'0c000000-0000-0000-0000-000000000002',
    'inventory_staff':'0c000000-0000-0000-0000-000000000003','pharmacist':'0c000000-0000-0000-0000-000000000004'}
 ACCESS={'super_admin':['dashboard','billing','delivery','medicines','inventory','purchases','distributors','customers','sales','returns','expenses','finance','reports','whatsapp','staff','documents','settings','audit-logs'],
- 'billing_staff':['billing','delivery','medicines','inventory','customers','sales','returns'],
- 'inventory_staff':['medicines','inventory','purchases','distributors','documents'],
- 'pharmacist':['billing','delivery','medicines','inventory','purchases','distributors','customers','sales','returns','documents']}
+ 'billing_staff':['billing','delivery','medicines','inventory','customers','sales','returns','distributors','whatsapp'],
+ 'inventory_staff':['billing','delivery','medicines','inventory','customers','sales','returns','distributors','whatsapp'],
+ 'pharmacist':['billing','delivery','medicines','inventory','customers','sales','returns','distributors','whatsapp']}
 TODAY=datetime.datetime.now(zoneinfo.ZoneInfo('Asia/Kolkata')).strftime('%Y-%m-%d')
 SERIOUS=re.compile(r'does not exist|Could not find|permission denied|row-level security|not supported by the harness|No relationship|syntax error|Not authorised|not authorized|violates|invalid input syntax|Bad identifier|filter |schema cache', re.I)
 def srvlog(): return json.loads(urllib.request.urlopen(BASE+'/__log').read())

@@ -275,7 +275,7 @@ async function mountManagementPage() {
     $('legend').innerHTML = parts.map(p => `<button type="button" data-tab-go="${p.k}"><i style="background:${p.col}"></i><span><b>${p.l}</b><small>${p.n} order${p.n === 1 ? '' : 's'}</small></span><em>${total ? (p.n / total * 100).toFixed(1) : '0.0'}%</em></button>`).join('');
   }
 
-  const PRES = { available: ['Online', 'on'], purchasing: ['Purchasing', 'busy'], offline: ['Offline', 'off'] };
+  const PRES = { available: ['Online', 'on'], purchasing: ['On Purchase', 'busy'], offline: ['Offline', 'off'] };
   const presChip = p => { const [l, c] = PRES[p] || PRES.offline; return `<span class="dl-pres ${c}"><i></i>${l}</span>`; };
   function renderPeople() {
     const counts = new Map();
@@ -322,7 +322,7 @@ async function mountManagementPage() {
     if (unassigned) notes.push({ tone: 'warn', title: `${unassigned} delivery order(s) not assigned`, detail: 'Use Assign Orders to give them to a delivery boy', href: 'delivery.html' });
     if (issues) notes.push({ tone: 'danger', title: `${issues} delivery issue(s) reported`, detail: 'Open the order to read the note', href: 'delivery.html' });
     if (failed) notes.push({ tone: 'danger', title: `${failed} failed / returned delivery(ies)`, detail: 'Reassign or remove the delivery request', href: 'delivery.html' });
-    if (!online && deliveryPeople.length) notes.push({ tone: 'info', title: 'No delivery boy is online', detail: 'All delivery boys are offline or purchasing', href: 'delivery.html' });
+    if (!online && deliveryPeople.length) notes.push({ tone: 'info', title: 'No delivery boy is online', detail: 'All delivery boys are Offline or On Purchase', href: 'delivery.html' });
     setNotifications(notes);
   }
 

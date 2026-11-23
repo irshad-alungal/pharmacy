@@ -268,7 +268,7 @@ with sync_playwright() as p:
     c, pg, errs = ctx(b, block_site=True)
     SQL("update branch_shop_status set is_open=true where branch_id=$1", [BR])
     pg.goto(BASE + '/index.html'); pg.wait_for_timeout(1500)
-    ok('Without 0035: page still works with built-in content', pg.inner_text('#heroTitle').startswith('Your Health.') and pg.locator('#svcGrid .s-svc-c').count() == 6 and pg.inner_text('#tPhone') == '+91 90000 00001')
+    ok('Without 0035: page still works with built-in content', pg.inner_text('#heroTitle').startswith('Your Health.') and pg.locator('#svcGrid .s-svc-c').count() == 6 and pg.inner_text('#tPhone') == '+91 88486 42677')
     ok('Without 0035: status from the counter switch (public_shop_is_open)', pg.inner_text('#publicShopStatusText') == 'Shop Open')
     ok('Without 0035: no page errors', not [e for e in errs if 'schema cache' not in e], errs)
     c.close()

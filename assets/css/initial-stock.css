@@ -24,3 +24,23 @@
 .os-readonly{background:#f8fafc}
 .os-small{font-size:.8rem;color:#64748b}
 @media(max-width:640px){.os-toolbar>*{flex:1 1 100%}.os-toolbar button{width:100%}}
+
+/* v78: sized columns (narrow Sl No, wide Item, sized Batch / Pack / Qty), GST % and Distributor */
+.os-table.os-grid { table-layout: fixed; min-width: 1180px; }
+.os-grid col.w-sl { width: 56px; } .os-grid col.w-item { width: 25%; } .os-grid col.w-dist { width: 17%; }
+.os-grid col.w-batch { width: 110px; } .os-grid col.w-pack { width: 70px; } .os-grid col.w-qty { width: 70px; }
+.os-grid col.w-exp { width: 140px; } .os-grid col.w-rate { width: 86px; } .os-grid col.w-gst { width: 70px; } .os-grid col.w-act { width: 46px; }
+.os-grid input { min-width: 0 !important; height: 36px; padding: 0 8px; border: 1px solid #d6dee9; border-radius: 8px; font: inherit; font-size: .88rem; background: #fff; }
+.os-grid input:focus { outline: 0; border-color: #12a01b; box-shadow: 0 0 0 3px rgba(18, 160, 27, .15); }
+.os-grid input[type="number"] { text-align: right; }
+.os-grid td { padding: .35rem .3rem; }
+.os-grid th { padding: .55rem .35rem; }
+.os-grid th.c-r { text-align: right; }
+.os-grid .os-serial { text-align: center; }
+.os-grid input:disabled { background: #f6f8fb; color: #24324d; border-color: #eef2f6; }
+.os-grid .os-remove { width: 32px; height: 32px; padding: 0; border-radius: 8px; border: 1px solid #f3c4c4; background: #fff; }
+.os-empty td { text-align: center; color: #66748a; padding: 18px !important; }
+.os-posted { font-size: .76rem; font-weight: 700; color: #0b7a14; }
+.os-sub { display: block; color: #66748a; font-size: .74rem; }
+.os-notes { display: grid; gap: 4px; font-weight: 600; font-size: .86rem; }
+.os-notes input { height: 38px; padding: 0 10px; border: 1px solid #d6dee9; border-radius: 8px; font: inherit; }

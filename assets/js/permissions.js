@@ -11,16 +11,17 @@ const ALL_PAGES = [
   'reports', 'whatsapp', 'staff', 'documents', 'settings', 'audit-logs'
 ];
 
+// Every staff member (any staff role) sees the same nine pages, in this order:
+// Billing, Delivery, Medicines, Inventory, Customers, Sales, Returns, Distributors, WhatsApp.
+// Money totals are hidden from staff on those pages (see isAdminRole).
+const STAFF_PAGES = ['billing', 'delivery', 'medicines', 'inventory', 'customers', 'sales', 'returns', 'distributors', 'whatsapp'];
 const ROLE_PAGES = {
-  // Pharmacist: sales + purchasing + stock (role_permissions: sales.*, purchase.*, inventory.*, medicine.*, customer.*, distributor.manage)
-  pharmacist: ['billing', 'delivery', 'medicines', 'inventory', 'purchases', 'distributors', 'customers', 'sales', 'returns', 'documents'],
-  // Billing counter staff: sales.create/view, customer.*, medicine.view, inventory.view
-  billing_staff: ['billing', 'delivery', 'medicines', 'inventory', 'customers', 'sales', 'returns'],
-  // Inventory staff: purchase.*, inventory.*, medicine.*
-  inventory_staff: ['medicines', 'inventory', 'purchases', 'distributors', 'documents'],
+  pharmacist: STAFF_PAGES,
+  billing_staff: STAFF_PAGES,
+  inventory_staff: STAFF_PAGES,
   // Legacy role codes still present in the roles table
-  billing: ['billing', 'delivery', 'medicines', 'inventory', 'customers', 'sales', 'returns'],
-  inventory: ['medicines', 'inventory', 'purchases', 'distributors', 'documents']
+  billing: STAFF_PAGES,
+  inventory: STAFF_PAGES
 };
 
 export const ACCESS = Object.fromEntries(ALL_PAGES.map(page => [
@@ -35,11 +36,11 @@ export const isAdminRole = role => ADMIN_ROLES.includes(String(role || '').toLow
 export const isStoreRole = role => Object.keys(ROLE_PAGES).includes(String(role || '').toLowerCase());
 export const can = (role, page) => (ACCESS[page] || []).includes(String(role || '').toLowerCase());
 
-// Where each role lands after signing in.
+// Where each role lands after signing in: Billing for admins and staff, Delivery for delivery staff.
 export const homePage = role => {
   const r = String(role || '').toLowerCase();
-  if (r === 'super_admin' || r === 'admin') return 'dashboard.html';
   if (r === 'delivery_person') return 'delivery.html';
+  if (can(r, 'billing')) return 'billing.html';
   const first = ALL_PAGES.find(p => can(r, p));
   return first ? `${first}.html` : 'index.html';
 };

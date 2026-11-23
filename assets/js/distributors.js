@@ -14,7 +14,8 @@ if (!prof) throw new Error('Distributor page could not start: profile unavailabl
 const $ = id => document.getElementById(id);
 const LOGO_BUCKET = 'distributor-logos';
 const isAdmin = ['super_admin', 'admin'].includes(prof.role);
-const canWrite = ['super_admin', 'admin', 'pharmacist', 'inventory_staff', 'inventory'].includes(prof.role);
+const canPurchase = ['super_admin', 'admin', 'admin_staff'].includes(prof.role);   // Purchases is an Admin page (0037)
+const canWrite = ['super_admin', 'admin', 'admin_staff', 'pharmacist', 'billing_staff', 'billing', 'inventory_staff', 'inventory'].includes(prof.role);
 const TZ = 'Asia/Kolkata';
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ });
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
@@ -92,7 +93,7 @@ $('view').innerHTML = `
           <button type="button" data-more="template">${I.download}<span>Download import template</span></button>
           <button type="button" data-more="print">${I.print}<span>Print distributor list</span></button>
           <button type="button" data-more="dupes">${I.people}<span>Find duplicates (name / GSTIN / phone)</span></button>
-          ${canWrite ? `<a href="purchases.html?new=1">${I.bill}<span>New purchase bill</span></a><a href="purchases.html?order=1">${I.order}<span>New purchase order</span></a>` : ''}
+          ${canPurchase ? `<a href="purchases.html?new=1">${I.bill}<span>New purchase bill</span></a><a href="purchases.html?order=1">${I.order}<span>New purchase order</span></a>` : ''}
         </div></div>
     </div>
   </section>
@@ -100,7 +101,7 @@ $('view').innerHTML = `
   <section class="dz-kpis dl-kpis md-kpis">
     ${KPI('green', I.people, 'Total Distributors', 'kTotal')}
     ${KPI('blue', I.checkC, 'Active Distributors', 'kActive')}
-    ${KPI('amber', I.layers, 'Total Purchase Value', 'kValue')}
+    ${KPI('amber', I.layers, isAdmin ? 'Total Purchase Value' : 'Purchase Bills (This Month)', 'kValue')}
     ${isAdmin ? KPI('rose', I.wallet, 'Outstanding Amount', 'kOut') : KPI('rose', I.order, 'Open Purchase Orders', 'kOut')}
   </section>
 
@@ -213,7 +214,7 @@ async function loadAll() {
     sb.from('distributors').select('*').eq('branch_id', prof.branch_id).order('name').limit(2000),
     canWrite ? sb.rpc('purchase_list_v2', { p_from: null, p_to: null, p_limit: 5000 }) : Promise.resolve({ data: [] }),
     isAdmin ? sb.rpc('payable_balances') : Promise.resolve({ data: [] }),
-    canWrite ? sb.rpc('purchase_order_list', { p_limit: 1000 }) : Promise.resolve({ data: [] })
+    ['super_admin', 'admin', 'pharmacist', 'inventory_staff', 'inventory'].includes(prof.role) ? sb.rpc('purchase_order_list', { p_limit: 1000 }) : Promise.resolve({ data: [] })
   ]);
   if (dres.error) { $('rows').innerHTML = `<tr><td colspan="7" class="dl-empty">${esc(friendly(dres.error))}</td></tr>`; return; }
   list = dres.data || [];
@@ -418,8 +419,8 @@ function menuHtml(d) {
   const ps = phoneParts(d.phone), b = (a, ic, l, cls = '') => `<button type="button" data-act="${a}" class="${cls}">${ic}<span>${l}</span></button>`;
   return [
     b('view', I.eye, 'View details'), canWrite ? b('edit', I.pencil, 'Edit') : '',
-    canWrite && d.active ? `<a href="purchases.html?new=1&dist=${encodeURIComponent(d.id)}">${I.bill}<span>New purchase bill</span></a><a href="purchases.html?order=1&dist=${encodeURIComponent(d.id)}">${I.order}<span>New purchase order</span></a>` : '',
-    `<a href="purchases.html?q=${encodeURIComponent(d.name)}">${I.cart}<span>View purchases</span></a>`,
+    canPurchase && d.active ? `<a href="purchases.html?new=1&dist=${encodeURIComponent(d.id)}">${I.bill}<span>New purchase bill</span></a><a href="purchases.html?order=1&dist=${encodeURIComponent(d.id)}">${I.order}<span>New purchase order</span></a>` : '',
+    canPurchase ? `<a href="purchases.html?q=${encodeURIComponent(d.name)}">${I.cart}<span>View purchases</span></a>` : '',
     isAdmin && due(d.id) > 0.005 && d.active ? b('pay', I.rupee, `Record payment (${rupees0(due(d.id))} due)`) : '',
     ps[0] ? `<a href="${esc(callHref(ps[0]))}">${I.phone}<span>Call ${esc(ps[0])}</span></a><a href="${esc(waHref(ps[0]))}" target="_blank" rel="noopener">${I.wa}<span>WhatsApp</span></a>` : '',
     d.email ? `<a href="mailto:${esc(d.email)}">${I.mail}<span>Email</span></a>` : '',
@@ -586,7 +587,7 @@ async function showDistributor(d) {
       ${isAdmin ? tile('p', 'Avg. bill value', rupees0(s.n ? s.value / s.n : 0)) : tile('p', 'Bills (30 days)', count(s.recent))}
     </div>
     <div class="pos-dialog-foot md-foot-left inv-acts ds-acts">
-      ${canWrite && full.active ? `<a class="pos-btn pos-btn-sm pos-btn-solid" href="purchases.html?new=1&dist=${encodeURIComponent(full.id)}">${I.bill}<span>New purchase bill</span></a><a class="pos-btn pos-btn-sm" href="purchases.html?order=1&dist=${encodeURIComponent(full.id)}">${I.order}<span>New order</span></a>` : ''}
+      ${canPurchase && full.active ? `<a class="pos-btn pos-btn-sm pos-btn-solid" href="purchases.html?new=1&dist=${encodeURIComponent(full.id)}">${I.bill}<span>New purchase bill</span></a><a class="pos-btn pos-btn-sm" href="purchases.html?order=1&dist=${encodeURIComponent(full.id)}">${I.order}<span>New order</span></a>` : ''}
       ${isAdmin && dd > 0.005 && full.active ? `<button type="button" class="pos-btn pos-btn-sm" data-dact="pay">${I.rupee}<span>Record payment</span></button>` : ''}
       ${canWrite ? `<button type="button" class="pos-btn pos-btn-sm" data-dact="edit">${I.pencil}<span>Edit</span></button>` : ''}
       <button type="button" class="pos-btn pos-btn-sm" data-dact="print">${I.print}<span>Statement</span></button>

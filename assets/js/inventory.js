@@ -14,11 +14,11 @@ const prof = await mountShell('inventory', 'Inventory', { layout: 'brand' });
 const $ = id => document.getElementById(id);
 const admin = ['super_admin', 'admin'].includes(prof.role);
 // Roles the database lets adjust stock, quarantine or change batch status.
-const canAdjust = ['super_admin', 'admin', 'pharmacist', 'inventory_staff', 'inventory'].includes(prof.role);
-const canPurchase = ['super_admin', 'admin', 'pharmacist', 'inventory_staff', 'inventory'].includes(prof.role);
+const canAdjust = ['super_admin', 'admin', 'admin_staff', 'pharmacist', 'billing_staff', 'billing', 'inventory_staff', 'inventory'].includes(prof.role);
+const canPurchase = ['super_admin', 'admin', 'admin_staff'].includes(prof.role);   // Purchases is an Admin page (0037)
 const branchId = prof.branch_id;
 // stock_movements RLS lets these roles read movements; others would see an empty list.
-const canMoves = ['super_admin', 'admin', 'pharmacist', 'inventory_staff', 'inventory'].includes(prof.role);
+const canMoves = ['super_admin', 'admin', 'admin_staff', 'pharmacist', 'billing_staff', 'billing', 'inventory_staff', 'inventory'].includes(prof.role);
 const STATUS_LABEL = { blocked: 'Blocked', recalled: 'Recalled', damaged: 'Damaged' };
 document.getElementById('ppSearchSlot').innerHTML = searchBox('ppSearch');
 
@@ -150,7 +150,7 @@ $('view').innerHTML = `
 
     <aside class="dl-side">
       <section class="pos-card inv-value">
-        <div class="dl-card-head"><h2>${I.db}Stock Value</h2><button type="button" class="dl-act" id="valInfo" title="Full valuation" aria-label="Full valuation">${I.info}</button></div>
+        <div class="dl-card-head"><h2>${I.db}${admin ? 'Stock Value' : 'Stock Summary'}</h2><button type="button" class="dl-act" id="valInfo" title="Full valuation" aria-label="Full valuation">${I.info}</button></div>
         <div id="valBody" class="inv-val"><p class="dl-empty">Loading…</p></div>
       </section>
       <section class="pos-card inv-moves" id="movesCard">
@@ -278,10 +278,10 @@ function renderValue() {
     <div class="hl"><span>Total Stock Value</span><b>${rupees0(valuation.cost_total)}</b></div>
     <div><span>Purchase Value <small>(sellable, at cost)</small></span><b>${rupees0(valuation.cost_sellable)}</b></div>
     <div><span>Potential Sales Value</span><b>${rupees0(salesValue)}</b></div>`
-    : `<div class="hl"><span>Sellable Stock at MRP</span><b>${rupees0(mrpValue)}</b></div>
-    <div><span>Potential Sales Value</span><b>${rupees0(salesValue)}</b></div>
-    <div><span>Units on hand</span><b>${count(batches.reduce((s, b) => s + b.qty, 0))}</b></div>
-    <p class="dl-muted">Cost values are visible to administrators only.</p>`;
+    : `<div class="hl"><span>Units on hand</span><b>${count(batches.reduce((s, b) => s + b.qty, 0))}</b></div>
+    <div><span>Sellable batches</span><b>${count(sellBatches.length)}</b></div>
+    <p class="dl-muted">Stock values are visible to administrators only.</p>`;
+  void mrpValue;
 }
 function renderMoves() {
   if (moves7 == null) { $('movesCard').hidden = true; return; }

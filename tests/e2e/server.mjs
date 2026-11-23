@@ -31,6 +31,7 @@ await db.exec(fs.readFileSync(path.join(HERE, '../../database/migrations/0033_se
 await db.exec(fs.readFileSync(path.join(HERE, '../../database/migrations/0034_audit_logs.sql'), 'utf8'));
 await db.exec(fs.readFileSync(path.join(HERE, '../../database/migrations/0035_public_website.sql'), 'utf8'));
 await db.exec(fs.readFileSync(path.join(HERE, '../../database/migrations/0036_invoice_view.sql'), 'utf8'));
+await db.exec(fs.readFileSync(path.join(HERE, '../../database/migrations/0037_final_requirements.sql'), 'utf8'));
 export const log = [];
 
 // ---- seed realistic data through the real functions --------------------------

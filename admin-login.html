@@ -51,6 +51,7 @@ import { homePage } from './assets/js/permissions.js';
 import { $, wirePasswords, say, busy, markBad, nextPage, dialog } from './assets/js/auth-ui.js';
 
 const form = $('f'), user = $('e'), password = $('p'), message = $('m'), button = $('loginBtn');
+if (new URLSearchParams(location.search).has('newday')) say(message, 'A new day has started — please sign in again.', 'info');
 wirePasswords();
 try { const last = localStorage.getItem('pp.login.admin'); if (last) { user.value = last; password.focus(); } else user.focus(); } catch { user.focus(); }
 

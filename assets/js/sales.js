@@ -14,7 +14,7 @@ import { searchBox, mountGlobalSearch } from './global-search.js';
 
 const prof = await mountShell('sales', 'Sales', { layout: 'brand' });
 if (!prof) throw new Error('Unable to load user profile.');
-const allowedRoles = ['super_admin', 'admin', 'pharmacist', 'billing_staff', 'billing'];
+const allowedRoles = ['super_admin', 'admin', 'admin_staff', 'pharmacist', 'billing_staff', 'billing', 'inventory_staff', 'inventory'];   // every staff role (0037)
 const view = document.getElementById('view');
 if (!allowedRoles.includes(prof.role)) {
   view.textContent = 'Not authorised to view sales.';
@@ -22,7 +22,9 @@ if (!allowedRoles.includes(prof.role)) {
 }
 const branchId = prof.branch_id;
 if (!branchId) { view.textContent = 'Your profile has no assigned branch. Contact the administrator.'; throw new Error('Missing profile branch_id.'); }
-const canReturn = ['super_admin', 'admin', 'pharmacist', 'billing_staff'].includes(prof.role);
+const canReturn = ['super_admin', 'admin', 'pharmacist', 'billing_staff', 'billing', 'inventory_staff', 'inventory'].includes(prof.role);
+// Staff see each bill and its amount, but not money totals (today's sales, averages, trends, summaries).
+const isAdminView = ['super_admin', 'admin'].includes(prof.role);
 const $ = id => document.getElementById(id);
 const TZ = 'Asia/Kolkata';
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ });
@@ -97,17 +99,17 @@ view.innerHTML = `
         <div class="dl-pop md-menu ds-menu sl-export" id="exportMenu" hidden>
           <button type="button" data-exp="xlsx">${I.download}<span>Bills — Excel (.xlsx)</span></button>
           <button type="button" data-exp="csv">${I.download}<span>Bills — CSV</span></button>
-          <button type="button" data-exp="top">${I.pill}<span>Top selling medicines — Excel</span></button>
+          ${isAdminView ? `<button type="button" data-exp="top">${I.pill}<span>Top selling medicines — Excel</span></button>` : ''}
           <button type="button" data-exp="print">${I.print}<span>Print sales list</span></button>
         </div></div>
     </div>
   </section>
 
   <section class="dz-kpis dl-kpis md-kpis">
-    ${KPI('green', I.bars, "Today's Sales", 'kSales')}
-    ${KPI('blue', I.cart, 'Total Orders', 'kOrders')}
+    ${isAdminView ? KPI('green', I.bars, "Today's Sales", 'kSales') : ''}
+    ${KPI('blue', I.cart, isAdminView ? 'Total Orders' : 'Bills Today', 'kOrders')}
     ${KPI('amber', I.user, 'Unique Customers', 'kCust')}
-    ${KPI('purple', I.receipt, 'Average Order Value', 'kAov')}
+    ${isAdminView ? KPI('purple', I.receipt, 'Average Order Value', 'kAov') : ''}
   </section>
 
   <div id="msg" class="md-msg" role="status"></div>
@@ -143,7 +145,7 @@ view.innerHTML = `
         <label class="dl-select md-per"><select id="perPage" aria-label="Rows per page"><option value="10">10 per page</option><option value="25">25 per page</option><option value="50">50 per page</option><option value="100">100 per page</option></select></label></div>
     </section>
 
-    <section class="pos-card pur-trend sl-trend">
+    ${isAdminView ? `<section class="pos-card pur-trend sl-trend">
       <div class="dl-card-head"><h2>${I.bars}Sales Trend</h2>
         <label class="dl-select pur-mini"><select id="trendRange" aria-label="Range"><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="month">This Month</option><option value="6m">Last 6 Months</option><option value="12m">Last 12 Months</option></select></label></div>
       <div class="dz-chart pur-chart" id="chart"></div>
@@ -167,7 +169,7 @@ view.innerHTML = `
         <div class="dl-donut sl-donut"><svg viewBox="0 0 220 220" id="donut" aria-hidden="true"></svg><div class="dl-donut-c"><strong id="payTotal">₹0</strong><span>Total Sales</span></div></div>
         <div class="sl-legend" id="payLegend"></div>
       </div>
-    </section>
+    </section>` : ''}
   </div>
 </div>
 
@@ -251,6 +253,15 @@ const delta = (a, b) => {
 };
 let kToday = null, kYest = null, monthSum = null;
 async function loadKpis() {
+  if (!isAdminView) {
+    // Staff: counts only, from today's bills.
+    const t = today(), list = await rpc('sales_list', { p_from: t, p_to: t }).catch(() => []);
+    const fin = list.filter(r => r.status === 'final');
+    kToday = { orders: fin.length, customers: new Set(fin.filter(r => r.customer_id).map(r => r.customer_id)).size, walkins: fin.filter(r => !r.customer_id).length, cancelled: list.filter(r => r.status !== 'final').length };
+    $('kOrders').textContent = count(kToday.orders); $('kOrdersNote').textContent = 'final bills';
+    $('kCust').textContent = count(served(kToday)); $('kCustNote').textContent = `${count(kToday.walkins)} walk-in`;
+    return;
+  }
   const t = today(), y = addDays(t, -1), sameTime = new Date(Date.now() - 864e5).toISOString();
   const [a, b] = await Promise.all([rpc('sales_summary', { p_from: t, p_to: t }), rpc('sales_summary', { p_from: y, p_to: y, p_until: sameTime })]);
   kToday = a[0] || {}; kYest = b[0] || {};
@@ -459,8 +470,8 @@ function drawPay() {
 }
 function notify() {
   const items = [], s = kToday || {};
-  if (num(s.credit) > 0) items.push({ tone: 'warn', title: `${rupees0(s.credit)} sold on credit today`, detail: 'Collect from Customers → Receive payment', href: 'customers.html?status=due' });
-  if (num(s.returns) > 0) items.push({ tone: 'info', title: `${s.return_count} return(s) today · ${rupees0(s.returns)} refunded`, detail: 'See Sales Return', href: 'returns.html' });
+  if (isAdminView && num(s.credit) > 0) items.push({ tone: 'warn', title: `${rupees0(s.credit)} sold on credit today`, detail: 'Collect from Customers → Receive payment', href: 'customers.html?status=due' });
+  if (isAdminView && num(s.returns) > 0) items.push({ tone: 'info', title: `${s.return_count} return(s) today · ${rupees0(s.returns)} refunded`, detail: 'See Sales Return', href: 'returns.html' });
   if (num(s.cancelled) > 0) items.push({ tone: 'danger', title: `${s.cancelled} bill(s) cancelled today`, detail: 'Check the bills marked Cancelled', href: 'sales.html' });
   if (!num(s.orders)) items.push({ tone: 'info', title: 'No sales yet today', detail: 'Start a new sale from Billing', href: 'billing.html' });
   setNotifications(items);
@@ -600,7 +611,7 @@ function printList() {
   const list = exportRows(), H = ['Invoice No.', 'Date', 'Time', 'Customer', 'Items', 'Total (₹)', 'Returned (₹)', 'Status'];
   const tot = list.filter((r, i) => filtered()[i].status === 'final').reduce((a, r) => a + r['Total (₹)'], 0);
   const frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;width:0;height:0;border:0'; document.body.append(frame);
-  frame.contentDocument.write(`<!doctype html><html><head><meta charset="utf-8"><title>Sales</title><style>body{font:12px Arial,sans-serif;margin:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#f2f5f2}td.r{text-align:right}</style></head><body><h2>PALLIKKAL PHARMACY — Sales ${esc($('rangeLabel').textContent)}</h2><p>${list.length} bill(s) · Total ${esc(fmtMoney(tot))}</p><table><thead><tr>${H.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${list.map(r => `<tr>${H.map(h => `<td class="${/₹|Items/.test(h) ? 'r' : ''}">${esc(typeof r[h] === 'number' && /₹/.test(h) ? money2(r[h]) : r[h])}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`);
+  frame.contentDocument.write(`<!doctype html><html><head><meta charset="utf-8"><title>Sales</title><style>body{font:12px Arial,sans-serif;margin:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#f2f5f2}td.r{text-align:right}</style></head><body><h2>PALLIKKAL PHARMACY — Sales ${esc($('rangeLabel').textContent)}</h2><p>${list.length} bill(s)${isAdminView ? ` · Total ${esc(fmtMoney(tot))}` : ''}</p><table><thead><tr>${H.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${list.map(r => `<tr>${H.map(h => `<td class="${/₹|Items/.test(h) ? 'r' : ''}">${esc(typeof r[h] === 'number' && /₹/.test(h) ? money2(r[h]) : r[h])}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`);
   frame.contentDocument.close(); setTimeout(() => { try { frame.contentWindow.print(); } catch { /* ignore */ } setTimeout(() => frame.remove(), 60000); }, 250);
 }
 const TOP_P = { '7': 'Last 7 Days', '30': 'Last 30 Days', month: 'This Month', lastmonth: 'Last Month', '90': 'Last 90 Days', today: 'Today' };
@@ -673,6 +684,7 @@ $('fApply').onclick = async () => {
 $('fReset').onclick = async () => { Object.assign(filt, { pay: '', staff: '', min: '', sort: 'new' }); $('fStatus').value = ''; $('sq').value = ''; $('filterPop').hidden = true; await setRange('today'); draw(); };
 const goList = async (status = '', range = filt.range) => { $('fStatus').value = status; await setRange(range); draw(); $('rows').closest('.sl-list').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 document.querySelector('.md-kpis').onclick = e => { if (e.target.closest('[data-kpi]')) goList('', 'today'); };
+if (isAdminView) {
 $('topAll').onclick = () => topDialog($('trendRange').value === '7' ? '7' : $('trendRange').value === 'month' ? 'month' : '30');
 $('topRows').onclick = async e => { const tr = e.target.closest('tr[data-med]'); if (!tr) return; $('sq').value = tr.dataset.med; const r = $('trendRange').value; await goList('', r === '7' ? '7d' : r === 'month' ? 'month' : '30d'); };
 $('sumTiles').onclick = e => { if (e.target.closest('[data-goto]')) goList('', 'month'); };
@@ -680,6 +692,7 @@ $('sumMore').onclick = e => { const b = e.target.closest('[data-goto]'); if (b) 
 $('payLegend').onclick = async e => { const b = e.target.closest('[data-paygo]'); if (!b) return; filt.pay = b.dataset.paygo; await goList('', 'month'); };
 $('trendRange').onchange = loadTrend;
 let rz; new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(drawChart, 120); }).observe($('chart'));
+}
 matchMedia('(max-width: 560px)').addEventListener('change', ev => { compact = ev.matches; page = 1; draw(); });
 
 // ---------------------------------------------------------------------------
@@ -694,6 +707,6 @@ if (RANGES[params.get('range')] && params.get('range') !== 'custom') filt.range 
 await loadKpis().catch(e => note(friendly(e), true));
 await loadList();
 if (params.get('q') && !filtered().length && filt.range === '30d') { filt.range = 'custom'; filt.from = addDays(today(), -365); filt.to = today(); await loadList(); }
-await Promise.all([loadTrend(), loadMonth()]).catch(e => note(friendly(e), true));
+if (isAdminView) await Promise.all([loadTrend(), loadMonth()]).catch(e => note(friendly(e), true));
 notify();
 if (params.get('invoice')) openBill(params.get('invoice'));

@@ -172,13 +172,13 @@ export async function mountRiderPage(user) {
   const earned = list => list.reduce((s, j) => s + Number(j.status === 'done' ? (j.fee_earned ?? 0) : 0), 0);
 
   // ---------------------------------------------------------------- presence
-  const PRES = { available: ['Online', 'on'], purchasing: ['Purchasing', 'busy'], offline: ['Offline', 'off'] };
+  const PRES = { available: ['Online', 'on'], purchasing: ['On Purchase', 'busy'], offline: ['Offline', 'off'] };
   function presenceControl() {
     const [label, cls] = PRES[presence] || PRES.offline;
     return `<div class="dl-presence">
       <label class="dl-pres-select ${cls}"><i></i><select id="presSel" aria-label="Your availability">
         <option value="available" ${presence === 'available' ? 'selected' : ''}>Online</option>
-        <option value="purchasing" ${presence === 'purchasing' ? 'selected' : ''}>Purchasing</option>
+        <option value="purchasing" ${presence === 'purchasing' ? 'selected' : ''}>On Purchase</option>
         <option value="offline" ${presence === 'offline' ? 'selected' : ''}>Offline</option></select><b>${label}</b>${I.down}</label>
       <button type="button" class="pos-btn dl-go ${presence === 'offline' ? 'online' : ''}" id="presToggle">${I.power}<span>${presence === 'offline' ? 'Go Online' : 'Go Offline'}</span></button>
     </div>`;
@@ -353,7 +353,7 @@ export async function mountRiderPage(user) {
         <div class="dl-contact">${ph ? `<a class="pos-btn pos-btn-solid" href="tel:${esc(ph)}">${I.phone}<span>Call ${esc(ph)}</span></a><a class="pos-btn" target="_blank" rel="noopener" href="https://wa.me/${phoneDigits(ph)}">${I.chat}<span>WhatsApp</span></a>` : '<span class="dl-muted">The pharmacy phone number is not set yet.</span>'}</div>
         <h2>${I.list}How deliveries work</h2>
         <ol class="dl-howto">
-          <li>Set yourself <b>Online</b> when you can take orders, <b>Purchasing</b> while you are out buying stock, and <b>Offline</b> when you finish.</li>
+          <li>Set yourself <b>Online</b> when you can take orders, <b>On Purchase</b> while you are out buying stock, and <b>Offline</b> when you finish.</li>
           <li>New orders assigned to you appear under My Deliveries as <b>Pending</b>.</li>
           <li>Press <b>▶ Start</b> when you leave the shop — the order becomes <b>Out for Delivery</b>.</li>
           <li>Use the <b>map pin</b> to navigate and the <b>phone</b> to call the customer.</li>

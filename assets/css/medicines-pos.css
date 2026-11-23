@@ -215,3 +215,5 @@ img.md-thumb { border: 1px solid var(--pp-line); }
   .md-pager { justify-content: center; }
   .md-per { display: none; }
 }
+
+.md-hint { display: block; margin-top: 4px; font-size: .74rem; color: var(--pp-muted, #66748a); line-height: 1.35; }

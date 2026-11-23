@@ -50,6 +50,7 @@ import { homePage } from './assets/js/permissions.js';
 import { $, wirePasswords, say, busy, markBad, nextPage, staffForgot } from './assets/js/auth-ui.js';
 
 const form = $('f'), staffId = $('staffId'), password = $('password'), message = $('m'), button = $('loginBtn');
+if (new URLSearchParams(location.search).has('newday')) say(message, 'A new day has started — please sign in again.', 'info');
 wirePasswords();
 try { const last = localStorage.getItem('pp.login.staff'); if (last) { staffId.value = last; password.focus(); } else staffId.focus(); } catch { staffId.focus(); }
 $('forgot').addEventListener('click', () => staffForgot('staff'));

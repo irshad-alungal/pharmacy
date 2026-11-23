@@ -17,7 +17,7 @@ const view = document.getElementById('view');
 if (!branchId) { view.textContent = 'Your profile has no assigned branch. Contact the administrator.'; throw new Error('Missing profile branch_id.'); }
 const $ = id => document.getElementById(id);
 const isAdmin = ['super_admin', 'admin'].includes(prof.role);
-const canBill = ['super_admin', 'admin', 'pharmacist', 'billing_staff', 'billing'].includes(prof.role);
+const canBill = ['super_admin', 'admin', 'admin_staff', 'pharmacist', 'billing_staff', 'billing', 'inventory_staff', 'inventory'].includes(prof.role);
 const TZ = 'Asia/Kolkata';
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ });
 const istDay = v => new Date(v).toLocaleDateString('en-CA', { timeZone: TZ });
@@ -324,7 +324,7 @@ function renderSummary() {
   const [ms] = monthWindow(0);
   const fresh = list.filter(c => istDay(c.created_at) >= ms).length, bd = list.filter(c => c.active && bdayThisMonth(c)).length, idle = list.filter(isIdle).length, consent = list.filter(c => c.active && c.consent).length;
   $('sumMore').innerHTML = [
-    dues.length ? `<button type="button" data-sum="due">${I.credit}<span>Credit due <b>${rupees0(dueSum)}</b> · ${dues.length}</span></button>` : '',
+    dues.length ? `<button type="button" data-sum="due">${I.credit}<span>Credit due ${['super_admin', 'admin'].includes(prof.role) ? `<b>${rupees0(dueSum)}</b> · ` : ''}${dues.length}</span></button>` : '',
     fresh ? `<button type="button" data-sum="new">${I.plusC}<span>New this month <b>${fresh}</b></span></button>` : '',
     bd ? `<button type="button" data-sum="bday">${I.cake}<span>Birthdays this month <b>${bd}</b></span></button>` : '',
     idle ? `<button type="button" data-sum="idle">${I.cart}<span>No purchase in 90 days <b>${idle}</b></span></button>` : '',

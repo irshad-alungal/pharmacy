@@ -43,7 +43,7 @@ export async function mountShell(page, title, opts = {}) {
     await sb.auth.signOut();
     const loginPage = ['super_admin', 'admin'].includes(prof.role)
       ? 'admin-login.html' : 'staff-login.html';
-    location.replace(`${loginPage}?next=${encodeURIComponent((location.pathname.split('/').pop() || '') + location.search)}`);
+    location.replace(`${loginPage}?next=${encodeURIComponent((location.pathname.split('/').pop() || '') + location.search)}&newday=1`);
     throw new Error('daily login required');
   }
 
@@ -110,9 +110,26 @@ export async function mountShell(page, title, opts = {}) {
     throw new Error('work session unavailable; fresh login required');
   }
 
-  // No inactivity auto-logout. The work session is checked when a protected
-  // page is opened; the database daily work_date forces a fresh login on the
-  // next IST day. Manual sign-out remains available in the navigation.
+  // No inactivity auto-logout: a login lasts the whole day (India time).
+  // A page left open past midnight asks for a fresh login the next day.
+  watchNewDay(prof, dailyUserId);
 
   return prof;
+}
+
+// Checks every minute (and when the tab comes back) whether the India date has changed
+// since this login; if so, the day's session ends and the login page opens.
+function watchNewDay(prof, userId) {
+  let gone = false;
+  const check = async () => {
+    if (gone || hasDailyLogin(userId)) return;
+    gone = true;
+    try { await sb.rpc('end_work_session', { p_reason: 'manual' }); } catch (_) {}
+    clearDailyLogin();
+    try { await sb.auth.signOut(); } catch (_) {}
+    const loginPage = ['super_admin', 'admin'].includes(prof.role) ? 'admin-login.html' : 'staff-login.html';
+    location.replace(`${loginPage}?next=${encodeURIComponent((location.pathname.split('/').pop() || '') + location.search)}&newday=1`);
+  };
+  setInterval(check, 60000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
 }

@@ -16,7 +16,7 @@ import { loadSettings } from './app-settings.js';
 
 const prof = await mountShell('billing', 'Billing', { layout: 'brand' });
 waSettings(sb);   // WhatsApp invoice settings, loaded early so the bill is not delayed
-const allowedRoles = ['super_admin', 'admin', 'pharmacist', 'billing_staff', 'billing'];
+const allowedRoles = ['super_admin', 'admin', 'admin_staff', 'pharmacist', 'billing_staff', 'billing', 'inventory_staff', 'inventory'];   // every staff role (0037)
 
 if (!allowedRoles.includes(prof.role)) {
   document.getElementById('view').textContent = 'Not authorised for billing.';
@@ -149,7 +149,7 @@ $('view').innerHTML = `
         <div class="pos-items-head"><h2>Items <span id="itemCount">(0)</span></h2>
           <button type="button" class="pos-btn pos-btn-green pos-btn-sm" id="addMed">${I.plus}<span>Add Medicine</span></button></div>
         <div class="pos-table-wrap"><table class="pos-table bill-table fefo-table"><thead><tr>
-          <th class="c-no">#</th><th>Medicine</th><th>Batch</th><th>Expiry</th><th class="c-r">MRP (₹)</th><th class="c-c">Qty</th><th class="c-c">Disc.</th><th class="c-r">Amount (₹)</th><th class="c-x"></th>
+          <th class="c-no">#</th><th>Medicine</th><th class="c-shelf">Shelf</th><th>Batch</th><th>Expiry</th><th class="c-r">MRP (₹)</th><th class="c-c">Qty</th><th class="c-c c-gst">GST</th><th class="c-c">Disc.</th><th class="c-r">Amount (₹)</th><th class="c-x"></th>
         </tr></thead><tbody id="cart"></tbody></table></div>
 
         <div class="pos-under">
@@ -202,12 +202,12 @@ $('view').innerHTML = `
       <section class="pos-card pos-pay">
         <h2>${I.card}Payment Method</h2>
         <div class="pos-methods" role="radiogroup" aria-label="Payment method">
-          ${[['cash', I.cash, 'Cash'], ['card', I.card, 'Card'], ['upi', I.upi, 'UPI'], ['wallet', I.wallet, 'Wallet'], ['credit', I.credit, 'Credit'], ['split', I.dots, 'Other']]
+          ${[['cash', I.cash, 'Cash'], ['card', I.card, 'Card'], ['upi', I.upi, 'UPI'], ['wallet', I.wallet, 'Wallet'], ['credit', I.credit, 'Credit'], ['split', I.dots, 'Split']]
             .map(([m, ic, l]) => `<button type="button" role="radio" class="pos-method" data-method="${m}" aria-checked="false">${ic}<span>${l}</span><i class="pos-tick">${I.check}</i></button>`).join('')}
         </div>
         <div id="pays" class="payment-rows"></div>
         <div class="pos-pay-detail" id="payDetail"></div>
-        <button class="pos-link-btn" id="addp" type="button" hidden>${I.plus}Add another payment</button>
+        <button class="pos-link-btn" id="addp" type="button" hidden>${I.plus}Add another payment method</button>
         <p id="rem" class="remaining-note"></p>
         <button id="pay" class="pos-generate" type="button">${I.printer}<span id="payLabel">Generate Bill (₹0.00)</span></button>
         <div id="msg" class="pos-msg billing-message" aria-live="polite"></div>
@@ -247,8 +247,8 @@ async function refreshDeliveryPresence() {
     return;
   }
   const state = ['available', 'purchasing', 'offline'].includes(data.status) ? data.status : 'offline';
-  const labels = { available: 'Available', purchasing: 'Purchasing', offline: 'Offline' };
-  const counts = `Available ${Number(data.available_count || 0)} · Purchasing ${Number(data.purchasing_count || 0)} · Offline ${Number(data.offline_count || 0)}`;
+  const labels = { available: 'Online', purchasing: 'On Purchase', offline: 'Offline' };
+  const counts = `Online ${Number(data.available_count || 0)} · On Purchase ${Number(data.purchasing_count || 0)} · Offline ${Number(data.offline_count || 0)}`;
   $('deliveryPresenceLabel').textContent = labels[state];
   $('deliveryPresenceDetail').textContent = counts;
   indicator.classList.remove('delivery-state-available', 'delivery-state-purchasing', 'delivery-state-offline');
@@ -566,7 +566,7 @@ function rowValues(g, r) {
   const includes = r.price_includes_tax !== false;
   const errors = validateLineInput({ mrp, qty, discountPct, gstPct }, {
     maxDiscountPct: discountPct === defaultDiscountPct ? 100 : Math.max(cfg.max_discount_pct, defaultDiscountPct),
-    gstRates: cfg.gst_rates,
+    gstRates: null,
     maxMrp: defaultMrp > 0 ? defaultMrp : 0
   });
   if (mrp !== defaultMrp && !perm.mrp_edit) errors.push('MRP change not permitted.');
@@ -674,8 +674,10 @@ function renderCartRows() {
     const groupDisc = g.discountPct == null ? defaultPct : g.discountPct;
     const first = rows[0];
     const fv = first ? rowValues(g, first) : null;
-    const discSel = `<select class="pos-disc-sel" aria-label="Discount for ${esc(g.name)}" data-gdisc="${esc(g.key)}" ${perm.discount ? '' : 'disabled title="No permission to edit discount"'}>
-        ${discOptions(Number.isFinite(groupDisc) ? groupDisc : NaN, defaultPct).map(v => `<option value="${v}" ${v === groupDisc ? 'selected' : ''}>${v}%</option>`).join('')}
+    const amt = rows.length ? Number(rows[0].discount_amount || 0) : 0;
+    const dLabel = v => (v === defaultPct && amt > 0) ? `₹${+amt.toFixed(2)}` : `${+Number(v).toFixed(2)}%`;
+    const discSel = `<select class="pos-disc-sel" aria-label="Discount for ${esc(g.name)}" data-gdisc="${esc(g.key)}" ${perm.discount ? '' : 'disabled title="Discount set on the medicine"'}>
+        ${discOptions(Number.isFinite(groupDisc) ? groupDisc : NaN, defaultPct).map(v => `<option value="${v}" ${v === groupDisc ? 'selected' : ''}>${dLabel(v)}</option>`).join('')}
         ${perm.discount ? '<option value="custom">Custom…</option>' : ''}</select>`;
     const sub = [g.manufacturer, g.form].filter(Boolean).map(esc).join(' • ');
     const batchCell = !rows.length ? '<span class="pos-muted">—</span>'
@@ -686,14 +688,16 @@ function renderCartRows() {
       <td class="c-med"><div class="pos-med">${g.photo ? `<img class="pos-thumb" src="${esc(g.photo)}" alt="" loading="lazy">` : pillThumb(g.name)}
         <div class="pos-med-text"><strong>${esc(g.name)}${g.strength ? ` ${esc(g.strength)}` : ''}</strong>
           <small>${sub || (g.shelf_location ? `Shelf ${esc(g.shelf_location)}` : '&nbsp;')}${g.need_doctor_sheet ? ' <b class="rx-tag">Rx</b>' : ''}</small>
-          <span class="pos-mobile-meta">${first ? `${esc(first.batch_no)}${multi ? ` +${rows.length - 1}` : ''} • ${dateShort(first.expiry)}` : ''}</span>
+          <span class="pos-mobile-meta">${first ? `${esc(first.batch_no)}${multi ? ` +${rows.length - 1}` : ''} • ${dateShort(first.expiry)}${(first.shelf || g.shelf_location) ? ` • Shelf ${esc(first.shelf || g.shelf_location)}` : ''} • GST ${+fv.gstPct}%` : ''}</span>
           <div class="fefo-status-line">${statusText(g)}</div>
           <span class="pos-row-links">${canOverride ? `<button type="button" class="link-btn" data-override="${esc(g.key)}" title="Manually choose batches">Choose batches</button>` : ''}<button type="button" class="link-btn" data-explain="${esc(g.key)}" title="Explain allocation">Why?</button></span>
         </div></div></td>
+      <td class="c-shelf">${esc((first && first.shelf) || g.shelf_location || '—')}</td>
       <td class="c-batch">${batchCell}</td>
       <td class="c-exp">${first ? dateShort(first.expiry) : '—'}${first?.near_expiry && !multi ? ' <span class="badge warn" title="Near expiry">!</span>' : ''}</td>
       <td class="c-r c-mrp">${fv ? (multi && rows.some(r => rowValues(g, r).mrp !== fv.mrp) ? '<span class="pos-muted">varies</span>' : money(fv.mrp)) : '—'}</td>
       <td class="c-c c-qty"><div class="pos-stepper"><button type="button" data-qminus="${esc(g.key)}" aria-label="Decrease quantity of ${esc(g.name)}">${I.minus}</button><input aria-label="Requested quantity for ${esc(g.name)}" type="number" min="1" step="1" inputmode="numeric" value="${g.requestedQty}" data-gqty="${esc(g.key)}" class="qty-input"><button type="button" data-qplus="${esc(g.key)}" aria-label="Increase quantity of ${esc(g.name)}">${I.plus}</button></div></td>
+      <td class="c-c c-gst">${fv ? (multi && rows.some(r => rowValues(g, r).gstPct !== fv.gstPct) ? '<span class="pos-muted">varies</span>' : `${+fv.gstPct}%`) : '—'}</td>
       <td class="c-c c-disc">${discSel}</td>
       <td class="c-r c-amt"><strong class="g-total" data-gtotal="${esc(g.key)}">${t.errors ? '—' : money(t.total)}</strong></td>
       <td class="c-x"><button class="remove-item pos-del" aria-label="Remove ${esc(g.name)}" title="Remove" data-gremove="${esc(g.key)}">${I.trash}</button></td>
@@ -710,15 +714,15 @@ function renderCartRows() {
         ? `<input type="number" min="0" max="100" step="0.01" value="${v.discountPct}" data-field="discountPct" data-row="${esc(id)}" class="pct-input" aria-label="Discount % for batch ${esc(r.batch_no)}">`
         : `${v.discountPct}%`;
       const rates = [...new Set([...cfg.gst_rates, v.gstPct, v.defaultGstPct])].sort((a, b) => a - b);
-      const gstCell = perm.gst_edit
-        ? `<select data-field="gstPct" data-row="${esc(id)}" aria-label="GST % for batch ${esc(r.batch_no)}">${rates.map(x => `<option value="${x}" ${x === v.gstPct ? 'selected' : ''}>${x}%</option>`).join('')}</select>`
-        : `${v.gstPct}%`;
+      void rates;   // GST is shown as entered on the purchase / opening stock (not edited here)
+      const gstCell = `${v.gstPct}%`;
       return `<tr class="batch-row${open ? '' : ' collapsed'}${v.errors.length ? ' has-error' : ''}" data-rowid="${esc(id)}" data-parent="${esc(g.key)}">
         <td></td>
-        <td class="batch-cell" colspan="2">↳ ${esc(r.batch_no)} ${man}${near}<small class="table-subtext">GST ${gstCell} ${v.includes ? 'incl.' : 'extra'} · Disc ₹<span data-c="disc">${v.calc ? money(v.calc.discount) : '—'}</span> · GST ₹<span data-c="gst">${v.calc ? money(v.calc.gst) : '—'}</span> · Taxable ₹<span data-c="net">${v.calc ? money(v.calc.net) : '—'}</span> · Stock ${fmtQty(r.available)}</small><div class="row-error" data-err="${esc(id)}">${esc(v.errors.join(' '))}</div></td>
+        <td class="batch-cell" colspan="3">↳ ${esc(r.batch_no)} ${man}${near}<small class="table-subtext">GST ${gstCell} ${v.includes ? 'incl.' : 'extra'} · Disc ₹<span data-c="disc">${v.calc ? money(v.calc.discount) : '—'}</span> · GST ₹<span data-c="gst">${v.calc ? money(v.calc.gst) : '—'}</span> · Taxable ₹<span data-c="net">${v.calc ? money(v.calc.net) : '—'}</span> · Stock ${fmtQty(r.available)}</small><div class="row-error" data-err="${esc(id)}">${esc(v.errors.join(' '))}</div></td>
         <td class="c-exp">${dateShort(r.expiry)}</td>
         <td class="c-r">${mrpCell}</td>
         <td class="c-c"><b>${fmtQty(v.qty)}</b></td>
+        <td class="c-c c-gst">${+v.gstPct}%</td>
         <td class="c-c">${discCell}</td>
         <td class="c-r" data-c="total">${v.calc ? money(v.calc.total) : '—'}</td>
         <td></td>
@@ -726,7 +730,7 @@ function renderCartRows() {
     }).join('');
     return head + body;
   }).join('');
-  $('cart').innerHTML = html || `<tr class="pos-empty-row"><td colspan="9"><div class="pos-empty">${I.cart}<b>Your bill is empty</b><span>Search above or scan a barcode to add medicines.</span></div></td></tr>`;
+  $('cart').innerHTML = html || `<tr class="pos-empty-row"><td colspan="11"><div class="pos-empty">${I.cart}<b>Your bill is empty</b><span>Search above or scan a barcode to add medicines.</span></div></td></tr>`;
   $('itemCount').textContent = `(${groups.length})`;
   updateTot();
 }
@@ -780,10 +784,24 @@ async function allocate(g) {
     note(`${g.name}: ${g.error}`, true);
   } else {
     g.alloc = data;
-    if (Number(data.shortage) > 0) note(`${g.name}: requested ${fmtQty(data.requested)}, only ${fmtQty(data.available_total)} eligible in stock. Short by ${fmtQty(data.shortage)} — reduce the quantity to finalize.`, true);
+    if (Number(data.shortage) > 0) { note(`${g.name}: requested ${fmtQty(data.requested)}, only ${fmtQty(data.available_total)} eligible in stock. Short by ${fmtQty(data.shortage)} — reduce the quantity to finalize.`, true); stockAlert(g, data); }
     else note(explainAllocation(g.name, data));
   }
   renderCart();
+}
+
+// Quantity above the stock of all batches together: a clear alert with "Use available".
+function stockAlert(g, data) {
+  let d = $('stockAlert');
+  if (!d) { d = document.createElement('dialog'); d.id = 'stockAlert'; d.className = 'pos-dialog pos-stock-alert'; document.body.appendChild(d); }
+  const avail = Number(data.available_total) || 0;
+  d.innerHTML = `<div class="psa-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 21h20Z"/><path d="M12 10v5M12 18h.01"/></svg></div><h3>Not enough stock</h3>
+    <p><b>${esc(g.name)}${g.strength ? ' ' + esc(g.strength) : ''}</b>: you entered <b>${fmtQty(data.requested)}</b>, but only <b>${fmtQty(avail)}</b> ${avail === 1 ? 'is' : 'are'} in stock across all batches.</p>
+    <div class="pos-dialog-foot">${avail > 0 ? `<button type="button" class="pos-btn pos-btn-solid" id="psaUse">Use ${fmtQty(avail)}</button>` : `<button type="button" class="pos-btn pos-btn-red" id="psaRemove">Remove item</button>`}<button type="button" class="pos-btn" id="psaClose">OK</button></div>`;
+  d.querySelector('#psaClose').onclick = () => d.close();
+  const use = d.querySelector('#psaUse'); if (use) use.onclick = () => { d.close(); g.requestedQty = avail; allocate(g); };
+  const rm = d.querySelector('#psaRemove'); if (rm) rm.onclick = () => { d.close(); removeGroup(g.key); };
+  if (!d.open) d.showModal();
 }
 
 function scheduleAllocate(g, delay = 350) {

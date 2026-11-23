@@ -185,8 +185,8 @@ with sync_playwright() as p:
     ok('Mobile: no sideways scrolling, no errors', pg.evaluate('document.documentElement.scrollWidth') <= 390 and not errs, errs)
     c.close()
     c, pg, errs = ctx(b, 'inventory_staff')
-    pg.goto(BASE + '/returns.html'); pg.wait_for_timeout(2000)
-    ok('Inventory staff: no access', re.search('Not authorised|do not have access', pg.inner_text('body')) is not None)
+    pg.goto(BASE + '/returns.html'); pg.wait_for_timeout(2500)
+    ok('Inventory staff: Returns opens (every staff role, 0037), no errors', re.search('Not authorised|do not have access', pg.inner_text('body')) is None and not errs, errs)
     c.close()
 
     # older database without 0027: list works, a return can still be created

@@ -60,7 +60,7 @@ with sync_playwright() as p:
     pg.click('#new'); pg.wait_for_selector('#dlg[open]')
     pg.fill('#f [name=name]', 'Levocetirizine'); pg.fill('#f [name=strength]', '5 mg'); pg.fill('#f [name=dosage_form]', 'Tablet')
     pg.select_option('#fCatSel', '__new'); pg.wait_for_timeout(800)   # prompt answers "Test reason" → new category
-    pg.select_option('#fMan', label='Cipla'); pg.fill('#f [name=barcode]', '8909990001112'); pg.fill('#f [name=reorder_level]', '30'); pg.select_option('#f [name=tax_rate]', '5')
+    pg.select_option('#fMan', label='Cipla'); pg.fill('#f [name=barcode]', '8909990001112'); pg.fill('#f [name=reorder_level]', '30'); pg.fill('#f [name=tax_rate]', '5')
     pg.click('#f button[type=submit]'); pg.wait_for_timeout(1800)
     m = med('Levocetirizine')
     cats = {c['id']: c['name'] for c in Q('categories', 'id,name')}
@@ -84,7 +84,7 @@ with sync_playwright() as p:
     for el in pg.query_selector_all('#rows [data-pick]'): el.check(force=True)
     pg.wait_for_timeout(200)
     ok('Selection bar shows 2 selected', '2 medicine' in pg.inner_text('#selText'))
-    pg.click('#bulkBtn'); pg.wait_for_selector('#bDisc'); pg.fill('#bDisc', '7.5'); pg.fill('#bMin', '12'); pg.click('#bSave'); pg.wait_for_timeout(1800)
+    pg.click('#bulkBtn'); pg.wait_for_selector('#bDisc'); pg.fill('#bDisc', '7.5%'); pg.fill('#bMin', '12'); pg.click('#bSave'); pg.wait_for_timeout(1800)
     a, bb = med('Levocetirizine'), med('Levocetirizine (copy)')
     ok('Bulk update: discount and minimum stock changed on both', float(a['discount_percentage']) == 7.5 and float(bb['discount_percentage']) == 7.5 and float(a['reorder_level']) == 12, (a, bb))
     pg.click('#resetBtn'); pg.wait_for_timeout(300)
@@ -145,7 +145,7 @@ with sync_playwright() as p:
     c, pg, errs = ctx(b, 'billing_staff', 390, 844, True)
     pg.goto(BASE + '/medicines.html'); pg.wait_for_selector('#rows tr[data-id]'); pg.wait_for_timeout(1000)
     ok('Mobile: no horizontal scroll', pg.evaluate('document.documentElement.scrollWidth') <= 390, pg.evaluate('document.documentElement.scrollWidth'))
-    ok('Billing staff: no Bulk Update button', pg.query_selector('#bulkBtn') is None)
+    ok('Billing staff: can add and bulk-update medicines (same staff pages, 0037)', pg.query_selector('#bulkBtn') is not None)
     pg.click('#mSearch'); pg.fill('#q', 'Pan'); pg.wait_for_timeout(400)
     ok('Mobile search works', 'Pan' in pg.inner_text('#rows') and 'Dolo' not in pg.inner_text('#rows'))
     ok('No page errors (billing staff, mobile)', not errs, errs)

@@ -475,3 +475,19 @@
   .pos-head-actions .pos-btn span { white-space: normal; line-height: 1.1; }
 }
 @media (prefers-reduced-motion: reduce) { .pos-search.scan-ready { animation: none; } }
+
+/* v78: Shelf and GST columns, stock alert */
+.pos-table .c-shelf { white-space: nowrap; font-size: .84rem; font-weight: 700; color: #0b5d12; }
+.pos-table td.c-shelf { background: #f3faf4; border-radius: 6px; }
+.pos-table .c-gst { white-space: nowrap; font-size: .86rem; color: #24324d; }
+.pos-stock-alert { width: min(420px, calc(100vw - 24px)); text-align: center; padding: 26px 24px 20px !important; }
+.pos-stock-alert .psa-ic { width: 56px; height: 56px; margin: 0 auto 10px; border-radius: 50%; display: grid; place-items: center; background: #fff4e6; color: #d9480f; }
+.pos-stock-alert .psa-ic svg { width: 30px; height: 30px; }
+.pos-stock-alert h3 { margin: 0 0 8px; color: #02224d; font: 800 1.2rem Montserrat, Inter, sans-serif; }
+.pos-stock-alert p { margin: 0 0 14px; color: #24324d; line-height: 1.5; }
+.pos-stock-alert .pos-dialog-foot { justify-content: center; }
+@media print { .pos-table .c-shelf { display: none !important; } }
+@media (max-width: 760px) {
+  .pos-table tr.group-row .c-shelf, .pos-table tr.group-row .c-gst { display: none !important; }
+  .pos-table tr.batch-row .c-gst { display: none; }
+}

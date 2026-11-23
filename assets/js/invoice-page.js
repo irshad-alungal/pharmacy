@@ -19,7 +19,7 @@ const prof = await mountShell('sales', 'Invoice View', { layout: 'brand' });
 const $ = id => document.getElementById(id);
 const role = String(prof?.role || '').toLowerCase();
 const isAdmin = ['super_admin', 'admin'].includes(role);
-const canReturn = ['super_admin', 'admin', 'pharmacist', 'billing_staff'].includes(role);
+const canReturn = ['super_admin', 'admin', 'admin_staff', 'pharmacist', 'billing_staff', 'billing', 'inventory_staff', 'inventory'].includes(role);
 const canDelivery = can(role, 'delivery');
 document.getElementById('ppSearchSlot').innerHTML = searchBox('ppSearch');
 let S = cachedSettings();

@@ -2,7 +2,7 @@
 import json, re, os, datetime, zoneinfo, urllib.request, urllib.parse
 from playwright.sync_api import sync_playwright
 BASE = 'http://localhost:8790'
-U = {'super_admin': '0c000000-0000-0000-0000-000000000001', 'admin': '0c000000-0000-0000-0000-000000000006', 'pharmacist': '0c000000-0000-0000-0000-000000000004', 'billing_staff': '0c000000-0000-0000-0000-000000000002'}
+U = {'super_admin': '0c000000-0000-0000-0000-000000000001', 'admin': '0c000000-0000-0000-0000-000000000006', 'pharmacist': '0c000000-0000-0000-0000-000000000004', 'billing_staff': '0c000000-0000-0000-0000-000000000002', 'inventory_staff': '0c000000-0000-0000-0000-000000000003'}
 TODAY = datetime.datetime.now(zoneinfo.ZoneInfo('Asia/Kolkata')).strftime('%Y-%m-%d')
 def api(kind, body, user='super_admin'):
     r = urllib.request.Request(BASE + '/api/' + kind, data=json.dumps({'user': U[user], **body}).encode(), headers={'content-type': 'application/json'})
@@ -259,10 +259,11 @@ with sync_playwright() as p:
     c.close()
 
     # roles
-    c, pg, errs = ctx(b, 'billing_staff')
-    pg.goto(BASE + '/whatsapp.html'); pg.wait_for_timeout(2500)
-    ok('Billing staff do not get the WhatsApp page (they send invoices from Billing)', pg.query_selector('#kSent') is None)
-    c.close()
+    for who in ('billing_staff', 'inventory_staff'):
+        c, pg, errs = ctx(b, who)
+        pg.goto(BASE + '/whatsapp.html'); pg.wait_for_timeout(3000)
+        ok(f'{who}: WhatsApp page opens (staff page) with no errors', pg.query_selector('#kSent') is not None and 'not authorised' not in pg.inner_text('body').lower() and not errs, errs)
+        c.close()
     r = api('rpc', {'name': 'whatsapp_campaign_create', 'args': {'p_name': 'x', 'p_description': None, 'p_kind': 'offer', 'p_body': 'x', 'p_image_url': None, 'p_image_path': None, 'p_interval': 60, 'p_customers': []}}, 'pharmacist')
     ok('Pharmacist cannot create campaigns', 'only Admin' in (r.get('error') or {}).get('message', ''), r)
 

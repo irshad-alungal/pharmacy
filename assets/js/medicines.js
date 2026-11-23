@@ -16,9 +16,9 @@ if (!prof) throw new Error('Unable to load user profile.');
 const v = document.getElementById('view');
 const isAdmin = ['super_admin', 'admin'].includes(prof.role);
 const isSuperAdmin = prof.role === 'super_admin';
-const canWrite = ['super_admin', 'admin', 'pharmacist', 'inventory', 'inventory_staff'].includes(prof.role);   // alza_med_write
-const canAdjust = ['super_admin', 'admin', 'pharmacist', 'inventory_staff', 'inventory'].includes(prof.role);
-const canMaster = ['super_admin', 'admin', 'pharmacist', 'inventory_staff'].includes(prof.role);              // categories / manufacturers
+const canWrite = ['super_admin', 'admin', 'pharmacist', 'billing_staff', 'billing', 'inventory', 'inventory_staff'].includes(prof.role);   // alza_med_write (all staff, 0037)
+const canAdjust = ['super_admin', 'admin', 'pharmacist', 'billing_staff', 'billing', 'inventory', 'inventory_staff'].includes(prof.role);
+const canMaster = ['super_admin', 'admin', 'pharmacist', 'billing_staff', 'billing', 'inventory', 'inventory_staff'].includes(prof.role);              // categories / manufacturers
 const branchId = prof.branch_id;
 if (!branchId) {
   v.textContent = 'Your profile has no assigned branch. Contact the administrator.';
@@ -149,7 +149,7 @@ v.innerHTML = `
           <th>Medicine Name</th><th>Brand</th><th>Category</th><th class="c-r">MRP (₹)</th><th class="c-r">Stock</th><th>Status</th><th class="c-c">Actions</th>
         </tr></thead><tbody id="rows"><tr><td colspan="8" class="dl-empty">Loading medicines…</td></tr></tbody></table></div>
         <div class="dl-pager md-pager"><span id="pageInfo"></span><div id="pager"></div>
-          <label class="dl-select md-per"><select id="perPage" aria-label="Rows per page"><option value="10">10 per page</option><option value="25">25 per page</option><option value="50">50 per page</option></select></label></div>
+          <label class="dl-select md-per"><select id="perPage" aria-label="Rows per page"><option value="10">10 per page</option><option value="25">25 per page</option><option value="50">50 per page</option><option value="100">100 per page</option></select></label></div>
       </section>
       ${isSuperAdmin ? `<section class="pos-card md-requests" id="reqCard" hidden><div class="dl-card-head"><h2>${I.warn}Medicine Deactivation Requests <b class="pos-count" id="reqCount">0</b></h2></div><div id="deactivationRequests">Loading pending requests...</div></section>` : ''}
     </div>
@@ -190,12 +190,12 @@ v.innerHTML = `
       <div class="pos-field md-span-2"><label>Composition</label><textarea name="composition" rows="2" placeholder="Composition details"></textarea></div>
       <div class="pos-field"><label>Barcode</label><input name="barcode" inputmode="numeric" placeholder="Scan or type the barcode"></div>
       <div class="pos-field"><label>Rack / Shelf</label><input name="rack" placeholder="e.g. A-03 / Shelf 2"></div>
-      <div class="pos-field"><label>Discount (%) <small>Optional</small></label><input name="discount_percentage" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="e.g. 5"></div>
+      <div class="pos-field"><label>Discount <small>Optional · 10% or ₹ 5 off each unit</small></label><input name="discount_text" inputmode="decimal" maxlength="12" placeholder="e.g. 10% or 5"><small class="md-hint">Type <b>%</b> for a percentage; a number alone is ₹ off each unit. Applied automatically in billing.</small></div>
       <div class="pos-field"><label>Minimum stock <small>Low-stock alert level</small></label><input name="reorder_level" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 50"></div>
-      <div class="pos-field"><label>GST %</label><select name="tax_rate">${[0, 5, 12, 18, 28].map(r => `<option value="${r}">${r}%</option>`).join('')}</select></div>
+      <div class="pos-field"><label>GST % <small>Optional</small></label><input name="tax_rate" type="number" min="0" max="100" step="0.01" inputmode="decimal" value="0" placeholder="0"><small class="md-hint">Billing shows the GST from the purchase or opening stock entry. This value is used only if a batch has none.</small></div>
     </div>
     <div class="md-checks"><label><input type="checkbox" name="need_doctor_sheet"> Need doctor sheet / prescription</label><label><input type="checkbox" name="active" checked> Active</label></div>
-    <p class="md-note">MRP and stock come from purchase batches (Purchases or Inventory → Opening stock). Selling price = MRP less the medicine's discount.</p>
+    <p class="md-note">MRP, stock and GST come from purchase batches (Purchases or Inventory → Opening stock). Unit price in billing = MRP ÷ pack size, less this discount.</p>
     <div id="activeNote" class="dl-muted"></div><div id="err" class="pos-form-msg"></div>
     <div class="pos-dialog-foot"><button type="button" class="pos-btn" id="cancelBottom">Cancel</button><button type="submit" class="pos-btn pos-btn-solid">Save medicine</button></div>
   </form></dialog>
@@ -210,7 +210,7 @@ const toast = (m, bad = false) => { const el = $('toast'); el.textContent = m; e
 const msg = m => { $('msg').textContent = m || ''; };
 
 // ---------------------------------------------------------------- data
-const COLS = ['id', 'branch_id', 'name', 'ingredients', 'need_doctor_sheet', 'brand', 'generic_name', 'composition', 'strength', 'dosage_form', 'barcode', 'sku', 'mrp', 'selling_price', 'tax_rate', 'reorder_level', 'shelf_location', 'rack', 'active', 'category_id', 'manufacturer_id', 'storage_location_id', 'base_unit_id', 'discount_percentage', 'created_at', 'price_includes_tax'].join(',');
+const COLS = ['id', 'branch_id', 'name', 'ingredients', 'need_doctor_sheet', 'brand', 'generic_name', 'composition', 'strength', 'dosage_form', 'barcode', 'sku', 'mrp', 'selling_price', 'tax_rate', 'reorder_level', 'shelf_location', 'rack', 'active', 'category_id', 'manufacturer_id', 'storage_location_id', 'base_unit_id', 'discount_percentage', 'created_at', 'price_includes_tax', 'discount_amount'].join(',');
 let list = [];        // all medicines of the branch (active + inactive)
 let byId = new Map();
 let discountColumnAvailable = true;
@@ -219,6 +219,14 @@ const picked = new Set();
 let page = 1;
 const photoUrls = new Map();
 
+// Medicine discount: a percentage ("10%") or a fixed amount in ₹ off each unit ("5"). 0037.
+const discText = m => m.discount_percentage != null && m.discount_percentage !== '' ? `${Number(m.discount_percentage)}%` : (Number(m.discount_amount) > 0 ? `₹${Number(m.discount_amount)}` : '');
+function parseDiscount(raw) {
+  const t = String(raw ?? '').trim().replace(/₹|rs\.?/ig, '').trim();
+  if (!t) return { pct: null, amt: null };
+  if (/%$/.test(t)) { const v = Number(t.slice(0, -1).trim()); return Number.isFinite(v) && v >= 0 && v <= 100 ? { pct: v, amt: null } : { error: 'A percentage discount must be from 0% to 100%.' }; }
+  const v = Number(t); return Number.isFinite(v) && v >= 0 ? { pct: null, amt: v || null } : { error: 'Enter the discount as 10% (percentage) or 5 (₹ off each unit).' };
+}
 const defaultDiscount = m => m.discount_percentage != null && m.discount_percentage !== ''
   ? Math.min(Math.max(Number(m.discount_percentage), 0), 100)
   : (Number(m.mrp) > 0 && Number(m.selling_price) > 0 && Number(m.selling_price) < Number(m.mrp) ? (Number(m.mrp) - Number(m.selling_price)) * 100 / Number(m.mrp) : 0);
@@ -226,6 +234,7 @@ const defaultDiscount = m => m.discount_percentage != null && m.discount_percent
 async function load() {
   msg('Loading medicines…');
   let res = await fetchAll(() => sb.from('medicines').select(COLS).eq('branch_id', branchId).order('name').order('id'));
+  if (res.error && /discount_amount/i.test(res.error.message || '')) res = await fetchAll(() => sb.from('medicines').select(COLS.replace(',discount_amount', '')).eq('branch_id', branchId).order('name').order('id'));
   if (res.error && /discount_percentage|price_includes_tax/i.test(res.error.message || '')) {
     discountColumnAvailable = !/discount_percentage/i.test(res.error.message || '');
     const cols = COLS.split(',').filter(c => !(/discount_percentage|price_includes_tax/.test(c))).join(',');
@@ -256,12 +265,12 @@ async function load() {
     const lvl = Number(m.reorder_level) || 0;
     const status = !m.active ? 'inactive' : s.sellable <= 0 ? 'out' : (lvl > 0 && s.sellable <= lvl) ? 'low' : 'in';
     const mrp = s.next?.mrp != null ? Number(s.next.mrp) : (Number(m.mrp) > 0 ? Number(m.mrp) : null);
-    const disc = defaultDiscount(m);
+    const disc = defaultDiscount(m) || (mrp && Number(m.discount_amount) > 0 ? Math.min(100, Number(m.discount_amount) / mrp * 100) : 0);
     return {
       ...m, stock: s.sellable, totalQty: s.total, nextBatch: s.next, batchCount: s.batches, status,
       category: catName.get(m.category_id) || '', manufacturer: manName.get(m.manufacturer_id) || '',
       brandLabel: m.brand || manName.get(m.manufacturer_id) || '',
-      mrpShown: mrp, selling: mrp == null ? null : Math.round(mrp * (100 - disc)) / 100, disc
+      mrpShown: mrp, selling: mrp == null ? null : (Number(m.discount_amount) > 0 && m.discount_percentage == null ? Math.max(0, Math.round((mrp - Number(m.discount_amount)) * 100) / 100) : Math.round(mrp * (100 - disc)) / 100), disc
     };
   });
   byId = new Map(list.map(m => [m.id, m]));
@@ -407,13 +416,13 @@ function open(m = {}, { duplicate = false } = {}) {
   $('err').textContent = '';
   $('activeNote').textContent = '';
   f.reset();
-  for (const k of ['id', 'name', 'ingredients', 'brand', 'generic_name', 'composition', 'strength', 'rack', 'discount_percentage', 'dosage_form', 'barcode', 'reorder_level']) {
+  for (const k of ['id', 'name', 'ingredients', 'brand', 'generic_name', 'composition', 'strength', 'rack', 'dosage_form', 'barcode', 'reorder_level']) {
     f[k].value = m[k] ?? '';
   }
   if (duplicate) { f.id.value = ''; f.name.value = `${m.name} (copy)`; f.barcode.value = ''; }
   if (!Number(m.reorder_level)) f.reorder_level.value = '';
-  f.tax_rate.value = String(m.tax_rate ?? 12);
-  if (![...f.tax_rate.options].some(o => o.value === f.tax_rate.value)) f.tax_rate.insertAdjacentHTML('beforeend', `<option value="${esc(f.tax_rate.value)}">${esc(f.tax_rate.value)}%</option>`);
+  f.tax_rate.value = String(m.id || duplicate ? Number(m.tax_rate ?? 0) : 0);
+  f.discount_text.value = discText(m);
   fillSelect($('fMan'), lk.manufacturers, m.manufacturer_id, 'Manufacturer');
   fillSelect($('fCatSel'), lk.categories, m.category_id, 'Category');
   f.need_doctor_sheet.checked = Boolean(m.need_doctor_sheet);
@@ -450,20 +459,20 @@ f.onsubmit = async e => {
   if (row.manufacturer_id === '__new') row.manufacturer_id = null;
   if (row.category_id === '__new') row.category_id = null;
   row.need_doctor_sheet = f.need_doctor_sheet.checked;
-  // Discount is optional; an empty value is stored as NULL.
-  const discountRaw = f.discount_percentage.value.trim();
-  if (discountRaw === '') row.discount_percentage = null;
-  else {
-    const discount = Number(discountRaw);
-    if (!Number.isFinite(discount) || discount < 0 || discount > 100) { $('err').textContent = 'Discount must be between 0 and 100%.'; return; }
-    row.discount_percentage = discount;
-  }
+  // Discount is optional: "10%" = percentage, "5" = ₹ off each unit; empty = none.
+  delete row.discount_text;
+  const dsc = parseDiscount(f.discount_text.value);
+  if (dsc.error) { $('err').textContent = dsc.error; return; }
+  row.discount_percentage = dsc.pct; row.discount_amount = dsc.amt;
   if (!discountColumnAvailable) delete row.discount_percentage;
+  if (!('discount_amount' in (list[0] || { discount_amount: 1 }))) { if (dsc.amt) { $('err').textContent = 'A ₹ discount needs database migration 0037. Use a percentage for now.'; return; } delete row.discount_amount; }
+  row.price_includes_tax = true;   // MRP already includes GST; billing never adds GST on top
   // MRP / selling price stay as they were (MRP comes from purchase batches).
   const old = id ? list.find(x => x.id === id) : null;
   row.mrp = old?.mrp ?? 0;
   row.selling_price = old?.selling_price ?? 0;
-  row.tax_rate = Number(row.tax_rate ?? old?.tax_rate ?? 12);
+  row.tax_rate = Number(row.tax_rate === null || row.tax_rate === undefined || row.tax_rate === '' ? 0 : row.tax_rate);
+  if (row.tax_rate < 0 || row.tax_rate > 100) { $('err').textContent = 'GST must be from 0 to 100%.'; return; }
   row.reorder_level = Number(row.reorder_level || 0);
   for (const k of ['mrp', 'selling_price', 'tax_rate', 'reorder_level']) row[k] = Number(row[k] || 0);
   if (!Number.isFinite(row.tax_rate) || !Number.isFinite(row.reorder_level) || row.reorder_level < 0) { $('err').textContent = 'Please enter valid numeric values.'; return; }
@@ -565,7 +574,7 @@ async function updateStock(m) {
     updateStock(byId.get(m.id) || m);
   };
 }
-const can = page => ({ purchases: ['super_admin', 'admin', 'pharmacist', 'inventory_staff', 'inventory'] })[page]?.includes(prof.role);
+const can = page => ({ purchases: ['super_admin', 'admin', 'admin_staff'] })[page]?.includes(prof.role);
 
 // ---- Code 128-B barcode (for printed shelf labels)
 const C128 = ['212222', '222122', '222221', '121223', '121322', '131222', '122213', '122312', '132212', '221213', '221312', '231212', '112232', '122132', '122231', '113222', '123122', '123221', '223211', '221132', '221231', '213212', '223112', '312131', '311222', '321122', '321221', '312212', '322112', '322211', '212123', '212321', '232121', '111323', '131123', '131321', '112313', '132113', '132311', '211313', '231113', '231311', '112133', '112331', '132131', '113123', '113321', '133121', '313121', '211331', '231131', '213113', '213311', '213131', '311123', '311321', '331121', '312113', '312311', '332111', '314111', '221411', '431111', '111224', '111422', '121124', '121421', '141122', '141221', '112214', '112412', '122114', '122411', '142112', '142211', '241211', '221114', '413111', '241112', '134111', '111242', '121142', '121241', '114212', '124112', '124211', '411212', '421112', '421211', '212141', '214121', '412121', '111143', '111341', '131141', '114113', '114311', '411113', '411311', '113141', '114131', '311141', '411131', '211412', '211214', '211232', '2331112'];
@@ -646,7 +655,7 @@ async function showMedicine(id) {
       ${kv('Generic name', esc(m.generic_name || '—'))}${kv('Strength', esc(m.strength || '—'))}
       ${kv('Manufacturer', esc(m.manufacturer || '—'))}${kv('Category', esc(m.category || '—'))}
       ${kv('Dosage form', esc(m.dosage_form || '—'))}${kv('Barcode', esc(m.barcode || '—'))}
-      ${kv('Discount', m.discount_percentage == null ? '—' : `${Number(m.discount_percentage)}%`)}${kv('GST', `${Number(m.tax_rate ?? 12)}%`)}
+      ${kv('Discount', discText(m) ? (discText(m).startsWith('₹') ? `${discText(m)} off each unit` : discText(m)) : '—')}${kv('GST (default)', `${Number(m.tax_rate ?? 0)}%`)}
       ${kv('Composition', esc(m.composition || '—'), 'wide')}
       ${kv('Rack / Shelf', esc(m.rack || '—'))}${kv('Minimum stock', count(m.reorder_level))}
       <div class="wide"><small>Ingredients</small><div class="med-ingredient-profile-row"><b>${esc(m.ingredients || '—')}</b><button type="button" class="pos-btn pos-btn-sm" data-search-ingredients="${esc(m.id)}" ${m.ingredients ? '' : 'disabled'}>Search Google ↗</button></div></div>
@@ -739,7 +748,7 @@ $('exportBtn').onclick = () => {
   const rows = filtered().map(m => ({
     'Medicine name': m.name, Strength: m.strength || '', 'Dosage form': m.dosage_form || '', Brand: m.brand || '', Manufacturer: m.manufacturer || '',
     'Generic name': m.generic_name || '', Category: m.category || '', Barcode: m.barcode || '', 'Rack / Shelf': m.rack || '',
-    'MRP (₹)': m.mrpShown ?? '', 'Selling price (₹)': m.selling ?? '', 'Discount (%)': m.discount_percentage ?? '', 'GST (%)': Number(m.tax_rate ?? 12),
+    'MRP (₹)': m.mrpShown ?? '', 'Selling price (₹)': m.selling ?? '', 'Discount (% or ₹)': discText(m), 'GST (%)': Number(m.tax_rate ?? 0),
     'Sellable stock': m.stock, 'Total stock': m.totalQty, 'Minimum stock': Number(m.reorder_level || 0),
     Status: CHIP[m.status][0], 'Next batch': m.nextBatch?.batch_no || '', 'Next expiry': m.nextBatch?.expiry || '',
     'Need doctor sheet': m.need_doctor_sheet ? 'Yes' : 'No', Active: m.active ? 'Yes' : 'No', Ingredients: m.ingredients || '', Composition: m.composition || ''
@@ -772,9 +781,9 @@ function bulkUpdate() {
     <div class="md-form-grid">
       <div class="pos-field"><label for="bCat">Category</label><select id="bCat"><option value="">No change</option>${lk.categories.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}<option value="__clear">Clear category</option></select></div>
       <div class="pos-field"><label for="bMan">Manufacturer</label><select id="bMan"><option value="">No change</option>${lk.manufacturers.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
-      <div class="pos-field"><label for="bDisc">Discount (%)</label><input id="bDisc" type="number" min="0" max="100" step="0.01" placeholder="No change"></div>
+      <div class="pos-field"><label for="bDisc">Discount <small>10% or ₹ 5</small></label><input id="bDisc" maxlength="12" placeholder="No change"></div>
       <div class="pos-field"><label for="bMin">Minimum stock</label><input id="bMin" type="number" min="0" step="1" placeholder="No change"></div>
-      <div class="pos-field"><label for="bGst">GST %</label><select id="bGst"><option value="">No change</option>${[0, 5, 12, 18, 28].map(r => `<option value="${r}">${r}%</option>`).join('')}</select></div>
+      <div class="pos-field"><label for="bGst">GST %</label><input id="bGst" type="number" min="0" max="100" step="0.01" placeholder="No change"></div>
       <div class="pos-field"><label for="bRack">Rack / Shelf</label><input id="bRack" maxlength="60" placeholder="No change"></div>
       <div class="pos-field"><label for="bForm">Dosage form</label><input id="bForm" list="formList" placeholder="No change"></div>
       <div class="pos-field"><label for="bRx">Doctor sheet</label><select id="bRx"><option value="">No change</option><option value="1">Required</option><option value="0">Not required</option></select></div>
@@ -785,9 +794,9 @@ function bulkUpdate() {
     const patch = {};
     if ($('bCat').value) patch.category_id = $('bCat').value === '__clear' ? null : $('bCat').value;
     if ($('bMan').value) patch.manufacturer_id = $('bMan').value;
-    if ($('bDisc').value !== '') { const d = Number($('bDisc').value); if (!(d >= 0 && d <= 100)) return ($('bMsg').textContent = 'Discount must be between 0 and 100%.'); if (discountColumnAvailable) patch.discount_percentage = d; }
+    if ($('bDisc').value.trim() !== '') { const d = parseDiscount($('bDisc').value); if (d.error) return ($('bMsg').textContent = d.error); if (discountColumnAvailable) patch.discount_percentage = d.pct; patch.discount_amount = d.amt; }
     if ($('bMin').value !== '') { const n = Number($('bMin').value); if (!(n >= 0)) return ($('bMsg').textContent = 'Minimum stock must be 0 or more.'); patch.reorder_level = n; }
-    if ($('bGst').value !== '') patch.tax_rate = Number($('bGst').value);
+    if ($('bGst').value !== '') { const g = Number($('bGst').value); if (!(g >= 0 && g <= 100)) return ($('bMsg').textContent = 'GST must be from 0 to 100%.'); patch.tax_rate = g; }
     if ($('bRack').value.trim()) { patch.rack = $('bRack').value.trim(); patch.shelf_location = patch.rack; }
     if ($('bForm').value.trim()) patch.dosage_form = $('bForm').value.trim();
     if ($('bRx').value) patch.need_doctor_sheet = $('bRx').value === '1';
@@ -824,7 +833,8 @@ document.addEventListener('click', e => { if (!importMenu.contains(e.target) && 
 // --------------------------------------------------
 // BULK MEDICINE IMPORT (Excel .xlsx / .xls) — unchanged rules
 // --------------------------------------------------
-const BULK_HEADERS = ['Medicine name', 'Ingredients', 'Brand', 'Generic name', 'Composition', 'Strength', 'Rack / Shelf', 'Discount (%)', 'Need doctor sheet', 'Active'];
+// Every field of the Add medicine form is a column (only Medicine name is required).
+const BULK_HEADERS = ['Medicine name', 'Strength', 'Dosage form', 'Brand', 'Generic name', 'Manufacturer', 'Category', 'Ingredients', 'Composition', 'Barcode', 'Rack / Shelf', 'Discount (10% or ₹)', 'Minimum stock', 'GST (%)', 'Need doctor sheet', 'Active'];
 function parseExcelBoolean(value, fallback) {
   if (value === undefined || value === null || String(value).trim() === '') return fallback;
   const val = String(value).trim().toLowerCase();
@@ -837,14 +847,27 @@ function excelCell(row, names) {
 $('downloadTemplate').onclick = () => {
   importMenu.hidden = true;
   if (!window.XLSX) { toast('Excel support could not load. Refresh the page and try again.', true); return; }
-  const sample = { 'Medicine name': 'Paracetamol 500 mg', Ingredients: 'Paracetamol', Brand: 'Sample Brand', 'Generic name': 'Paracetamol', Composition: 'Each tablet contains Paracetamol IP 500 mg', Strength: '500 mg', 'Rack / Shelf': 'A-01 / Shelf 1', 'Discount (%)': '', 'Need doctor sheet': 'No', Active: 'Yes' };
-  const ws = XLSX.utils.json_to_sheet([sample], { header: BULK_HEADERS });
-  ws['!cols'] = [{ wch: 28 }, { wch: 34 }, { wch: 22 }, { wch: 22 }, { wch: 42 }, { wch: 16 }, { wch: 20 }, { wch: 14 }, { wch: 20 }, { wch: 12 }];
-  ws['!autofilter'] = { ref: 'A1:J2' };
+  const samples = [
+    { 'Medicine name': 'Paracetamol 500 mg', Strength: '500 mg', 'Dosage form': 'Tablet', Brand: 'Calpol', 'Generic name': 'Paracetamol', Manufacturer: 'GSK', Category: 'Tablets', Ingredients: 'Paracetamol', Composition: 'Each tablet contains Paracetamol IP 500 mg', Barcode: '8901234567890', 'Rack / Shelf': 'A-01', 'Discount (10% or ₹)': '10%', 'Minimum stock': 50, 'GST (%)': 12, 'Need doctor sheet': 'No', Active: 'Yes' },
+    { 'Medicine name': 'Amoxicillin 500 mg', Strength: '500 mg', 'Dosage form': 'Capsule', Brand: '', 'Generic name': 'Amoxicillin', Manufacturer: '', Category: '', Ingredients: '', Composition: '', Barcode: '', 'Rack / Shelf': 'B-02', 'Discount (10% or ₹)': '2', 'Minimum stock': '', 'GST (%)': '', 'Need doctor sheet': 'Yes', Active: 'Yes' }];
+  const ws = XLSX.utils.json_to_sheet(samples, { header: BULK_HEADERS });
+  ws['!cols'] = BULK_HEADERS.map(h => ({ wch: { 'Medicine name': 28, Ingredients: 30, Composition: 40, 'Generic name': 20, Barcode: 16 }[h] || Math.max(12, h.length + 2) }));
+  ws['!autofilter'] = { ref: `A1:${String.fromCharCode(64 + BULK_HEADERS.length)}3` };
+  const help = XLSX.utils.aoa_to_sheet([['Column', 'What to enter'], ['Medicine name', 'Required. Must be new (existing names are skipped).'], ['Discount (10% or ₹)', '10% = percentage off; 5 = ₹5 off each unit; empty = no discount'], ['GST (%)', 'Optional (0 if empty). Billing uses the GST of the purchase / opening stock batch.'], ['Manufacturer, Category', 'Names; new ones are created'], ['Minimum stock', 'Low-stock alert level (units)'], ['Need doctor sheet, Active', 'Yes or No'], ['MRP / stock', 'Not here — they come from Purchases or Inventory → Opening stock']]);
+  help['!cols'] = [{ wch: 26 }, { wch: 80 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Medicines');
-  XLSX.writeFile(wb, 'PALLIKKAL_MEDICALS_Medicine_Bulk_Upload_Template.xlsx');
+  XLSX.utils.book_append_sheet(wb, help, 'How to fill');
+  XLSX.writeFile(wb, 'PALLIKKAL_Medicine_Bulk_Upload_Template.xlsx');
 };
+async function masterId(table, name) {
+  const n = String(name || '').trim(); if (!n) return null;
+  const hit = lk[table].find(x => x.name.toLowerCase() === n.toLowerCase()); if (hit) return hit.id;
+  if (!canMaster) return null;
+  const { data, error } = await sb.from(table).insert({ name: n }).select('id,name,active').single();
+  if (error) return null;
+  lk[table].push(data); return data.id;
+}
 $('bulkImport').onclick = () => { importMenu.hidden = true; $('bulkFile').click(); };
 $('bulkFile').onchange = async event => {
   const file = event.target.files?.[0];
@@ -875,11 +898,17 @@ $('bulkFile').onchange = async event => {
         composition: String(excelCell(row, ['composition']) ?? '').trim(),
         strength: String(excelCell(row, ['strength']) ?? '').trim(),
         rack: String(excelCell(row, ['rack / shelf', 'rack/shelf', 'rack', 'shelf']) ?? '').trim(),
-        discount_percentage: String(excelCell(row, ['discount (%)', 'discount', 'discount percentage', 'discount_percentage']) ?? '').trim(),
+        discount_text: String(excelCell(row, ['discount (10% or ₹)', 'discount (%)', 'discount', 'discount percentage', 'discount_percentage']) ?? '').trim(),
+        dosage_form: String(excelCell(row, ['dosage form', 'dosage_form', 'form']) ?? '').trim(),
+        manufacturer: String(excelCell(row, ['manufacturer', 'company']) ?? '').trim(),
+        category: String(excelCell(row, ['category']) ?? '').trim(),
+        barcode: String(excelCell(row, ['barcode']) ?? '').trim(),
+        reorder_level: String(excelCell(row, ['minimum stock', 'reorder level', 'min stock']) ?? '').trim(),
+        tax_rate: String(excelCell(row, ['gst (%)', 'gst', 'gst %', 'tax rate']) ?? '').trim(),
         need_doctor_sheet: parseExcelBoolean(excelCell(row, ['need doctor sheet', 'need_doctor_sheet', 'doctor sheet required']), false),
         active: parseExcelBoolean(excelCell(row, ['active', 'status']), true)
       };
-    }).filter(r => r.name || r.ingredients || r.brand || r.generic_name || r.composition || r.strength || r.rack);
+    }).filter(r => r.name || r.ingredients || r.brand || r.generic_name || r.composition || r.strength || r.rack || r.barcode);
     if (!normalizedRows.length) throw new Error('No medicine entries were found. Check the Medicine name column.');
     const missingNames = normalizedRows.filter(r => !r.name);
     const candidates = normalizedRows.filter(r => r.name);
@@ -894,16 +923,28 @@ $('bulkFile').onchange = async event => {
       else { seenUpload.add(key); uniqueRows.push(row); }
     }
     if (!uniqueRows.length) { report.textContent = `No new medicines to import. ${duplicates.length} duplicate name(s) were skipped; ${missingNames.length} row(s) had no medicine name.`; return; }
-    const invalidDiscountRows = uniqueRows.filter(r => r.discount_percentage !== '' && (!Number.isFinite(Number(r.discount_percentage)) || Number(r.discount_percentage) < 0 || Number(r.discount_percentage) > 100));
-    if (invalidDiscountRows.length) { report.textContent = `Invalid discount percentage in Excel row(s): ${invalidDiscountRows.map(r => r.excelRow).join(', ')}. Enter a value from 0 to 100, or leave it blank.`; return; }
-    const payload = uniqueRows.map(r => ({
+    const bad = [];
+    for (const r of uniqueRows) {
+      r.disc = parseDiscount(r.discount_text);
+      if (r.disc.error) bad.push(`${r.excelRow} (discount)`);
+      if (r.tax_rate !== '' && !(Number(r.tax_rate) >= 0 && Number(r.tax_rate) <= 100)) bad.push(`${r.excelRow} (GST)`);
+      if (r.reorder_level !== '' && !(Number(r.reorder_level) >= 0)) bad.push(`${r.excelRow} (minimum stock)`);
+      const clash = r.barcode && list.find(x => x.barcode === r.barcode); if (clash) bad.push(`${r.excelRow} (barcode already used by ${clash.name})`);
+    }
+    if (bad.length) { report.textContent = `Please fix these Excel row(s) and upload again: ${bad.join(', ')}. Discount: 10% or a ₹ amount; GST: 0–100.`; return; }
+    report.textContent = 'Adding medicines…';
+    const payload = [];
+    for (const r of uniqueRows) payload.push({
       branch_id: branchId, name: r.name, ingredients: r.ingredients || null, brand: r.brand || null, generic_name: r.generic_name || null,
       composition: r.composition || null, strength: r.strength || null, rack: r.rack || null, shelf_location: r.rack || null,
-      discount_percentage: r.discount_percentage === '' ? null : Number(r.discount_percentage),
-      need_doctor_sheet: r.need_doctor_sheet, active: r.active,
-      // Legacy required columns: pricing comes from purchase batches.
-      mrp: 0, selling_price: 0, tax_rate: 12, reorder_level: 0
-    }));
+      dosage_form: r.dosage_form || null, barcode: r.barcode || null,
+      manufacturer_id: await masterId('manufacturers', r.manufacturer), category_id: await masterId('categories', r.category),
+      discount_percentage: r.disc.pct, discount_amount: r.disc.amt,
+      need_doctor_sheet: r.need_doctor_sheet, active: r.active, price_includes_tax: true,
+      // Pricing comes from purchase batches.
+      mrp: 0, selling_price: 0, tax_rate: r.tax_rate === '' ? 0 : Number(r.tax_rate), reorder_level: r.reorder_level === '' ? 0 : Number(r.reorder_level)
+    });
+    if (!('discount_amount' in (list[0] || { discount_amount: 1 }))) for (const item of payload) delete item.discount_amount;
     if (!discountColumnAvailable) for (const item of payload) delete item.discount_percentage;
     let inserted = 0;
     const failed = [];
@@ -941,7 +982,7 @@ await load();
 if (urlParams.get('new') === '1') $('new').click();
 
 // Branch-scoped medicine photo controls (listens for [data-photos] clicks).
-mountMedicinePhotos({ sb, branchId, canManage: ['super_admin', 'admin', 'pharmacist', 'inventory_staff'].includes(prof.role) });
+mountMedicinePhotos({ sb, branchId, canManage: ['super_admin', 'admin', 'pharmacist', 'billing_staff', 'billing', 'inventory', 'inventory_staff'].includes(prof.role) });
 
 // --------------------------------------------------
 // SUPER ADMIN: Medicine deactivation approvals (unchanged flow)
