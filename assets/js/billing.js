@@ -809,6 +809,9 @@ function scheduleAllocate(g, delay = 350) {
   qtyTimers.set(g.key, setTimeout(() => allocate(g), delay));
 }
 
+// Discount set on the medicine (Medicines page): "10%" or "₹5" off each unit.
+const medDiscText = m => Number(m?.discount_percentage) > 0 ? `${+Number(m.discount_percentage).toFixed(2)}%` : Number(m?.discount_amount) > 0 ? `₹${+Number(m.discount_amount).toFixed(2)}` : '';
+let discWarned = false;
 async function addMedicine(med, qty = 1, extra = {}) {
   const key = String(med.id);
   let g = findGroup(key);
@@ -826,6 +829,13 @@ async function addMedicine(med, qty = 1, extra = {}) {
   }
   if (extra.discountPct != null) g.discountPct = extra.discountPct;
   await allocate(g);
+  // The database decides the discount. If the medicine has one but the database returns 0,
+  // the billing functions are out of date — say so instead of silently billing without it.
+  const r0 = g.alloc?.rows?.[0];
+  if (r0 && medDiscText(med) && !(Number(r0.default_discount_pct) > 0) && !discWarned) {
+    discWarned = true;
+    note(`${med.name} has a ${medDiscText(med)} discount in Medicines, but the database billing functions did not apply it. Ask the admin to run database migration 0038_billing_medicine_discount.sql.`, true);
+  }
   if (!extra.silent) $('cart').querySelector(`tr[data-group="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'nearest' });
   const input = $('cart').querySelector(`[data-gqty="${CSS.escape(key)}"]`);
   if (input && !extra.silent) { input.focus(); input.select(); }
@@ -1030,13 +1040,15 @@ let t;
 let results = [], resActive = -1;
 async function findMedicines(term) {
   const s = safeQ(term);
-  const { data, error } = await sb.from('medicines')
-    .select('id,name,strength,barcode,brand,mrp,selling_price,shelf_location,tax_rate,need_doctor_sheet,dosage_form')
+  const base = 'id,name,strength,barcode,brand,mrp,selling_price,shelf_location,tax_rate,need_doctor_sheet,dosage_form';
+  const run = cols => sb.from('medicines').select(cols)
     .eq('branch_id', prof.branch_id)
     .eq('active', true)
     .or(`name.ilike.%${s}%,brand.ilike.%${s}%,barcode.eq.${s}`)
     .order('name')
     .limit(8);
+  let { data, error } = await run(`${base},discount_percentage,discount_amount`);
+  if (error && /discount/i.test(error.message || '')) ({ data, error } = await run(base));   // before migration 0037
   if (error) throw error;
   const medicines = data || [];
   // Live eligible branch stock (same eligibility rules as the FEFO allocator).
@@ -1085,7 +1097,7 @@ async function runSearch(fromEnter = false) {
     return `<button class="medicine-result${prescription ? ' requires-prescription' : ''}" type="button" role="option" data-i="${i}">
       ${pillThumb(m.name)}
       <span class="medicine-result-main"><strong>${esc(m.name)} ${esc(m.strength || '')}</strong>
-      <span class="medicine-result-meta">MRP ${inr(m.mrp)} · GST ${Number(m.tax_rate)}%${m.dosage_form ? ` · ${esc(m.dosage_form)}` : ''} · Shelf ${esc(m.shelf_location || '—')}</span></span>
+      <span class="medicine-result-meta">MRP ${inr(m.mrp)} · GST ${Number(m.tax_rate)}%${medDiscText(m) ? ` · <b class="medicine-result-disc">Disc ${medDiscText(m)}</b>` : ''}${m.dosage_form ? ` · ${esc(m.dosage_form)}` : ''} · Shelf ${esc(m.shelf_location || '—')}</span></span>
       <span class="medicine-result-side">${warning}${stock}</span>
     </button>`;
   }).join('') || '<div class="pos-res-empty">No matching medicine.</div>';

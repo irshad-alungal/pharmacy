@@ -1,6 +1,6 @@
 -- =============================================================================
 -- PALLIKKAL MEDICALS · version 78 · FINAL CHECK (read-only)
--- Run AFTER 0037_final_requirements.sql in the Supabase SQL editor.
+-- Run AFTER 0037_final_requirements.sql and 0038_billing_medicine_discount.sql in the Supabase SQL editor.
 -- It changes nothing. Copy the whole result grid (all rows) and send it back.
 -- Every row should show ok = true. "detail" explains what was found.
 -- =============================================================================
@@ -31,6 +31,7 @@ UNION ALL SELECT 08, '0037 · bill number YYYY-MM-DD-#### (4 digits)', EXISTS (S
                  AND EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_assign_daily_invoice_number' AND NOT tgisinternal), coalesce((SELECT 'latest bill: ' || invoice_no FROM public.sales_invoices ORDER BY created_at DESC LIMIT 1), 'no bills yet')
 UNION ALL SELECT 09, '0037 · medicine discount ₹ amount column', EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'medicines' AND column_name = 'discount_amount'), 'medicines.discount_amount'
 UNION ALL SELECT 29, '0037 · pages may read/write the discount column', has_column_privilege('authenticated', 'public.medicines', 'discount_amount', 'SELECT') AND has_column_privilege('authenticated', 'public.medicines', 'discount_amount', 'UPDATE') AND has_column_privilege('authenticated', 'public.medicine_batches', 'distributor_id', 'SELECT'), 'column grants for medicines.discount_amount, medicine_batches.distributor_id'
+UNION ALL SELECT 30, '0038 · billing uses the medicine % / ₹ discount', (SELECT count(*) FROM src WHERE proname IN ('_billing_fefo_compute','finalize_sale_v3') AND prosrc LIKE '%billing_medicine_discount_pct%') >= 2 AND public.billing_medicine_discount_pct(0, 5, 50, 50, 50) = 10, 'run 0038_billing_medicine_discount.sql if false'
 UNION ALL SELECT 10, '0037 · discount rule: ₹5 off a ₹50 unit = 10%', public.billing_medicine_discount_pct(NULL, 5, 50, 50, 50) = 10, public.billing_medicine_discount_pct(NULL, 5, 50, 50, 50)::text
 UNION ALL SELECT 11, '0037 · medicine GST may be 0 (default 0)', (SELECT column_default FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'medicines' AND column_name = 'tax_rate') = '0', (SELECT 'default ' || coalesce(column_default, 'none') FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'medicines' AND column_name = 'tax_rate')
 UNION ALL SELECT 12, '0037 · MRP includes GST on every batch', (SELECT count(*) FROM public.medicine_batches WHERE price_includes_tax = false) = 0, (SELECT count(*) FROM public.medicine_batches WHERE price_includes_tax = false)::text || ' batch(es) with GST added on top'

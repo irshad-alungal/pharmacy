@@ -140,6 +140,7 @@
 .medicine-result-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .medicine-result-main strong { color: var(--pp-ink); font-weight: 600; font-size: .95rem; }
 .medicine-result-meta { color: var(--pp-muted); font-size: .8rem; }
+.medicine-result-meta .medicine-result-disc { color: #0b7a14; font-weight: 700; }
 .medicine-result-side { display: flex; align-items: center; gap: 8px; flex: none; }
 .medicine-result-stock { padding: 3px 10px; border-radius: 999px; background: #dcf6df; color: #13801b; font-size: .78rem; font-weight: 600; white-space: nowrap; }
 .medicine-result-stock.out { background: #fde3e3; color: #b42318; }

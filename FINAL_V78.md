@@ -1,9 +1,12 @@
-# PALLIKKAL MEDICALS — version 78 (final)
+# PALLIKKAL MEDICALS — version 79 (final)
+
+**Version 79:** the discount set on a medicine (10% or ₹5 off each unit) now always shows in Billing — in the search list ("Disc 10%") and in the Disc. column — and is saved on the bill. If the database is not updated, Billing shows a message asking to run 0038.
 
 ## Database — run in this order (Supabase → SQL editor)
 
 1. `database/migrations/0037_final_requirements.sql` — one run (safe to run twice). Needs 0021–0036 already applied (they are on your live database).
-2. `database/diagnostics/verify_final_v78.sql` — read-only. Every row should show `ok = true`. Send the result grid back.
+2. `database/migrations/0038_billing_medicine_discount.sql` — version 79: makes Billing use the discount set in Medicines (10% or ₹5). Safe to run again. It ends with a small table of your discounted medicines and the discount Billing will use.
+3. `database/diagnostics/verify_final_v78.sql` — read-only. Every row should show `ok = true`. Send the result grid back.
 
 ## What changed
 
