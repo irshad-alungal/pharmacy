@@ -7,6 +7,7 @@ import { afterBill, sendInvoice, waSettings } from './whatsapp-invoice.js';
 import { esc, inr } from './utils.js';
 import { friendly, safeQ } from './ui.js';
 import { showInvoice } from './invoice.js';
+import { openAllBills, openDayClose } from './day-close.js';
 import { calcLine, validateLineInput, summarize, detectAnomalies, explainAllocation, GST_FALLBACK_RATES } from './billing-engine.js';
 import { mountAssistant } from './billing-assistant.js';
 import { icon, setNotifications } from './brand-shell.js';
@@ -92,6 +93,8 @@ $('view').innerHTML = `
     </div>
     <div class="pos-head-actions">
       <button type="button" class="pos-btn" id="held">${I.history}<span>Hold Bills</span><b class="pos-count" id="heldCount" hidden>0</b></button>
+      <button type="button" class="pos-btn" id="allBillsBtn" title="Print every bill of today on one 80 mm roll">${I.printer}<span>All Bills for Today</span></button>
+      <button type="button" class="pos-btn" id="dayCloseBtn" title="Enter today's closing cash balance">${I.doc}<span>Close Day</span></button>
       ${canSales ? `<a class="pos-btn" href="sales.html">${I.doc}<span>Bill History</span></a>` : ''}
       <button type="button" class="pos-btn" id="settingsBtn">${I.gear}<span>Billing Settings</span></button>
     </div>
@@ -171,6 +174,8 @@ $('view').innerHTML = `
           ${canReturns ? `<a href="returns.html">${I.undo}<span>Returns</span></a>` : ''}
           <button type="button" data-qa="offer">${I.tag}<span>Apply Offer</span></button>
           <button type="button" data-qa="last">${I.printer}<span>Print Last Bill</span></button>
+          <button type="button" data-qa="allbills">${I.printer}<span>All Bills for Today</span></button>
+          <button type="button" data-qa="dayclose">${I.doc}<span>Close Day</span></button>
           <button type="button" data-qa="clear" class="danger">${I.trash}<span>Clear Cart</span></button>
         </div>
       </section>
@@ -1704,6 +1709,8 @@ document.querySelector('.pos-qa').onclick = e => {
   if (act === 'browse') openBrowse();
   else if (act === 'offer') { if ($('discBox').hidden) openDiscount(); else $('disc').focus(); $('discBox').scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   else if (act === 'last') printLastBill();
+  else if (act === 'allbills') openAllBills(sb, prof);
+  else if (act === 'dayclose') openDayClose(sb, prof);
   else if (act === 'clear') clearCart();
 };
 
@@ -1846,3 +1853,5 @@ if (startCustomer) {
   const { data: sc } = await sb.from('customers').select('id,name,phone,consent,credit_limit,active').eq('branch_id', prof.branch_id).eq('id', startCustomer).maybeSingle();
   if (sc?.active) { await setCust(sc); note(`Billing ${sc.name}.`); }
 }
+$('allBillsBtn').onclick = () => openAllBills(sb, prof);
+$('dayCloseBtn').onclick = () => openDayClose(sb, prof);

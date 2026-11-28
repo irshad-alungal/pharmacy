@@ -41,7 +41,7 @@ with sync_playwright() as p:
 
     ok('Layout: branded sidebar with Billing active, no footer block', 'active' in pg.get_attribute('.pp-nav-link[href="billing.html"]', 'class') and 'Trusted' not in pg.inner_text('#ppSidebar'))
     ok('Layout: header buttons (Hold Bills, Bill History, Billing Settings)', all(pg.is_visible(s) for s in ['#held', '.pos-head a[href="sales.html"]', '#settingsBtn']))
-    ok('Layout: 6 payment tiles and 6 quick actions', pg.locator('.pos-method').count() == 6 and pg.locator('.pos-qa > *').count() == 6)
+    ok('Layout: 6 payment tiles and 8 quick actions (incl. All Bills for Today, Close Day)', pg.locator('.pos-method').count() == 6 and pg.locator('.pos-qa > *').count() == 8)
 
     # --- 1. stepper, discount dropdown, totals vs engine, UPI payment, notes
     add(pg, 'Cet')

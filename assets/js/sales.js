@@ -9,6 +9,7 @@ import { sendInvoice } from './whatsapp-invoice.js';
 import { esc } from './utils.js';
 import { friendly } from './ui.js';
 import { showInvoice } from './invoice.js';
+import { openAllBills } from './day-close.js';
 import { setNotifications } from './brand-shell.js';
 import { searchBox, mountGlobalSearch } from './global-search.js';
 
@@ -95,6 +96,7 @@ view.innerHTML = `
       <a class="pos-btn pos-btn-solid" id="newSale" href="billing.html">${I.plusC}<span>New Sale</span></a>
       ${canReturn ? `<a class="pos-btn" id="returnBtn" href="returns.html">${I.undo}<span>Sales Return</span></a>` : ''}
       <button type="button" class="pos-btn" id="posBtn" title="Open the billing counter in its own window">${I.monitor}<span>POS</span></button>
+      <button type="button" class="pos-btn" id="allBillsBtn" title="Print every bill of a day on one 80 mm roll">${I.print}<span>All Bills for Today</span></button>
       <div class="dl-pop-anchor"><button type="button" class="pos-btn" id="exportBtn" aria-expanded="false">${I.download}<span>Export</span></button>
         <div class="dl-pop md-menu ds-menu sl-export" id="exportMenu" hidden>
           <button type="button" data-exp="xlsx">${I.download}<span>Bills — Excel (.xlsx)</span></button>
@@ -710,3 +712,4 @@ if (params.get('q') && !filtered().length && filt.range === '30d') { filt.range 
 if (isAdminView) await Promise.all([loadTrend(), loadMonth()]).catch(e => note(friendly(e), true));
 notify();
 if (params.get('invoice')) openBill(params.get('invoice'));
+$('allBillsBtn').onclick = () => openAllBills(sb, prof);

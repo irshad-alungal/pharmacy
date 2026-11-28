@@ -671,8 +671,9 @@ RESET.notifications = async () => { if (need33()) throw new Error('Migration 003
 // Print & invoice
 // ---------------------------------------------------------------------------
 const SAMPLE = () => ({
-  shop: { name: profile?.name || 'PALLIKKAL PHARMACY', address: [profile?.address, profile?.city, profile?.pincode].filter(Boolean).join(', '), phone: profile?.phone, gstin: profile?.gstin,
-    drug_licence: (profile?.drug_licence_nos || []).join(', '), footer_note: v('iFooter') },
+  shop: { name: profile?.name || 'PALLIKKAL PHARMACY', address: [profile?.address, profile?.city, profile?.pincode].filter(Boolean).join(', '), phone: profile?.phone, email: profile?.email,
+    gstin: $('iGstin') ? v('iGstin').trim().toUpperCase() : profile?.gstin,
+    drug_licence: $('iDlNos') ? v('iDlNos').split('\n').map(x => x.trim()).filter(Boolean).join(', ') : (profile?.drug_licence_nos || []).join(', '), footer_note: v('iFooter') },
   invoice: { invoice_no: `${v('iPrefix') || 'INV'}-${today().replace(/-/g, '').slice(2)}-0001`, created_at: new Date().toISOString(), subtotal: 186.6, discount: 0, line_discount: 9.8, tax: 19.99, total: 186.6, patient_name: 'Anu Thomas', doctor_name: 'Dr. Rajan' },
   customer: { name: 'Anu Thomas', phone: '9847012345' },
   items: [{ name: 'Paracetamol 650', strength: 'Tablet', batch_no: 'PCM2411', expiry: '2027-08-31', qty: 10, unit_price: 2.1, discount_pct: 0, tax_rate: 12, line_total: 21, price_includes_tax: true },
@@ -689,11 +690,27 @@ RENDER.invoice = () => {
         <div class="md-form-grid sg-form">
           ${field('iPrefix', 'Invoice number prefix', p.invoice_prefix, 'maxlength="12" required', false, 'e.g. INV')}
           <div class="pos-field"><label for="iFmt">Default paper</label><select id="iFmt"><option value="thermal"${iv.default_format === 'thermal' ? ' selected' : ''}>Thermal 80mm</option><option value="a4"${iv.default_format === 'a4' ? ' selected' : ''}>A4</option></select></div>
-          ${area('iFooter', 'Invoice footer', p.invoice_footer, 'maxlength="300" placeholder="e.g. Thank you! Get well soon."')}
+          ${area('iFooter', 'Thank-you note (bill footer)', p.invoice_footer, 'maxlength="300" placeholder="Thank you for shopping with us! Get well soon."', 'empty = default note')}
           ${area('iTerms', 'Terms printed on the bill', iv.terms, 'maxlength="500" placeholder="e.g. Medicines once sold will be taken back only with a valid reason within 7 days."')}
         </div></div>
+      <div class="sg-box">${subh(I.doc, 'Bill header — GSTIN and drug licence')}
+        <div class="md-form-grid sg-form">
+          ${field('iGstin', 'GSTIN', p.gstin, 'maxlength="15" style="text-transform:uppercase" placeholder="Leave empty until you have one"', false, 'optional · 15 characters')}
+          ${area('iDlNos', 'Drug licence number(s)', Array.isArray(p.drug_licence_nos) ? p.drug_licence_nos.join('\n') : '', 'rows="2" placeholder="e.g. KL-MPM-123456"', 'one per line · printed on every bill')}
+        </div><small class="dl-muted">Same as Business Information. Change them here whenever the numbers change; new prints use them at once.</small></div>
+      <div class="sg-box">${subh(I.print, 'QR code at the bottom of the bill')}
+        <div class="md-form-grid sg-form">
+          <div class="pos-field"><label for="iQrMode">QR code opens</label><select id="iQrMode">
+            <option value="whatsapp"${(iv.qr_mode || 'whatsapp') === 'whatsapp' ? ' selected' : ''}>WhatsApp chat with the pharmacy</option>
+            <option value="upi"${iv.qr_mode === 'upi' ? ' selected' : ''}>UPI payment for the bill amount</option>
+            <option value="link"${iv.qr_mode === 'link' ? ' selected' : ''}>A link or text of my choice</option>
+            <option value="none"${iv.qr_mode === 'none' ? ' selected' : ''}>No QR code</option></select></div>
+          ${field('iQrPhone', 'WhatsApp number', iv.qr_phone, 'maxlength="15" inputmode="tel" placeholder="Pharmacy phone"', false, 'empty = pharmacy phone')}
+          ${field('iQrLink', 'Link or text', iv.qr_link, 'maxlength="300" placeholder="https://g.page/r/... (Google review) or website"', true)}
+          ${field('iQrCap', 'Caption under the QR', iv.qr_caption, 'maxlength="60" placeholder="e.g. Scan to order on WhatsApp"', true, 'optional')}
+        </div></div>
       <div class="sg-box">${subh(I.print, 'Show on the invoice')}
-        ${togRow('iLogo', I.photo, 'Pharmacy logo', S.general.invoice_logo, S.branding.logo_url ? '' : 'No logo uploaded yet (Business Information)')}
+        ${togRow('iLogo', I.photo, 'Pharmacy logo', S.general.invoice_logo, S.branding.logo_url ? 'Your uploaded logo' : 'Pallikkal Pharmacy logo (upload another under Business Information)')}
         ${togRow('iGst', I.doc, 'GSTIN', iv.show_gstin)}
         ${togRow('iDl', I.doc, 'Drug licence numbers', iv.show_drug_licence)}
         ${togRow('iPat', I.users, 'Patient and doctor details', iv.show_patient)}
@@ -706,8 +723,11 @@ RENDER.invoice = () => {
   $('iPrevFmt').value = iv.default_format;
   const draw = () => {
     const T = clone(S);
-    Object.assign(T.invoice, { default_format: v('iFmt'), terms: v('iTerms').trim(), show_gstin: c('iGst'), show_drug_licence: c('iDl'), show_patient: c('iPat'), show_upi: c('iUpi'), signature_line: c('iSign') });
+    Object.assign(T.invoice, invoiceOpts());
     T.general.invoice_logo = c('iLogo');
+    const m = v('iQrMode');
+    const vis = (id, on) => { $(id).closest('.pos-field').style.display = on ? '' : 'none'; };
+    vis('iQrPhone', m === 'whatsapp'); vis('iQrLink', m === 'link'); vis('iQrCap', m !== 'none');
     $('iPrev').className = `sg-paper ${v('iPrevFmt')}`;
     $('iPrev').innerHTML = invoiceHTML(SAMPLE(), v('iPrevFmt'), T);
   };
@@ -715,13 +735,21 @@ RENDER.invoice = () => {
   $('iFmt').addEventListener('change', () => { $('iPrevFmt').value = v('iFmt'); draw(); });
   draw();
 };
+const invoiceOpts = () => ({ default_format: v('iFmt'), terms: v('iTerms').trim(), show_gstin: c('iGst'), show_drug_licence: c('iDl'), show_patient: c('iPat'), show_upi: c('iUpi'), signature_line: c('iSign'),
+  qr_mode: v('iQrMode') || 'whatsapp', qr_link: v('iQrLink').trim(), qr_phone: v('iQrPhone').replace(/[^\d+]/g, ''), qr_caption: v('iQrCap').trim() });
 SAVE.invoice = async () => {
   const prefix = v('iPrefix').trim();
+  const gstin = v('iGstin').trim().toUpperCase(), dls = v('iDlNos').split('\n').map(x => x.trim()).filter(Boolean);
+  if (gstin && !/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstin)) throw new Error('GSTIN looks wrong — it has 15 characters, e.g. 32ABCDE1234F1Z5. Leave it empty if you do not have one yet.');
+  if (v('iQrMode') === 'link' && !v('iQrLink').trim()) throw new Error('Enter the link or text for the QR code, or choose another QR option.');
+  if (v('iQrMode') === 'upi' && !S.payments.upi_id) throw new Error('Add your UPI ID under Payment Methods to print a UPI QR code.');
   if (!/^[A-Za-z0-9/-]{1,12}$/.test(prefix)) throw new Error('Invoice prefix: 1–12 letters, numbers, - or /.');
   if (c('iUpi') && !S.payments.upi_id) throw new Error('Add your UPI ID under Payment Methods before printing the UPI line.');
-  if (prefix !== (profile?.invoice_prefix || '') || v('iFooter').trim() !== (profile?.invoice_footer || '')) await saveProfile(profilePayload({ invoice_prefix: prefix, invoice_footer: v('iFooter') }));
+  const oldDl = (Array.isArray(profile?.drug_licence_nos) ? profile.drug_licence_nos : []).join('\n');
+  if (prefix !== (profile?.invoice_prefix || '') || v('iFooter').trim() !== (profile?.invoice_footer || '') || gstin !== (profile?.gstin || '') || dls.join('\n') !== oldDl)
+    await saveProfile(profilePayload({ invoice_prefix: prefix, invoice_footer: v('iFooter'), gstin: gstin || null, drug_licence_nos: dls }));
   if (has33) {
-    await saveSection('invoice', { ...S.invoice, default_format: v('iFmt'), terms: v('iTerms').trim(), show_gstin: c('iGst'), show_drug_licence: c('iDl'), show_patient: c('iPat'), show_upi: c('iUpi'), signature_line: c('iSign') });
+    await saveSection('invoice', { ...S.invoice, ...invoiceOpts() });
     if (c('iLogo') !== S.general.invoice_logo) await saveSection('general', { ...S.general, invoice_logo: c('iLogo') });
   }
   return has33 ? 'Invoice settings saved.' : 'Invoice prefix and footer saved. Other options need migration 0033.';

@@ -7,7 +7,7 @@ import { sb } from './supabase-client.js';
 import { mountShell } from './navigation.js';
 import { esc } from './utils.js';
 import { friendly } from './ui.js';
-import { showCreditNote, printHTML } from './invoice.js';
+import { showReturnBill, printHTML } from './invoice.js';
 import { setNotifications } from './brand-shell.js';
 import { searchBox, mountGlobalSearch } from './global-search.js';
 
@@ -532,10 +532,13 @@ function debitNoteHTML(d) {
     <tr><td colspan="5" align="right"><b>Total (incl. GST)</b></td><td align="right"><b>₹${R(n.total)}</b></td></tr></table>
     <p style="margin-top:28px;display:flex;justify-content:space-between"><span>Received by (distributor): ______________</span><span>For ${esc(s.name || 'PALLIKKAL PHARMACY')}</span></p></div>`;
 }
+// Sales return bill (credit note) and purchase return bill (debit note): 80 mm thermal or A4.
 function printNote(d) {
-  if (d.kind === 'sales') return showCreditNote({ ...d, items: d.items.map(x => ({ ...x, batch_no: x.batch_no || '' })), note: { ...d.note, reason: `${reasonOf('sales', d.note.reason_code)[0]}${d.note.reason ? ' — ' + d.note.reason : ''}${d.note.refund_type === 'exchange' ? ' (Exchange)' : ''}` } });
-  printHTML(debitNoteHTML(d), d.note.return_no, 'a4');
+  const k = d.kind === 'purchase' ? 'purchase' : 'sales';
+  const label = `${reasonOf(k, d.note.reason_code)[0]}${d.note.reason ? ' — ' + d.note.reason : ''}${k === 'sales' && d.note.refund_type === 'exchange' ? ' (Exchange)' : ''}`;
+  return showReturnBill({ ...d, kind: k, items: (d.items || []).map(x => ({ ...x, batch_no: x.batch_no || '' })), note: { ...d.note, reason_label: label } });
 }
+void debitNoteHTML; void printHTML;
 async function openView(id) {
   const k = kind, r = listRows.find(x => x.id === id) || {};
   $('viewBody').innerHTML = '<p class="dl-muted">Loading return…</p>';
@@ -555,7 +558,7 @@ async function openView(id) {
     <div class="dl-table-wrap"><table class="dl-table md-plain sl-items"><thead><tr><th>Medicine</th><th>Batch · Exp</th><th class="c-r">Qty</th>${k === 'sales' ? '<th>Condition</th>' : '<th class="c-r">Rate</th>'}<th class="c-r">Amount</th></tr></thead>
       <tbody>${d.items.map(x => `<tr><td><b>${esc(x.name)}</b> ${esc(x.strength || '')}</td><td>${esc(x.batch_no || '')}${x.expiry ? ` · ${esc(String(x.expiry).slice(0, 7))}` : ''}</td><td class="c-r">${count(x.qty)}</td>${k === 'sales' ? `<td>${x.disposition === 'damaged' ? '<span class="md-chip out"><i></i>Damaged</span>' : '<span class="md-chip in"><i></i>Back to stock</span>'}</td>` : `<td class="c-r">${money2(x.unit_price)}</td>`}<td class="c-r">${money2(x.line_total)}</td></tr>`).join('') || '<tr><td colspan="5" class="dl-empty">No items.</td></tr>'}</tbody></table></div>
     <div class="pos-dialog-foot sl-bill-acts">
-      <button type="button" class="pos-btn pos-btn-solid" data-vact="print">${I.print}<span>Print ${k === 'sales' ? 'credit' : 'debit'} note</span></button>
+      <button type="button" class="pos-btn pos-btn-solid" data-vact="print">${I.print}<span>Print return bill</span></button>
       ${k === 'sales' && d.invoice_id ? `<a class="pos-btn" href="sales.html?invoice=${encodeURIComponent(d.invoice_id)}">${I.bill}<span>Open bill</span></a>` : ''}
       ${k === 'purchase' && d.invoice_no ? `<a class="pos-btn" href="purchases.html?q=${encodeURIComponent(d.invoice_no)}">${I.bill}<span>Open purchase</span></a>` : ''}
       ${k === 'sales' && n.refund_type === 'exchange' ? `<a class="pos-btn" href="billing.html${d.customer?.id ? `?customer=${encodeURIComponent(d.customer.id)}` : ''}">${I.swap}<span>Exchange bill</span></a>` : ''}
@@ -574,7 +577,7 @@ const closeMenu = () => { menuEl?.remove(); menuEl = null; };
 function menuHtml(r) {
   const b = (a, ic, l) => `<button type="button" data-act="${a}">${ic}<span>${l}</span></button>`;
   return [
-    b('view', I.eye, 'View details'), b('print', I.print, `Print ${kind === 'sales' ? 'credit' : 'debit'} note`),
+    b('view', I.eye, 'View details'), b('print', I.print, 'Print return bill'),
     kind === 'sales' && r.invoice_id ? `<a href="sales.html?invoice=${encodeURIComponent(r.invoice_id)}">${I.bill}<span>Open bill</span></a>` : '',
     kind === 'sales' && r.invoice_id ? b('again', I.undo, 'Return more from this bill') : '',
     kind === 'purchase' && r.supplier_invoice_no ? `<a href="purchases.html?q=${encodeURIComponent(r.supplier_invoice_no)}">${I.bill}<span>Open purchase</span></a>` : '',
@@ -692,12 +695,13 @@ async function submitSalesReturn(invoiceId, cust) {
     const amount = rec ? fmtMoney(rec.total) : '';
     $('newBody').innerHTML = `<div class="rt-done">${I.check}<h3>Credit note ${esc(rec?.return_no || '')} recorded</h3>
       <p>${type === 'exchange' ? `Exchange value <b>${amount}</b>. Make the new bill for the replacement and collect only the difference.` : `Refund <b>${amount}</b> — give it by <b>${method.toUpperCase()}</b> now.`}</p>
-      <div class="pos-dialog-foot"><button type="button" class="pos-btn pos-btn-solid" id="donePrint">${I.print}<span>Print credit note</span></button>
+      <div class="pos-dialog-foot"><button type="button" class="pos-btn pos-btn-solid" id="donePrint">${I.print}<span>Print return bill</span></button>
       ${type === 'exchange' ? `<a class="pos-btn" href="billing.html${cust?.id ? `?customer=${encodeURIComponent(cust.id)}` : ''}">${I.swap}<span>Make exchange bill</span></a>` : ''}
       <button type="button" class="pos-btn" id="doneAnother">${I.plusC}<span>Another return</span></button><button type="button" class="pos-btn" data-close>Close</button></div></div>`;
     $('msg').textContent = `Credit note ${rec?.return_no || ''} recorded for ${amount}. Complete the ${method.toUpperCase()} refund manually.`; $('msg').className = 'md-msg purchase-flash purchase-notice';
     $('donePrint').onclick = async () => { try { printNote(await detail('sales', res.data)); } catch (e) { note(friendly(e), true); } };
     $('doneAnother').onclick = () => openSalesReturn();
+    try { printNote(await detail('sales', res.data)); } catch (e) { note(friendly(e), true); }   // return bill opens at once
     if (kind !== 'sales') await setKind('sales'); else await refresh();
   } catch (err) { $('rmsg').textContent = friendly(err); }
   finally { if (document.body.contains(btn)) { btn.disabled = false; btn.querySelector('span').textContent = 'Create credit note'; } }
@@ -782,11 +786,12 @@ async function submitPurchaseReturn(invoiceId) {
     const r0 = (rec || []).find(x => x.id === res.data);
     $('newBody').innerHTML = `<div class="rt-done">${I.check}<h3>Purchase return ${esc(r0?.return_no || '')} recorded</h3>
       <p>Stock has been reduced. Value <b>${r0 ? fmtMoney(r0.total_value) : ''}</b> is credited against this distributor. Send the goods with the debit note.</p>
-      <div class="pos-dialog-foot"><button type="button" class="pos-btn pos-btn-solid" id="donePrint">${I.print}<span>Print debit note</span></button>
+      <div class="pos-dialog-foot"><button type="button" class="pos-btn pos-btn-solid" id="donePrint">${I.print}<span>Print return bill</span></button>
       <button type="button" class="pos-btn" id="doneAnother">${I.plusC}<span>Another return</span></button><button type="button" class="pos-btn" data-close>Close</button></div></div>`;
     $('msg').textContent = 'Purchase return recorded. Stock has been reduced.'; $('msg').className = 'md-msg purchase-flash purchase-notice';
     $('donePrint').onclick = async () => { try { printNote(await detail('purchase', res.data)); } catch (e) { note(friendly(e), true); } };
     $('doneAnother').onclick = () => openPurchaseReturn();
+    try { printNote(await detail('purchase', res.data)); } catch (e) { note(friendly(e), true); }   // return bill opens at once
     if (kind !== 'purchase') await setKind('purchase'); else await refresh();
   } catch (err) { $('pmsg').textContent = friendly(err); }
   finally { if (document.body.contains(btn)) { btn.disabled = false; btn.querySelector('span').textContent = 'Record purchase return'; } }

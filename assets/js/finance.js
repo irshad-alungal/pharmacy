@@ -10,6 +10,7 @@ import { mountShell } from './navigation.js';
 import { esc } from './utils.js';
 import { friendly } from './ui.js';
 import { printHTML } from './invoice.js';
+import { openDayClose, openAllBills } from './day-close.js';
 import { setNotifications } from './brand-shell.js';
 import { searchBox, mountGlobalSearch } from './global-search.js';
 
@@ -84,7 +85,7 @@ const EXTRA = ['#0e9488', '#f08a24', '#3b5bdb', '#d6336c', '#5c940d'];
 const catCol = n => (CAT_RULES.find(([re]) => re.test(n || '')) || [0, EXTRA[[...String(n || 'x')].reduce((a, c) => a + c.charCodeAt(0), 0) % EXTRA.length]])[1];
 const KPI = (cls, ic, label, id) => `<button type="button" class="dz-kpi ${cls} md-kpi" data-kpi="${id}"><span class="dz-kpi-icon">${ic}</span><span class="dz-kpi-body"><span class="dz-kpi-label">${label}</span><strong id="${id}"><span class="dz-skel"></span></strong><small id="${id}Note"></small></span></button>`;
 const PERIODS = { today: 'Today', month: 'This Month', lastmonth: 'Last Month', '3m': 'Last 3 Months', year: 'This Year' };
-const TABS = [['ov', 'Overview', I.coins], ['led', 'Ledger', I.ledger], ['rec', 'Customer dues', I.users], ['pay', 'Supplier payables', I.truck], ['hist', 'Receipts & payments', I.swap], ...(canManageOpeningBalances ? [['ob', 'Opening balances', I.sun]] : [])];
+const TABS = [['ov', 'Overview', I.coins], ['led', 'Ledger', I.ledger], ['rec', 'Customer dues', I.users], ['pay', 'Supplier payables', I.truck], ['hist', 'Receipts & payments', I.swap], ...(canManageOpeningBalances ? [['ob', 'Opening & closing', I.sun]] : [])];
 document.getElementById('ppSearchSlot').innerHTML = searchBox('ppSearch');
 
 let v28 = true;
@@ -707,6 +708,11 @@ async function viewOpening() {
     <section class="fn-today" id="todayCash"><p class="dl-muted">Loading today's cash…</p></section>
     <section class="fn-block fn-open-tab"><div class="fn-block-head"><h3 class="sl-sub">${I.sun} Daily opening balance <small>(chart of the cash book below)</small></h3></div>
       <div class="fn-open-g"><div class="dz-chart pur-chart fn-chart" id="obcChart"></div><div class="fn-open-side" id="obcSide"></div></div></section>
+    <section class="fn-block" id="closeBlock"><div class="fn-block-head"><h3 class="sl-sub">${I.cash} Daily closing balance <small>(cash counted when the shop closes · one per day)</small></h3>
+      <div class="fn-filters fn-inline"><button type="button" class="pos-btn pos-btn-solid" id="closeAdd">${I.check}<span>Enter closing balance</span></button><button type="button" class="pos-btn" id="closeBills">${I.print}<span>All Bills for Today</span></button></div></div>
+      <div id="closeToday" class="fn-small"></div>
+      <div class="dl-table-wrap"><table class="dl-table md-plain fn-cl"><thead><tr><th>Date</th><th class="c-r">Morning opening</th><th class="c-r">Cash in</th><th class="c-r">Cash out</th><th class="c-r">Expected</th><th class="c-r">Closing (counted)</th><th>Difference</th><th>Entered by</th></tr></thead><tbody id="clRows"><tr><td colspan="8" class="dl-empty">Loading…</td></tr></tbody></table></div>
+      <p class="dl-muted fn-small">Closing balance is entered once a day from Billing → Close Day (any staff) or here. Admin can correct it with a reason; the change is kept in Audit logs.</p></section>
     <section class="fn-block"><div class="fn-block-head"><h3 class="sl-sub">${I.cash} Daily cash book <small>(from the morning opening)</small></h3>
       <div class="fn-filters fn-inline"><div class="pos-field"><label for="cbFrom">From</label><input id="cbFrom" type="date" value="${addDays(t, -29)}"></div><div class="pos-field"><label for="cbTo">To</label><input id="cbTo" type="date" value="${t}" max="${t}"></div></div></div>
       <div class="dl-table-wrap"><table class="dl-table md-plain fn-cb"><thead><tr><th>Date</th><th class="c-r">Morning opening</th><th>Entered by</th><th class="c-r">Cash in</th><th class="c-r">Cash out</th><th class="c-r">Expected closing</th><th class="c-r">Next morning</th><th>Difference</th><th></th></tr></thead><tbody id="cbRows"><tr><td colspan="9" class="dl-empty">Loading…</td></tr></tbody></table></div>
@@ -725,8 +731,27 @@ async function viewOpening() {
       <div class="fn-ob-foot"><button type="button" class="pos-btn pos-btn-solid" id="obSave">${I.check}<span>Post opening balance</span></button><span id="obError" class="pos-form-msg" role="status"></span></div>
       <small class="dl-muted">Customer debit = customer owes you; customer credit = customer advance. Supplier credit = you owe supplier; supplier debit = advance with supplier.</small>
       <h4 class="sl-sub">Opening balance history</h4><div id="obHistory">Loading…</div></section>`;
-  await Promise.all([loadTodayAndBook(), loadBank(), loadParties()]);
-  ['cbFrom', 'cbTo'].forEach(id => { $(id).onchange = loadTodayAndBook; });
+  await Promise.all([loadTodayAndBook(), loadBank(), loadParties(), loadClosings()]);
+  ['cbFrom', 'cbTo'].forEach(id => { $(id).onchange = () => { loadTodayAndBook(); loadClosings(); }; });
+  $('closeAdd').onclick = () => openDayClose(sb, prof, { onSaved: () => { loadClosings(); } });
+  $('closeBills').onclick = () => openAllBills(sb, prof);
+}
+async function loadClosings() {
+  const t = today(), from = $('cbFrom')?.value || addDays(t, -29), to = $('cbTo')?.value || t;
+  const { data, error } = await sb.rpc('cash_closing_list', { p_from: from, p_to: to });
+  if (error) { $('clRows').innerHTML = `<tr><td colspan="8" class="dl-empty">${esc(/cash_closing_list|does not exist|schema cache/i.test(error.message || '') ? 'Run database migration 0039_day_close_print_purchase_no.sql to record closing balances.' : friendly(error))}</td></tr>`; return; }
+  const rows = data || [], td = rows.find(r => String(r.day).slice(0, 10) === t);
+  $('closeToday').innerHTML = td?.closing != null
+    ? `<p><b class="fn-in-t">Today's closing recorded: ${fmtMoney(td.closing)}</b>${td.closed_by ? ` · by ${esc(td.closed_by)}` : ''}</p>`
+    : `<p class="dl-muted">Today's closing balance is not entered yet.</p>`;
+  const m = v => v == null ? '<span class="dl-muted">—</span>' : fmtMoney(v);
+  const shown = rows.filter(r => r.closing != null || r.opening != null || String(r.day).slice(0, 10) === t);
+  $('clRows').innerHTML = shown.map(r => {
+    const d = r.difference == null ? '<span class="dl-muted">—</span>' : Math.abs(num(r.difference)) < 0.005 ? '<span class="md-chip in"><i></i>Matches</span>'
+      : `<span class="md-chip ${num(r.difference) > 0 ? 'low' : 'out'}"><i></i>${num(r.difference) > 0 ? 'Excess' : 'Short'} ${fmtMoney(Math.abs(num(r.difference)))}</span>`;
+    return `<tr data-cl="${esc(String(r.day).slice(0, 10))}"><td>${esc(dmy(String(r.day).slice(0, 10)))}</td><td class="c-r">${m(r.opening)}</td><td class="c-r">${m(r.cash_in)}</td><td class="c-r">${m(r.cash_out)}</td><td class="c-r">${m(r.expected)}</td><td class="c-r"><b>${m(r.closing)}</b>${r.corrected ? ' <small class="dl-muted">(corrected)</small>' : ''}</td><td>${d}</td><td>${esc(r.closed_by || '')}${r.note ? `<br><small class="dl-muted">${esc(r.note)}</small>` : ''}</td></tr>`;
+  }).join('') || '<tr><td colspan="8" class="dl-empty">No closing balances in this period.</td></tr>';
+  $('clRows').onclick = e => { const tr = e.target.closest('tr[data-cl]'); if (tr) openDayClose(sb, prof, { date: tr.dataset.cl, onSaved: loadClosings }); };
 }
 async function loadTodayAndBook() {
   const t = today(), from = $('cbFrom').value || addDays(t, -29), to = $('cbTo').value || t;

@@ -46,7 +46,7 @@ with sync_playwright() as p:
     open_page(pg)
     ok('Header, 13 sections in the left menu, Reset + Save', pg.inner_text('.pos-title h1') == 'Settings' and pg.locator('.sg-nav [data-sec]').count() == 13 and pg.is_visible('.sg-panel-acts [data-act="save"]') and pg.is_visible('.sg-panel-acts [data-act="reset"]'))
     ok('General: preferences, 4 toggles, quick configuration, system info, support', pg.locator('.sg-prefs select').count() == 4 and pg.locator('.sg-prefs .sg-sw').count() == 4 and pg.locator('.sg-quick button').count() == 5 and 'System Information' in pg.inner_text('#below') and 'Support' in pg.inner_text('#below'))
-    ok('System info: version, licence, database size, last backup never', 'v72.1' in pg.inner_text('.sg-dl') and 'Professional' in pg.inner_text('.sg-dl') and 'MB' in pg.inner_text('.sg-dl') and 'Never' in pg.inner_text('#lastBk'))
+    ok('System info: version, licence, database size, last backup never', 'v80.0' in pg.inner_text('.sg-dl') and 'Professional' in pg.inner_text('.sg-dl') and 'MB' in pg.inner_text('.sg-dl') and 'Never' in pg.inner_text('#lastBk'))
     ok('Search box placeholder', pg.get_attribute('#ppSearch', 'placeholder') == 'Search settings, features or configuration...')
 
     # --- general save ---

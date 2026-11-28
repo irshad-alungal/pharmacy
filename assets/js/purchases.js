@@ -203,7 +203,8 @@ $('view').innerHTML = `
         <div class="purchase-field"><label for="invoiceDate">Invoice date *</label><input id="invoiceDate" type="date" required></div>
         <div class="purchase-field"><label for="paymentTerms">Payment terms</label><select id="paymentTerms"><option value="credit">Credit</option><option value="cash">Cash</option><option value="other">Other</option></select></div>
         <div class="purchase-field"><label for="dueDate">Due date</label><input id="dueDate" type="date"><div class="pb-chips" id="creditDays"><button type="button" data-days="0">Today</button><button type="button" data-days="15">15 d</button><button type="button" data-days="30">30 d</button><button type="button" data-days="45">45 d</button><button type="button" data-days="60">60 d</button></div></div>
-        <div class="purchase-field"><label for="orderNo">Order no.</label><input id="orderNo" maxlength="60" placeholder="Optional"></div>
+        <div class="purchase-field"><label for="poAuto">Purchase order no.</label><input id="poAuto" readonly tabindex="-1" class="pb-auto" value="Automatic" title="Given automatically when the bill is posted: 1, 2, 3 …"></div>
+        <div class="purchase-field"><label for="orderNo">Supplier order ref.</label><input id="orderNo" maxlength="60" placeholder="Optional"></div>
         <div class="purchase-field"><label for="orderDate">Order date</label><input id="orderDate" type="date"></div>
         <div class="purchase-field"><label for="invoiceTaxMode">Rates on the bill are</label><select id="invoiceTaxMode"><option value="exclusive">Before GST (trade price)</option><option value="inclusive">Including GST</option><option value="mixed">Set per item</option></select></div>
         <div class="purchase-field pb-span2"><label for="notes">Notes / reference</label><input id="notes" maxlength="300" placeholder="Sales executive, tray no., remarks…"></div>
@@ -732,6 +733,8 @@ function openForm(draft = null, order = null) {
   currentDraftId = draft?.id || null;
   currentOrderId = order?.id || null;
   $('formTitle').textContent = order ? `Receive ${order.po_no}` : draft ? `Draft — ${draft.supplier_invoice_no || 'unnumbered'}` : 'New purchase';
+  $('poAuto').value = 'Automatic';
+  sb.rpc('next_purchase_no').then(({ data }) => { if (data != null) $('poAuto').value = `${data} (automatic)`; });
   $('deleteDraft').hidden = !draft?.id;
   $('saveDraft').hidden = !!order;
   fillForm(draft?.payload || {});
@@ -935,7 +938,7 @@ $('confirmPurchase').onclick = async () => {
   if (paid < 0 || paid > t.total + 0.005) return setMsg('Amount paid must be between 0 and the invoice total.', 'error');
   const rows = [...$('itemRows').children].map(tr => ({ name: tr.querySelector('.med-name').value, batch: tr.querySelector('.batch').value, exp: expISO(tr), c: calcLine(tr) }));
   const sup = allDists.find(d => d.id === $('supplier').value);
-  $('confirmSummary').innerHTML = `<div class="pb-conf-head"><div><small>Supplier</small><b>${esc(sup?.name || '')}</b></div><div><small>Invoice</small><b>${esc($('invoiceNo').value.trim())}</b></div><div><small>Date</small><b>${esc(dmy($('invoiceDate').value))}</b></div><div><small>Items</small><b>${rows.length}</b></div></div>
+  $('confirmSummary').innerHTML = `<div class="pb-conf-head"><div><small>Purchase order no.</small><b>${esc(String($('poAuto').value).replace(' (automatic)', '') === 'Automatic' ? 'Automatic' : String($('poAuto').value).replace(' (automatic)', ''))}</b></div><div><small>Supplier</small><b>${esc(sup?.name || '')}</b></div><div><small>Invoice</small><b>${esc($('invoiceNo').value.trim())}</b></div><div><small>Date</small><b>${esc(dmy($('invoiceDate').value))}</b></div><div><small>Items</small><b>${rows.length}</b></div></div>
     <div class="dl-table-wrap"><table class="dl-table md-plain"><thead><tr><th>#</th><th>Medicine</th><th>Batch</th><th>Expiry</th><th class="c-r">Qty + free</th><th class="c-r">Stock added</th>${isAdmin ? '<th class="c-r">Net</th>' : ''}</tr></thead><tbody>
     ${rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${esc(r.batch)}</td><td>${esc(dmy(r.exp))}</td><td class="c-r">${r.c.qty}${r.c.free ? ` + ${r.c.free}` : ''}</td><td class="c-r">${r.c.stockUnits} units</td>${isAdmin ? `<td class="c-r">${fmt(r.c.total)}</td>` : ''}</tr>`).join('')}</tbody></table></div>
     <p><strong>Invoice total ${fmt(t.total)}</strong>${paid > 0 ? ` · paying ${fmt(paid)} now by ${esc($('paymentMode').value.toUpperCase())}` : ' · posted as payable'}${attachments.length ? ` · ${attachments.length} file(s) will be attached` : ''}</p>`;
@@ -971,7 +974,8 @@ $('postNow').onclick = async () => {
   $('postNow').disabled = false;
   if (error) return setMsg(friendly(error), 'error');
 
-  let note = 'Purchase posted and stock updated.';
+  const { data: pnRow } = await sb.from('purchase_invoices').select('purchase_no').eq('id', invoiceId).maybeSingle();
+  let note = pnRow?.purchase_no != null ? `Purchase order no. ${pnRow.purchase_no} posted and stock updated.` : 'Purchase posted and stock updated.';
   if (attachments.length) {
     setMsg('Purchase posted. Uploading bill files…');
     const failed = await uploadAttachments(invoiceId, header.distributor_id, header.invoice_date);
@@ -1004,7 +1008,14 @@ $('puDlg').addEventListener('click', e => { if (e.target.closest('[data-close]')
 // ---------------------------------------------------------------------------
 // Data
 // ---------------------------------------------------------------------------
+// Purchase order number 1, 2, 3 … (automatic, migration 0039).
+let purchaseNo = new Map();
+async function loadPurchaseNos() {
+  const { data, error } = await sb.from('purchase_invoices').select('id,purchase_no').eq('branch_id', prof.branch_id);
+  purchaseNo = error ? new Map() : new Map((data || []).filter(r => r.purchase_no != null).map(r => [r.id, r.purchase_no]));
+}
 async function loadPurchases() {
+  await loadPurchaseNos();
   const { data, error } = await sb.rpc('purchase_list_v2', { p_from: null, p_to: null, p_limit: 5000 });
   if (error) {
     // Migration 0024 not run yet: fall back to the original list (fewer columns).
@@ -1045,7 +1056,7 @@ function entries() {
     kind: 'bill', id: p.id, no: p.supplier_invoice_no, date: p.invoice_date, distId: p.distributor_id, dist: p.distributor,
     lines: p.line_count, packs: num(p.pack_qty), units: num(p.stock_units), amount: p.total, paid: p.paid, returned: p.returned,
     balance: p.total == null ? null : r2(num(p.total) - num(p.paid) - num(p.returned)), docs: p.doc_count, due: p.due_date,
-    status: p.status === 'cancelled' ? 'cancelled' : 'received', orderNo: p.order_no, orderId: p.order_id, by: p.created_by_name
+    status: p.status === 'cancelled' ? 'cancelled' : 'received', orderNo: p.order_no, orderId: p.order_id, by: p.created_by_name, pno: purchaseNo.get(p.id) ?? null
   }));
   const orders = orderRows.map(o => ({
     kind: 'order', id: o.id, no: o.po_no, date: o.order_date, distId: o.distributor_id, dist: o.distributor, lines: o.line_count,
@@ -1077,7 +1088,7 @@ function matches(e) {
   const q = $('searchPurchase').value.trim().toLowerCase();
   if (q) {
     const meds = e.kind === 'order' ? (e.o.items || []).map(i => i.name).join(' ') : e.kind === 'draft' ? (e.d.payload?.items || []).map(i => i.medicine_label).join(' ') : '';
-    if (!`${e.no} ${e.dist} ${e.orderNo || ''} ${meds}`.toLowerCase().includes(q) && !(e.kind === 'bill' && medHits.has(e.id))) return false;
+    if (!`${e.no} ${e.dist} ${e.orderNo || ''} ${e.pno != null ? 'po' + e.pno + ' ' + e.pno : ''} ${meds}`.toLowerCase().includes(q) && !(e.kind === 'bill' && medHits.has(e.id))) return false;
   }
   if (filt.min !== '' && !(num(e.amount) >= Number(filt.min))) return false;
   if (filt.max !== '' && !(e.amount != null && num(e.amount) <= Number(filt.max))) return false;
@@ -1114,7 +1125,7 @@ function renderList(errorText) {
   $('purchaseRows').innerHTML = shown.map((e, i) => {
     const amt = e.kind === 'draft' ? '—' : e.amount == null ? (e.kind === 'bill' ? '<span class="pur-muted" title="Amounts are visible to administrators">—</span>' : '—') : money2(e.amount);
     const due = e.kind === 'bill' && isAdmin && num(e.balance) > 0.005 && e.status === 'received' ? `<small class="pur-due ${e.due && e.due < today() ? 'over' : ''}">${e.due && e.due < today() ? 'Overdue' : 'Due'} ₹${money2(e.balance)}</small>` : e.kind === 'bill' && isAdmin && e.status === 'received' && num(e.amount) > 0 ? '<small class="pur-paid">Paid</small>' : '';
-    const sub = e.kind === 'bill' ? [e.orderNo ? `<span class="pur-po">${esc(e.orderNo)}</span>` : '', e.docs ? `<span class="pur-clip" title="${e.docs} bill file(s) attached">${I.clip}</span>` : ''].join('') : e.kind === 'order' ? `<span class="pur-po">Purchase order</span>` : '<span class="pur-po">Not posted</span>';
+    const sub = e.kind === 'bill' ? [e.pno != null ? `<span class="pur-pno" title="Purchase order number (automatic)">PO No. ${e.pno}</span>` : '', e.orderNo ? `<span class="pur-po">${esc(e.orderNo)}</span>` : '', e.docs ? `<span class="pur-clip" title="${e.docs} bill file(s) attached">${I.clip}</span>` : ''].join('') : e.kind === 'order' ? `<span class="pur-po">Purchase order</span>` : '<span class="pur-po">Not posted</span>';
     const itemsTxt = e.kind === 'order' && e.status === 'partial' ? `${count(e.received)}/${count(e.packs)}` : e.lines == null ? '—' : e.kind === 'bill' ? `<span title="${count(e.packs)} packs · ${count(e.units)} stock units">${e.lines}</span>` : e.lines;
     return `<tr data-kind="${e.kind}" data-id="${esc(e.id)}" class="k-${e.kind} s-${e.status}">
       <td class="c-no">${(page - 1) * per + i + 1}</td>
@@ -1377,11 +1388,12 @@ async function openDetail(id) {
   const row = purchaseRows.find(p => p.id === id) || {};
   const returned = num(row.returned);
   const balance = costs ? r2(num(i.balance) - returned) : null;
-  $('viewTitle').innerHTML = `Purchase ${esc(i.supplier_invoice_no)} ${statusChip(i.status === 'cancelled' ? 'cancelled' : 'received')}`;
+  const pno = purchaseNo.get(id);
+  $('viewTitle').innerHTML = `${pno != null ? `PO No. ${pno} · ` : ''}Purchase ${esc(i.supplier_invoice_no)} ${statusChip(i.status === 'cancelled' ? 'cancelled' : 'received')}`;
   const detail = (label, value) => value == null || value === '' ? '' : `<div class="purchase-detail"><small>${label}</small><strong>${value}</strong></div>`;
   $('viewContent').innerHTML = `
     <div class="purchase-view-grid pur-view-grid">
-      ${detail('Supplier', esc(i.distributor?.name))}${detail('Invoice number', esc(i.supplier_invoice_no))}${detail('Invoice date', esc(dmy(i.invoice_date)))}
+      ${detail('Purchase order no.', pno != null ? String(pno) : '')}${detail('Supplier', esc(i.distributor?.name))}${detail('Invoice number', esc(i.supplier_invoice_no))}${detail('Invoice date', esc(dmy(i.invoice_date)))}
       ${detail('Due date', i.due_date ? esc(dmy(i.due_date)) : '')}${detail('Order', esc([row.order_no || i.order_no, i.order_date ? dmy(i.order_date) : ''].filter(Boolean).join(' · ')))}${detail('Payment terms', esc(i.payment_terms))}
       ${detail('Supplier GSTIN', esc(i.distributor?.gstin))}${detail('Entered by', esc(i.created_by))}${detail('Entered at', esc(when(i.created_at)))}
       ${costs ? detail('Invoice total', fmt(i.total)) + detail('Paid', fmt(num(i.total) - num(i.balance))) + (returned ? detail('Returned to supplier', fmt(returned)) : '') + detail('Balance payable', `<span class="${balance > 0.005 ? 'pur-red' : 'pur-green'}">${fmt(Math.max(0, balance))}</span>`) : ''}
@@ -1719,7 +1731,7 @@ async function printBill(id) {
   if (!data) { const r = await sb.rpc('purchase_detail', { p_invoice: id }); if (r.error) return toast(friendly(r.error), true); data = r.data; }
   const i = data.invoice, costs = data.can_see_costs;
   printHtml(`Purchase ${i.supplier_invoice_no}`, `${shopHead('Purchase / goods received note')}
-    <div class="meta"><div>Supplier<b>${esc(i.distributor?.name)}</b></div><div>Invoice no.<b>${esc(i.supplier_invoice_no)}</b></div><div>Invoice date<b>${esc(dmy(i.invoice_date))}</b></div>
+    <div class="meta">${purchaseNo.get(id) != null ? `<div>Purchase order no.<b>${purchaseNo.get(id)}</b></div>` : ''}<div>Supplier<b>${esc(i.distributor?.name)}</b></div><div>Invoice no.<b>${esc(i.supplier_invoice_no)}</b></div><div>Invoice date<b>${esc(dmy(i.invoice_date))}</b></div>
     <div>GSTIN<b>${esc(i.distributor?.gstin || '—')}</b></div><div>Due date<b>${esc(i.due_date ? dmy(i.due_date) : '—')}</b></div><div>Entered by<b>${esc(i.created_by || '—')}</b></div></div>
     <h2>Medicines</h2><table><thead><tr><th>#</th><th>Medicine</th><th>Batch</th><th>Expiry</th><th class="r">Qty</th><th class="r">Free</th><th class="r">Pack</th><th class="r">Units</th><th class="r">MRP/pack</th><th class="r">GST</th>${costs ? '<th class="r">Rate/pack</th><th class="r">Net</th>' : ''}</tr></thead><tbody>
     ${data.items.map((x, k) => `<tr><td>${k + 1}</td><td>${esc(x.medicine)} ${esc(x.strength || '')}</td><td>${esc(x.batch_no)}</td><td>${esc(dmy(x.expiry))}</td><td class="r">${num(x.qty)}</td><td class="r">${num(x.free_qty)}</td><td class="r">${num(x.pack)}</td><td class="r">${num(x.stock_units)}</td><td class="r">${x.mrp == null ? '—' : money2(x.mrp)}</td><td class="r">${num(x.tax_rate)}%</td>${costs ? `<td class="r">${money2(x.unit_price)}</td><td class="r">${money2(x.line_net)}</td>` : ''}</tr>`).join('')}</tbody></table>
@@ -1745,7 +1757,7 @@ $('exportBtn').onclick = () => {
     Type: e.kind === 'bill' ? 'Bill' : e.kind === 'order' ? 'Purchase order' : 'Draft', 'Invoice / order no.': e.no, Distributor: e.dist, Date: e.date,
     Items: e.lines ?? '', Packs: e.packs || '', ...(e.kind === 'bill' ? { 'Stock units': e.units } : { 'Stock units': '' }),
     ...(isAdmin ? { 'Amount (₹)': e.amount == null ? '' : r2(e.amount), 'Paid (₹)': e.kind === 'bill' ? r2(e.paid) : '', 'Returned (₹)': e.kind === 'bill' ? r2(e.returned) : '', 'Balance (₹)': e.kind === 'bill' ? Math.max(0, r2(e.balance)) : '' } : {}),
-    Status: (STATUS[e.status] || [e.status])[0], 'Order no.': e.orderNo || '', 'Due date': e.due || '', 'Bill files': e.docs ?? '', 'Entered by': e.by || ''
+    Status: (STATUS[e.status] || [e.status])[0], 'Purchase order no.': e.pno ?? '', 'Supplier order ref.': e.orderNo || '', 'Due date': e.due || '', 'Bill files': e.docs ?? '', 'Entered by': e.by || ''
   }));
   if (!rows.length) return toast('Nothing to export with these filters.', true);
   const name = `Pallikkal_Purchases_${today()}`;

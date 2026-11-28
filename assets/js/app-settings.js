@@ -1,11 +1,11 @@
 // Shared pharmacy settings (0033). Pages read a local copy synchronously (invoice printing,
 // billing payment buttons, dashboard alerts); loadSettings() refreshes it from the database.
 // No imports, so invoice.js can use it on every page.
-export const APP_VERSION = '72.1';
-export const APP_BUILD = '2026-11-22';
+export const APP_VERSION = '80.0';
+export const APP_BUILD = '2026-11-28';
 export const DEFAULTS = {
   general: { language: 'en', date_format: 'DD MMM YYYY', time_format: '12h', currency: 'INR', low_stock_alerts: true, expiry_alerts: true, auto_backup: false, invoice_logo: true },
-  invoice: { default_format: 'thermal', show_gstin: true, show_drug_licence: true, show_patient: true, terms: '', show_upi: false, signature_line: false },
+  invoice: { default_format: 'thermal', show_gstin: true, show_drug_licence: true, show_patient: true, terms: '', show_upi: false, signature_line: false, qr_mode: 'whatsapp', qr_link: '', qr_phone: '', qr_caption: '' },
   payments: { enabled: ['cash', 'card', 'upi', 'wallet', 'credit', 'split'], default_method: 'cash', upi_id: '', upi_name: '' },
   notifications: { expiry_days: 30, deliveries: true, expense_drafts: true, deactivations: true, backup_reminder: true },
   license: { type: 'Professional', valid_to: '', licensed_to: '' },

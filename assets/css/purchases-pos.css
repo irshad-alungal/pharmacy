@@ -426,7 +426,7 @@ dialog.pb-dlg { width: min(97vw, 1560px) !important; max-width: calc(100vw - 20p
 .pb-confirm { width: min(94vw, 860px) !important; }
 .pb-confirm h3 { display: flex; align-items: center; gap: 10px; font: 800 1.2rem var(--pp-head); }
 .pb-confirm h3 .pp-ic { width: 24px; height: 24px; color: #12a01b; }
-.pb-conf-head { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.pb-conf-head { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
 .pb-conf-head > div { padding: 8px 12px; border-radius: 10px; background: #f6f8fb; }
 .pb-conf-head small { display: block; font-size: .72rem; color: var(--pp-muted); }
 #confirmDialog .dl-table-wrap { max-height: 46vh; overflow: auto; }
@@ -481,3 +481,7 @@ dialog.pb-dlg { width: min(97vw, 1560px) !important; max-width: calc(100vw - 20p
 .pb-table .purchase-item-row input, .pb-table .purchase-item-row select { min-width: 0 !important; width: 100% !important; }
 .pb-inv-grid .purchase-field, .pb-adj .purchase-field, .pb-pay .purchase-field { align-content: start; }
 .pb-table th:nth-child(4) { width: 70px; } .pb-table th:nth-child(3) { width: 90px; }
+/* v80: automatic purchase order number */
+.pb-auto { background: #f2f7f2 !important; font-weight: 700 !important; color: #0b7a14 !important; cursor: default; }
+.pur-pno { display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 999px; background: #e8f6ea; color: #0b7a14; font-size: .72rem; font-weight: 700; }
+@media (max-width: 760px) { .pb-conf-head { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
